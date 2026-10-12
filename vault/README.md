@@ -1,0 +1,1 @@
+Encrypted full monitoring backups only. Never upload plaintext records or API credentials. Files under vault/*.fjd.json are AES-256-GCM envelopes created in the browser. Passwords are not stored. This branch is independent of GitHub Pages main deployment.
