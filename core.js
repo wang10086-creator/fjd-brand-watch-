@@ -75,7 +75,7 @@ Object.assign(words,{
 export function localTerms(country,intent='commerce',overrides={}){const lang=marketData[country]?.lang||'en';const custom=String(overrides[country]||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean);return custom.length?custom.slice(0,12):words[lang]?.[intent]||words.en.commerce}
 export function platformMarkets(p){return p.globalDomain||p.kind==='dealer'?Object.keys(regions):Object.keys(p.markets)}
 export function safeUrl(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)&&!u.username&&!u.password?u.href:''}catch{return ''}}
-export function canonical(value){const s=safeUrl(value);if(!s)return '';const u=new URL(s);u.hash='';for(const k of [...u.searchParams.keys()])if(/^(utm_|ref$|fbclid$|gclid$)/.test(k))u.searchParams.delete(k);return u.href.replace(/\/$/,'')}
+export function canonical(value){const s=safeUrl(value);if(!s)return '';const u=new URL(s);u.hash='';for(const k of [...u.searchParams.keys()])if(/^(utm_|ref$|fbclid$|gclid$|msclkid$|srsltid$|_ga$|_gl$|igshid$)/i.test(k))u.searchParams.delete(k);u.searchParams.sort();return u.href.replace(/\/$/,'')}
 export function searchUrl(plan){return 'https://www.google.com/search?'+new URLSearchParams({q:plan.query,gl:plan.country.toLowerCase(),hl:plan.language||marketData[plan.country]?.lang||'en'})}
 export function makePlans(config={}){
  const aliases=(Array.isArray(config.aliases)?config.aliases:[]).map(x=>String(x).trim()).filter(Boolean).slice(0,10);if(!aliases.length)return [];
@@ -103,7 +103,7 @@ export function assess(row){
 export function mergeRows(existing,incoming){
  const map=new Map(existing.filter(x=>canonical(x.url)).map(x=>[canonical(x.url),{...x,firstSeen:x.firstSeen||x.checkedAt,lastSeen:x.lastSeen||x.checkedAt}]));
  for(const row of incoming){const url=canonical(row.url);if(!url)continue;const seen=row.lastSeen||row.checkedAt||new Date().toISOString();const previous=map.get(url);
-  if(previous){const keep={id:previous.id,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
+  if(previous){const keep={id:previous.id,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,watch:previous.watch,decision:previous.decision,pageState:previous.pageState,needsRecheck:previous.needsRecheck,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
   else map.set(url,{id:crypto.randomUUID(),status:'pending',note:'',imageMatch:'unverified',...row,url:safeUrl(row.url),firstSeen:row.firstSeen||seen,lastSeen:seen,hitCount:1});
  }return [...map.values()];
 }
@@ -114,7 +114,7 @@ export function mergeBackup(existing,incoming){
   const old=prior.get(canonical(row.url)),saved=imported.get(canonical(row.url));
   const reviewed=old&&(old.reviewedAt||old.note||old.evidence||old.confirmedIssue||(old.status&&old.status!=='pending')||(old.imageMatch&&old.imageMatch!=='unverified'));
   if(!saved||reviewed)return row;
-  const next={...row};for(const key of ['status','note','imageMatch','confirmedIssue','evidence','reviewedAt'])if(saved[key]!==undefined)next[key]=saved[key];return next;
+  const next={...row};for(const key of ['status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'])if(saved[key]!==undefined)next[key]=saved[key];return next;
  });
 }
 export function csv(rows){const columns={title:'商品或页面',seller:'商家',country:'检索市场',language:'检索语言',platform:'平台',url:'结果链接',query:'检索关键词组合',queryProvenance:'查询来源（recorded原记录/reconstructed补建）',keywords:'命中或查询词',searchUrl:'检索链接',risk:'风险等级',reasons:'风险依据',status:'复核状态',imageMatch:'图片辅助核验',firstSeen:'首次发现',lastSeen:'最近发现',source:'数据来源',evidence:'证据链接',note:'人工备注'};const cell=x=>'"'+String(x??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';return '\ufeff'+[Object.values(columns).map(cell).join(','),...rows.map(r=>Object.keys(columns).map(k=>cell(k==='risk'?({high:'高（人工标记）',medium:'中（待核验）',routine:'低（常规文字命中）'}[assess(r).priority]):k==='reasons'?assess(r).reasons.join('；'):Array.isArray(r[k])?r[k].join(' / '):r[k])).join(','))].join('\r\n')}

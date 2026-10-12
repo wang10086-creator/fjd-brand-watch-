@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test scripts/model.test.mjs",
+    "test": "node --test scripts/*.test.mjs",
     "preview": "python -m http.server 4180"
   }
 }
