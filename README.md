@@ -1,6 +1,6 @@
 # 丰疆海外品牌监测 · 免费静态版
 
-发布目录为 `public/`，无需构建、登录或服务器。GitHub Pages 分支 `main` 根目录托管。
+仓库根目录包含可直接部署的静态文件，无需构建、登录或服务器。GitHub Pages 分支 `main` 根目录托管。
 
 ## 使用
 
@@ -21,4 +21,4 @@
 
 初始数据：53 条公开线索，其中 49 条曾直接读取原网页核验。每条有来源链接、查询词和复查入口。检索市场与有地址依据的商家所在地分开保存。
 
-官方网站素材及语言证据在 `public/assets/manifest.json` 和 `public/platform-languages.json` 中记录。
+官方网站素材及语言证据在 `assets/manifest.json` 和 `platform-languages.json` 中记录。

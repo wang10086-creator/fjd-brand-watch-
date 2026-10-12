@@ -1,0 +1,9 @@
+{
+  "name": "fjd-brand-watch",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test scripts/model.test.mjs",
+    "preview": "python -m http.server 4180"
+  }
+}
