@@ -1,3 +1,4 @@
+import {expansion} from './expansion.js?v=20261012-v3';
 export const marketData = {
   IE:{name:'爱尔兰',lang:'en',language:'英语',area:'欧洲'},AT:{name:'奥地利',lang:'de',language:'德语',area:'欧洲'},CZ:{name:'捷克',lang:'cs',language:'捷克语',area:'欧洲'},SK:{name:'斯洛伐克',lang:'sk',language:'斯洛伐克语',area:'欧洲'},HU:{name:'匈牙利',lang:'hu',language:'匈牙利语',area:'欧洲'},
   KE:{name:'肯尼亚',lang:'en',language:'英语',area:'非洲'},GH:{name:'加纳',lang:'en',language:'英语',area:'非洲'},MA:{name:'摩洛哥',lang:'ar',language:'阿拉伯语',area:'非洲'},UG:{name:'乌干达',lang:'en',language:'英语',area:'非洲'},CI:{name:'科特迪瓦',lang:'fr',language:'法语',area:'非洲'},SN:{name:'塞内加尔',lang:'fr',language:'法语',area:'非洲'},
@@ -139,3 +140,8 @@ export function enrichLead(row){
  r.language||=marketData[r.country]?.lang||'en';return r;
 }
 export function leadCounts(rows){const risk={high:0,medium:0,routine:0};let pending=0,attention=0;for(const r of rows){const p=assess(r).priority;risk[p]++;if(r.status==='pending')pending++;if(p!=='routine'&&r.status!=='cleared')attention++;}return{total:rows.length,pending,attention,risk};}
+
+Object.assign(marketData,expansion.addedMarkets);
+Object.assign(words,expansion.addedWords);
+for(const p of expansion.addedPlatforms)if(!platforms.some(x=>x.id===p.id))platforms.push(p);
+for(const x of expansion.existingPlatformMarketExtensions)Object.assign(platforms.find(p=>p.id===x.id).markets,x.markets);

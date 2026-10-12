@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261012-daily2';
+import {canonical, safeUrl, risk} from './model.js?v=20261012-v3';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
@@ -55,7 +55,8 @@ export function dayReport(m,day){
  const success=items.filter(i=>i.status==='成功'),failed=items.filter(i=>i.status==='失败').map(i=>({...i,recovered:items.slice(items.indexOf(i)+1).some(later=>later.status==='成功'&&signature(later)===signature(i))})),cancelled=items.filter(i=>i.status==='已取消');
  const pendingFailures=[...new Map(failed.filter(i=>!i.recovered).map(i=>[signature(i),i])).values()],pendingChecks=[...new Map(checks.map(c=>[c.key,c])).values()].filter(c=>c.result!=='indexed');
  const markets=[...new Set(success.map(i=>i.country).filter(Boolean))],platforms=[...new Set(success.map(i=>i.platform).filter(Boolean))];
- return {day,observations,reviews,checks,runs,items,legacy,fresh,changed,repeat,uniqueReviews,success,failed,pendingFailures,pendingChecks,cancelled,markets,platforms,hasActivity:!!(runs.length||observations.length||reviews.length||checks.length),legacyOnly:!!legacy.length&&!runs.length&&!observations.length&&!reviews.length,attention:[...fresh,...changed].filter(e=>e.snapshot.level!=='routine').length,raw:success.reduce((n,i)=>n+(i.rawCount||0),0),retained:success.reduce((n,i)=>n+(i.retainedCount||0),0)};
+ const domainOf=i=>i.domain||i.plan?.domain||'';const successfulSites=[...new Set(success.map(domainOf).filter(Boolean))],failedSites=[...new Set(pendingFailures.map(domainOf).filter(Boolean))],resultSites=[...new Set(success.flatMap(i=>i.resultDomains||[]))];
+ return {successfulSites,failedSites,resultSites,day,observations,reviews,checks,runs,items,legacy,fresh,changed,repeat,uniqueReviews,success,failed,pendingFailures,pendingChecks,cancelled,markets,platforms,hasActivity:!!(runs.length||observations.length||reviews.length||checks.length),legacyOnly:!!legacy.length&&!runs.length&&!observations.length&&!reviews.length,attention:[...fresh,...changed].filter(e=>e.snapshot.level!=='routine').length,raw:success.reduce((n,i)=>n+(i.rawCount||0),0),retained:success.reduce((n,i)=>n+(i.retainedCount||0),0)};
 }
 export function reportDates(m){return [...new Set([dayOf(),...m.observations.map(x=>x.day),...m.reviews.map(x=>x.day),...m.checks.map(x=>x.day),...m.runs.flatMap(r=>[dayOf(r.startedAt),...(r.items||[]).map(i=>dayOf(i.at||r.startedAt))]),...m.legacyRuns.map(x=>dayOf(x.startedAt))])].filter(Boolean).sort().reverse();}
 export function mergeMonitors(current,incoming,rows){
