@@ -1,6 +1,6 @@
-import {dayOf,shiftDay,initMonitor,observe,recordReview,recordRun,recordCheck,dayReport,mergeMonitors,evidencePackage} from './monitor.js';
-import {dailyView,dailyHTML} from './daily-view.js';
-import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js';
+import {dayOf,shiftDay,initMonitor,observe,recordReview,recordRun,recordCheck,dayReport,mergeMonitors,evidencePackage} from './monitor.js?v=20261012-daily2';
+import {dailyView,dailyHTML} from './daily-view.js?v=20261012-daily2';
+import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js?v=20261012-daily2';
 const $=s=>document.querySelector(s), esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const pname=id=>platforms.find(p=>p.id===id)?.name||id||'独立网页', cname=id=>marketData[id]?.name||id||'未核实';

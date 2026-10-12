@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js';
+import {canonical, safeUrl, risk} from './model.js?v=20261012-daily2';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
@@ -46,9 +46,9 @@ export function recordCheck(m,{url,at=new Date().toISOString(),runId,result,quer
  const i=m.checks.findIndex(x=>x.id===e.id);if(i<0)m.checks.push(e);else m.checks[i]=e;return e;
 }
 export function dayReport(m,day){
- const observations=m.observations.filter(e=>e.day===day),reviews=m.reviews.filter(e=>e.day===day),checks=m.checks.filter(e=>e.day===day);
+ const observations=m.observations.filter(e=>e.day===day),reviews=m.reviews.filter(e=>e.day===day).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)),checks=m.checks.filter(e=>e.day===day).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
  const runs=m.runs.filter(r=>dayOf(r.startedAt)===day||(r.items||[]).some(i=>dayOf(i.at||r.startedAt)===day));
- const items=runs.flatMap(r=>(r.items||[]).filter(i=>dayOf(i.at||r.startedAt)===day).map(i=>({...i,runId:r.id})));
+ const items=runs.flatMap(r=>(r.items||[]).filter(i=>dayOf(i.at||r.startedAt)===day).map(i=>({...i,runId:r.id}))).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
  const legacy=m.legacyRuns.filter(r=>dayOf(r.startedAt)===day),uniqueReviews=[...new Set(reviews.map(r=>r.key))];
  const fresh=observations.filter(e=>e.kind==='new'),changed=observations.filter(e=>e.kind==='changed'),repeat=observations.filter(e=>e.kind==='repeat');
  const signature=i=>[i.query,i.platform,i.country,i.plan?.watchUrl||''].join('|');

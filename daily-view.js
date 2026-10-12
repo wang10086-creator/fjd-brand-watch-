@@ -1,5 +1,5 @@
-import {dayOf,shiftDay,dayReport,reportDates} from './monitor.js';
-import {safeUrl} from './model.js';
+import {dayOf,shiftDay,dayReport,reportDates} from './monitor.js?v=20261012-daily2';
+import {safeUrl} from './model.js?v=20261012-daily2';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const names={new:'首次发现',changed:'内容信号变化',repeat:'再次发现'},levels={high:'高优先级',medium:'中优先级',routine:'常规线索'};
