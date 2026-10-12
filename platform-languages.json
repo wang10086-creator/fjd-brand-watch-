@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-12",
+  "policy": {
+    "platformVerified": "Only interfaceLanguages entries with verified_* labels are verified platform language facts. Observed subsets are lower bounds, not exhaustive lists.",
+    "regionalSupplement": "For unverified platforms use selected market main language, label 地区补充, and keep brand names/model codes untranslated. Do not assert platform interface support.",
+    "queryGeneration": "Generate language-specific query variants using locally translated commerce/dealer/authorization terms. Scope each variant to selected platform domain AND market. UI hl alone is not multilingual query generation.",
+    "globalPlatforms": "Global multilingual interfaces do not require sending all 17 languages to every market; intersect market-relevant language(s) with verified available variants, adding selected regional supplements separately.",
+    "variants": "Preserve zh-Hant versus zh-Hans, and country flags separate from language code."
+  },
+  "entries": [
+    {
+      "platform": "amazon",
+      "domain": "amazon.com",
+      "markets": [
+        "US"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.amazon.com/",
+      "evidence": "Official homepage HTTP 200; HTML lang and shopping-language selector current label both verify en. Full preferences page returned 503 and flyout list did not populate. Only the observed interface language is verified; do not label this a complete supported-language list.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "es"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "amazon",
+      "domain": "amazon.ca",
+      "markets": [
+        "CA"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.amazon.ca/",
+      "evidence": "Official homepage HTTP 200; HTML lang and shopping-language selector current label both verify en. Full preferences page returned 503 and flyout list did not populate. Only the observed interface language is verified; do not label this a complete supported-language list.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "fr"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "amazon",
+      "domain": "amazon.de",
+      "markets": [
+        "DE"
+      ],
+      "interfaceLanguages": [
+        "de"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.amazon.de/",
+      "evidence": "Official homepage HTTP 200; HTML lang and shopping-language selector current label both verify de. Full preferences page returned 503 and flyout list did not populate. Only the observed interface language is verified; do not label this a complete supported-language list.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "amazon",
+      "domain": "amazon.co.jp",
+      "markets": [
+        "JP"
+      ],
+      "interfaceLanguages": [
+        "ja"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.amazon.co.jp/",
+      "evidence": "Official homepage HTTP 200; HTML lang and shopping-language selector current label both verify ja. Full preferences page returned 503 and flyout list did not populate. Only the observed interface language is verified; do not label this a complete supported-language list.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "amazon",
+      "domain": "amazon.ae",
+      "markets": [
+        "AE"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.amazon.ae/",
+      "evidence": "Official homepage HTTP 200; HTML lang and shopping-language selector current label both verify en. Full preferences page returned 503 and flyout list did not populate. Only the observed interface language is verified; do not label this a complete supported-language list.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "ar"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "ebay",
+      "domain": "ebay.com",
+      "markets": [
+        "US"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.ebay.com/",
+      "evidence": "Official homepage <html lang=en-US> and content-language=en-us.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "ebay",
+      "domain": "ebay.ca",
+      "markets": [
+        "CA"
+      ],
+      "interfaceLanguages": [
+        "en",
+        "fr"
+      ],
+      "verification": "verified_menu",
+      "sourceUrl": "https://www.ebay.ca/",
+      "evidence": "Official homepage gh-language-toggle shows English data-lang=en-CA and Français data-lang=fr.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "ebay",
+      "domain": "ebay.de",
+      "markets": [
+        "DE"
+      ],
+      "interfaceLanguages": [
+        "de"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.ebay.de/",
+      "evidence": "Official homepage German UI, html/content-language de-DE.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "ebay",
+      "domain": "ebay.co.uk",
+      "markets": [
+        "GB"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.ebay.co.uk/",
+      "evidence": "Official homepage <html lang=en-GB> and content-language=en-gb.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "alibaba",
+      "domain": "alibaba.com",
+      "markets": [
+        "GLOBAL"
+      ],
+      "interfaceLanguages": [
+        "fr",
+        "es",
+        "de",
+        "it",
+        "pt",
+        "ru",
+        "ar",
+        "ko",
+        "en",
+        "ja",
+        "tr",
+        "th",
+        "vi",
+        "nl",
+        "he",
+        "id",
+        "hi"
+      ],
+      "verification": "verified_official_hreflang",
+      "sourceUrl": "https://www.alibaba.com/",
+      "evidence": "Official homepage HTML declares alternate hreflang versions on official localized subdomains. This verifies available localized site variants, not that every seller listing is translated.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持",
+      "localizedDomains": {
+        "fr": "https://french.alibaba.com",
+        "es": "https://spanish.alibaba.com",
+        "de": "https://german.alibaba.com",
+        "it": "https://italian.alibaba.com",
+        "pt": "https://portuguese.alibaba.com",
+        "ru": "https://russian.alibaba.com",
+        "ar": "https://arabic.alibaba.com",
+        "ko": "https://korean.alibaba.com",
+        "en": "https://www.alibaba.com",
+        "ja": "https://japanese.alibaba.com",
+        "tr": "https://turkish.alibaba.com",
+        "th": "https://thai.alibaba.com",
+        "vi": "https://vietnamese.alibaba.com",
+        "nl": "https://dutch.alibaba.com",
+        "he": "https://hebrew.alibaba.com",
+        "id": "https://indonesian.alibaba.com",
+        "hi": "https://hindi.alibaba.com"
+      }
+    },
+    {
+      "platform": "aliexpress",
+      "domain": "aliexpress.com",
+      "markets": [
+        "GLOBAL"
+      ],
+      "interfaceLanguages": [],
+      "verification": "unverified_use_regional_supplement",
+      "sourceUrl": "https://www.aliexpress.com/",
+      "evidence": "Direct homepage request failed in this runtime; no supported-language set verified. Use selected market regional-language supplement with explicit label.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "etsy",
+      "domain": "etsy.com",
+      "markets": [
+        "GLOBAL"
+      ],
+      "interfaceLanguages": [
+        "nl",
+        "en",
+        "fr",
+        "de",
+        "it",
+        "ja",
+        "pl",
+        "pt",
+        "ru",
+        "es",
+        "sv"
+      ],
+      "verification": "verified_official_help",
+      "sourceUrl": "https://help.etsy.com/hc/en-us/articles/115015651868-How-to-Change-Your-Language-Settings-for-Shopping-on-Etsy",
+      "evidence": "Official Etsy Help explicitly states: full site available in Dutch, English (IN/UK/US), French, German, Italian, Japanese, Polish, Portuguese, Russian, Spanish, Swedish.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "shopee",
+      "domain": "shopee.sg",
+      "markets": [
+        "SG"
+      ],
+      "interfaceLanguages": [],
+      "verification": "unverified_use_regional_supplement",
+      "sourceUrl": "https://shopee.sg/",
+      "evidence": "Official homepage could not provide verifiable interface language menu (SG/TW network request failed; MY returned client app shell; language CDN unavailable). Do not infer supported language from country.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "en"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "shopee",
+      "domain": "shopee.com.my",
+      "markets": [
+        "MY"
+      ],
+      "interfaceLanguages": [],
+      "verification": "unverified_use_regional_supplement",
+      "sourceUrl": "https://shopee.com.my/",
+      "evidence": "Official homepage could not provide verifiable interface language menu (SG/TW network request failed; MY returned client app shell; language CDN unavailable). Do not infer supported language from country.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "ms"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "shopee",
+      "domain": "shopee.tw",
+      "markets": [
+        "TW"
+      ],
+      "interfaceLanguages": [],
+      "verification": "unverified_use_regional_supplement",
+      "sourceUrl": "https://shopee.tw/",
+      "evidence": "Official homepage could not provide verifiable interface language menu (SG/TW network request failed; MY returned client app shell; language CDN unavailable). Do not infer supported language from country.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [
+        "zh-Hant"
+      ],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "lazada",
+      "domain": "lazada.sg",
+      "markets": [
+        "SG"
+      ],
+      "interfaceLanguages": [
+        "en"
+      ],
+      "verification": "verified_observed_subset",
+      "sourceUrl": "https://www.lazada.sg/",
+      "evidence": "Official homepage HTTP 200, window.g_config.language=\"en\", regionID=\"SG\", English interface observed.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    },
+    {
+      "platform": "lazada",
+      "domain": "lazada.co.th",
+      "markets": [
+        "TH"
+      ],
+      "interfaceLanguages": [
+        "th",
+        "en"
+      ],
+      "verification": "verified_menu",
+      "sourceUrl": "https://www.lazada.co.th/",
+      "evidence": "Official homepage HTTP 200; visible language switch menu ภาษาไทย / Thai and ภาษาอังกฤษ / English; i18nTitle has th and en.",
+      "verifiedAt": "2026-10-12",
+      "regionalSupplementLanguages": [],
+      "regionalSupplementLabel": "地区补充检索语言；不代表平台界面支持"
+    }
+  ]
+}
