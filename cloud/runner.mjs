@@ -3,6 +3,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn} from 'node:child_process';
 import {seal,unseal,migrationState} from './crypto.js';
+import {recoverLedger} from './recovery.mjs';
 import {initialState,configure,scan,mergeState,applyReviews} from './scan.mjs';
 import {dayOf,recordRun} from '../monitor.js';
 import {appendRun} from '../report-chain.js';
@@ -17,7 +18,7 @@ async function github(path,method='GET',body){
 async function file(name){try{const r=await github('/contents/'+name+'?ref='+config.branch);return {sha:r.sha,value:JSON.parse(Buffer.from(r.content,'base64').toString())}}catch(e){if(e.status===404)return null;throw e}}
 async function put(name,value){const existing=await file(name);await github('/contents/'+name,'PUT',{message:'Cloud monitor checkpoint',branch:config.branch,content:Buffer.from(JSON.stringify(value)).toString('base64'),...(existing?{sha:existing.sha}:{})})}
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
-function dashboard(){return {state:migrationState(vault.state),authorized:!!vault.feishu.authorized,authorization:vault.feishu.authorization||null,baseUrl:config.baseUrl,lastError:vault.feishu.lastError||vault.lastError||'',pushes:vault.feishu.pushes||{},pushStatus:vault.feishu.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
+function dashboard(){return {state:migrationState(vault.state),authorized:!!vault.feishu.authorized,authorization:vault.feishu.authorization||null,baseUrl:config.baseUrl,lastError:vault.feishu.lastError||vault.lastError||'',recoveryNotice:vault.recoveryNotice||'',pushes:vault.feishu.pushes||{},pushStatus:vault.feishu.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
 async function checkpoint(){
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.feishu.receipts=vault.feishu.receipts||{};
  // Token vault uses an additional application secret, never shared with the browser.
@@ -50,11 +51,20 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
+ const op=operation();if(!['authorize','schedule','scan','site-retry','sync','digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
- vault=saved?await unseal(saved.value,appSecret+'|'+password,'vault'):{version:1,state:await initialState(),feishu:{receipts:{},pushes:{}},runtime:{phase:'ready'}};
+ if(saved){
+  try{vault=await unseal(saved.value,appSecret+'|'+password,'vault')}
+  catch(error){
+   if(op!=='authorize')throw error;
+   const snapshot=await file('dashboard.json');if(!snapshot)throw error;
+   vault=await recoverLedger(snapshot.value,password,config.baseUrl);
+   await put('credential-backups/'+Date.now()+'-'+crypto.randomUUID()+'.json',{format:'fjd-cloud-credential-backup',version:1,vault:saved.value,dashboard:snapshot.value});
+   console.log('应用凭证变更：原加密备份已保留，监控台账已恢复，重新请求本人授权。');
+  }
+ }else vault={version:1,state:await initialState(),feishu:{receipts:{},pushes:{}},runtime:{phase:'ready'}};
  vault.state.monitor.updateChain||=[];
  if(vault.feishu.baseUrl&&vault.feishu.baseUrl!==config.baseUrl)throw Error('目标表格与原归档不一致，已停止');
- const op=operation();if(!['authorize','schedule','scan','site-retry','sync','digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}payload=await unseal(source,password,'payload');}
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
