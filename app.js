@@ -1,4 +1,4 @@
-import {cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,dispatch as dispatchCloud} from './cloud/client.js?v=20261013-cloud';
+import {cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,dispatch as dispatchCloud} from './cloud/client.js?v=20261013-cloud-auth';
 import {finalizeReport,reportPublication} from './report-model.js?v=20261013-cloud';
 import {bridgeConnection,saveConnection,forgetConnection,bridgeAPI,initDelivery,syncOutbox,feishuPanel,chainView,eventChart} from './feishu-client.js?v=20261013-cloud';
 import {appendRun,appendReview,migrateChain,chainFor,sitePlans,reviewKeys} from './report-chain.js?v=20261013-cloud';

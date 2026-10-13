@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 import urllib.error
@@ -24,9 +25,10 @@ ACCOUNTS = 'https://accounts.feishu.cn'
 
 
 class Failure(Exception):
-    def __init__(self, message, uncertain=False):
+    def __init__(self, message, uncertain=False, diagnostic=None):
         super().__init__(message)
         self.uncertain = uncertain
+        self.diagnostic = diagnostic
 
 
 def http(url, method='GET', value=None, headers=None, form=False):
@@ -39,13 +41,18 @@ def http(url, method='GET', value=None, headers=None, form=False):
         with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers, method=method), timeout=25) as response:
             return json.load(response)
     except urllib.error.HTTPError as e:
+        diagnostic = {'httpStatus': e.code, 'stage': 'device-authorization' if url.endswith('/device_authorization') else 'token' if url.endswith('/token') else 'base' if '/bitable/v1/' in url else 'bot'}
         try:
             error = json.load(e)
             if error.get('error') in ('authorization_pending', 'slow_down'):
                 return error
+            code = error.get('error', error.get('code', error.get('error_code')))
+            if isinstance(code, int) or isinstance(code, str) and re.fullmatch(r'[a-z_]{1,60}', code):
+                diagnostic['code'] = code
         except (ValueError, TypeError):
             pass
-        raise Failure('飞书 HTTP ' + str(e.code) + '，请检查本人授权、应用权限和目标表格', e.code >= 500) from None
+        hint = {'invalid_client': '请核对飞书应用 ID 与 App Secret 是否属于同一个应用', 'invalid_scope': '请检查用户身份权限 bitable:app 及 offline_access 是否允许授权', 'unauthorized_client': '当前应用尚未获准使用此授权方式，请检查应用发布和企业限制'}.get(diagnostic.get('code'), '请检查本人授权、应用权限和目标表格')
+        raise Failure('飞书 HTTP ' + str(e.code) + '，' + hint, e.code >= 500, diagnostic) from None
     except (urllib.error.URLError, TimeoutError):
         raise Failure('飞书连接超时；回执未确认，原记录保留', True) from None
 
@@ -174,6 +181,7 @@ def run(path, operation):
     client = UserClient(state, os.environ['FEISHU_APP_ID'], os.environ['FEISHU_APP_SECRET'], checkpoint)
     try:
         if operation == 'authorize':
+            state.pop('diagnostic', None)
             client.authorize()
         sink = BaseReports(client.api, state['baseUrl'])
         sink.check()
@@ -181,6 +189,7 @@ def run(path, operation):
             sink.prepare()
         state['authorized'] = True
         state['lastError'] = ''
+        state.pop('diagnostic', None)
         for event in sorted(state.get('events', []), key=lambda e: (e['at'], e['id'])):
             if state.setdefault('receipts', {}).get(event['id'], {}).get('status') == 'synced':
                 continue
@@ -195,6 +204,10 @@ def run(path, operation):
                 break
     except Exception as error:
         state['lastError'] = str(error) if isinstance(error, (Failure, ValueError)) else '云端飞书执行异常，未确认完成'
+        if isinstance(error, Failure) and error.diagnostic:
+            state['diagnostic'] = error.diagnostic
+        if operation == 'authorize':
+            state.pop('authorization', None)
         if operation == 'authorize' or isinstance(error, Failure) and not error.uncertain:
             state['authorized'] = False
         checkpoint()

@@ -23,7 +23,7 @@ async function checkpoint(){
  // Token vault uses an additional application secret, never shared with the browser.
  await put('vault.json',await seal(vault,appSecret+'|'+password,'vault'));
  await put('dashboard.json',await seal(dashboard(),password,'dashboard'));
- await put('status.json',{version:1,configured:true,authorized:!!vault.feishu.authorized,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null});
+ await put('status.json',{version:1,configured:true,authorized:!!vault.feishu.authorized,authorizationPending:!!vault.feishu.authorization,diagnostic:vault.feishu.diagnostic||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null});
 }
 async function feishu(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');

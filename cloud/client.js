@@ -2,9 +2,17 @@ import {seal,unseal,migrationState} from './crypto.js';
 import {mergeWorkspace} from './state.js';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
+let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;
+export function refreshCloudSnapshot(){headFetchedAt=0;}
+async function currentHead(){
+ if(head&&Date.now()-headFetchedAt<headMaxAge)return head;
+ if(headRequest)return headRequest;
+ headRequest=(async()=>{const {token}=cloudCredentials(),r=await fetch('https://api.github.com/repos/'+REPO+'/git/ref/heads/'+BRANCH+'?t='+Date.now(),{headers:{Accept:'application/vnd.github+json',...(token?{Authorization:'Bearer '+token}:{})},cache:'no-store',signal:AbortSignal.timeout(20000)});if(r.status===404)return null;if(!r.ok)throw Error(r.status===403||r.status===429?'GitHub 状态读取受限，请稍后刷新或配置本会话的执行权限':'云端版本检查 HTTP '+r.status);const value=(await r.json()).object?.sha;if(!/^[a-f0-9]{40}$/.test(value||''))throw Error('云端版本校验失败');head=value;headFetchedAt=Date.now();headMaxAge=token?15000:120000;return head;})();
+ try{return await headRequest}finally{headRequest=null}
+}
 export function cloudCredentials(){return {password:sessionStorage.getItem('fjd-cloud-password')||'',token:sessionStorage.getItem('fjd-cloud-github')||''}}
 export function setCloudCredentials(password,token=''){if(password.length<12)throw Error('云端密码至少 12 个字符');sessionStorage.setItem('fjd-cloud-password',password);if(token)sessionStorage.setItem('fjd-cloud-github',token)}
-export async function publicCloudFile(name){if(!['status.json','dashboard.json'].includes(name))throw Error('不允许的云端文件');const r=await fetch('https://raw.githubusercontent.com/'+REPO+'/'+BRANCH+'/'+name+'?t='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(20000)});if(r.status===404)return null;if(!r.ok)throw Error('云端状态 HTTP '+r.status);return r.json();}
+export async function publicCloudFile(name){if(!['status.json','dashboard.json'].includes(name))throw Error('不允许的云端文件');const revision=await currentHead();if(!revision)return null;const r=await fetch('https://raw.githubusercontent.com/'+REPO+'/'+revision+'/'+name,{cache:'no-store',signal:AbortSignal.timeout(20000)});if(r.status===404)return null;if(!r.ok)throw Error('云端状态 HTTP '+r.status);const value=await r.json();if(name==='status.json'&&value.runtime?.phase==='authorizing')headMaxAge=15000;return value;}
 export async function readDashboard(){const {password}=cloudCredentials();if(!password)throw Error('请在云端设置页输入数据密码');const cipher=await publicCloudFile('dashboard.json');if(!cipher)throw Error('云端尚无数据，请先配置凭证并启动授权');return unseal(cipher,password,'dashboard');}
 export async function makePayload(data,{large=false}={}){const {password}=cloudCredentials();const text=JSON.stringify(await seal(data,password,'payload'));if(new TextEncoder().encode(text).length>60000&&!large)throw Error('本次内容超过云端单次传输上限，请使用完整台账迁移；未发送任何明文');return text;}
 export function uploadPointer(){return {uploadId:crypto.randomUUID()}}
@@ -19,7 +27,7 @@ export async function dispatch(operation,payload=''){
  const {token}=cloudCredentials();if(!token)throw Error('请在云端设置页授权当前会话的 GitHub 执行权限，或复制加密内容到 GitHub 手动运行');
  if(new TextEncoder().encode(payload).length>60000)payload=JSON.stringify(await uploadPayload(payload));
  const r=await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{method:'POST',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{operation,payload}}),signal:AbortSignal.timeout(25000)});
- if(r.status!==204)throw Error('GitHub 云端任务 HTTP '+r.status+'，请检查仅限此仓库的 Actions 读写权限');return {queued:true};
+ if(r.status!==204)throw Error('GitHub 云端任务 HTTP '+r.status+'，请检查仅限此仓库的 Actions 读写权限');refreshCloudSnapshot();return {queued:true};
 }
 export async function runCloud(state,{site=null,watch=false}={}){const payload=await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued',queuedAt:new Date().toISOString()};}
 export async function refreshCloud(state){const dashboard=await readDashboard();if(!dashboard.authorized)throw Error(dashboard.lastError||'尚未完成本人授权');if(!dashboard.state?.rows||!dashboard.state.monitor)throw Error('云端尚无可读取的监控台账');const localTask=state.cloudTaskDirty?Object.fromEntries(['config','selectedBrandIds','customAliases','taskName','schedule','assetIds','customAssets','cloudTaskDirty'].map(k=>[k,state[k]])):{};const queued=state.cloudService?.phase==='queued'&&Date.parse(state.cloudService.queuedAt)>Date.parse(dashboard.runtime?.startedAt||0)?state.cloudService:null;const merged=mergeWorkspace(state,dashboard.state);Object.assign(state,merged,localTask,{cloudMode:true,cloudRevision:dashboard.revision,cloudService:{...dashboard.runtime,...queued,lastError:dashboard.lastError,authorized:dashboard.authorized,baseUrl:dashboard.baseUrl,pushes:dashboard.pushes,pushStatus:dashboard.pushStatus}});return dashboard;}

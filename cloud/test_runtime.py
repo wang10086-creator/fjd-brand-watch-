@@ -1,10 +1,23 @@
 import copy
 import datetime as dt
+import io
+import json
+import urllib.error
 import unittest
-from runtime import UserClient, Failure, digest, BEIJING
+from unittest.mock import patch
+from runtime import UserClient, Failure, digest, BEIJING, http
 
 
 class Tests(unittest.TestCase):
+    def test_http_authentication_error_has_safe_diagnostics_without_echoing_response(self):
+        body = io.BytesIO(json.dumps({'error': 'invalid_client', 'error_description': 'private-test-secret'}).encode())
+        error = urllib.error.HTTPError('https://accounts.feishu.cn/oauth/v1/device_authorization', 400, 'Bad Request', {}, body)
+        with patch('urllib.request.urlopen', side_effect=error), self.assertRaises(Failure) as caught:
+            http('https://accounts.feishu.cn/oauth/v1/device_authorization', 'POST', {'client_id': 'cli_test'})
+        self.assertEqual(caught.exception.diagnostic, {'httpStatus': 400, 'stage': 'device-authorization', 'code': 'invalid_client'})
+        self.assertIn('同一个应用', str(caught.exception))
+        self.assertNotIn('private-test-secret', str(caught.exception))
+
     def test_device_confirmation_and_refresh_are_checkpointed_before_api_calls(self):
         state, snapshots, clock, calls = {}, [], [1000], []
         def request(url, method='GET', body=None, headers=None, form=False):
