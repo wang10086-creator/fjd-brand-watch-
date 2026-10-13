@@ -17,3 +17,9 @@ test('Notion receipts remain separate from legacy Feishu receipts and survive cl
  const out=mergeWorkspace({...state,archive:{receipts:{a:{status:'failed'}}},feishu:{receipts:{legacy:{status:'synced'}}}},{...state,archive:{receipts:{a:{status:'synced',provider:'notion'},b:{status:'synced'}}}});
  assert.equal(out.archive.receipts.a.provider,'notion');assert.equal(out.archive.receipts.b.status,'synced');assert.equal(out.archive.receipts.legacy,undefined);assert.equal(out.feishu.receipts.legacy.status,'synced');
 });
+test('reopening without the session password still releases cards when the cloud job finished',async()=>{
+ const previousFetch=globalThis.fetch,previousStorage=globalThis.sessionStorage;
+ globalThis.sessionStorage={getItem:()=>null};const sha='a'.repeat(40);
+ globalThis.fetch=async url=>({ok:true,status:200,json:async()=>String(url).includes('/git/ref/')?{object:{sha}}:{version:2,configured:true,runtime:{phase:'ready',startedAt:'2026-10-13T02:01:00Z',currentSite:null}}});
+ try{const {refreshRuntime,cloudRunning}=await import('../cloud/client.js?runtime-test');const s={cloudMode:true,cloudService:{phase:'queued',queuedAt:'2026-10-13T02:00:00Z',currentSite:{platform:'ebay',domain:'ebay.com'}}};await refreshRuntime(s);assert.equal(s.cloudService.phase,'ready');assert.equal(s.cloudService.currentSite,null);assert.equal(cloudRunning(s),false)}finally{globalThis.fetch=previousFetch;globalThis.sessionStorage=previousStorage}
+});
