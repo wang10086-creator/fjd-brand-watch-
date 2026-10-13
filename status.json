@@ -1,1 +1,1 @@
-{"version":1,"configured":true,"authorized":false,"authorizationPending":false,"diagnostic":null,"runtime":{"phase":"authorizing","operation":"authorize","startedAt":"2026-10-13T12:07:12.660Z","runId":"38394944490"},"updatedAt":"2026-10-13T12:07:16.764Z","runId":"38394944490"}
+{"version":1,"configured":true,"authorized":false,"authorizationPending":true,"diagnostic":null,"runtime":{"phase":"authorizing","operation":"authorize","startedAt":"2026-10-13T12:07:12.660Z","runId":"38394944490"},"updatedAt":"2026-10-13T12:07:21.768Z","runId":"38394944490"}
