@@ -1,1 +1,1 @@
-{"version":2,"configured":true,"runtime":{"phase":"running","operation":"check","currentSite":null,"startedAt":"2026-10-13T13:39:47.933Z","runId":"38406757973","stage":"delivery"},"updatedAt":"2026-10-13T13:40:05.982Z","runId":"38406757973"}
+{"version":2,"configured":true,"runtime":{"phase":"ready","operation":"check","currentSite":null,"startedAt":"2026-10-13T13:39:47.933Z","runId":"38406757973","stage":"delivery","endedAt":"2026-10-13T13:40:07.538Z"},"updatedAt":"2026-10-13T13:40:11.088Z","runId":"38406757973"}
