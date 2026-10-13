@@ -36,6 +36,7 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
     token = env.get('NOTION_TOKEN', '')
     state['notionConfigured'] = bool(token)
     state['botConfigured'] = bool(env.get('FEISHU_BOT_WEBHOOK'))
+    state['pushStatus'] = '机器人已配置，发送结果见回执' if state['botConfigured'] else '飞书群简报待配置：FEISHU_BOT_WEBHOOK'
     state['archiveError'] = ''
     state['botError'] = ''
     state['baseUrl'] = state['publicUrl']  # Shared digest formatter's report link.
