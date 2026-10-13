@@ -1,1 +1,1 @@
-{"version":1,"configured":false,"authorized":false,"runtime":{"phase":"configuration-required"},"configurationError":"云端配置检查失败：MONITOR_CLOUD_PASSWORD 少于 12 个字符。请检查本仓库的 Settings → Secrets and variables → Actions → Repository secrets。","updatedAt":"2026-10-13T12:20:50.768Z","runId":"38396606972"}
+{"version":1,"configured":true,"authorized":false,"authorizationPending":false,"diagnostic":null,"runtime":{"phase":"authorizing","operation":"authorize","startedAt":"2026-10-13T12:22:59.782Z","runId":"38396860721"},"updatedAt":"2026-10-13T12:23:03.010Z","runId":"38396860721"}
