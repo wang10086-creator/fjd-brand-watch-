@@ -39,7 +39,16 @@ async function feishu(operation){
 }
 function operation(){if(env.GITHUB_EVENT_NAME==='schedule')return env.FJD_SCHEDULE==='0 1 * * *'?'schedule':'digest';return env.FJD_OPERATION||'sync'}
 async function main(){
- if(!password||password.length<12||!appSecret){console.log('尚未配置 MONITOR_CLOUD_PASSWORD / FEISHU_APP_SECRET，未执行检索或飞书写入。');return;}
+ const configurationErrors=[];
+ if(!appSecret)configurationErrors.push('FEISHU_APP_SECRET 未传入');
+ if(!password)configurationErrors.push('MONITOR_CLOUD_PASSWORD 未传入');
+ else if(password.length<12)configurationErrors.push('MONITOR_CLOUD_PASSWORD 少于 12 个字符');
+ if(configurationErrors.length){
+  const error='云端配置检查失败：'+configurationErrors.join('；')+'。请检查本仓库的 Settings → Secrets and variables → Actions → Repository secrets。';
+  console.error(error);
+  if(env.GITHUB_TOKEN){try{await branch();await put('status.json',{version:1,configured:false,authorized:false,runtime:{phase:'configuration-required'},configurationError:error,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null})}catch(e){console.error('配置检查结果暂未写入状态页，请查看本次工作流日志。')}}
+  process.exitCode=1;return;
+ }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
  await branch();const saved=await file('vault.json');
  vault=saved?await unseal(saved.value,appSecret+'|'+password,'vault'):{version:1,state:await initialState(),feishu:{receipts:{},pushes:{}},runtime:{phase:'ready'}};
