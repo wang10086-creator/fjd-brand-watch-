@@ -22,7 +22,8 @@ SCHEMA = {
     '日报概览': [('日报日期', 1), ('归档日期', 5), ('最近更新时间', 5), ('最近更新编号', 1),
                ('自动检索已完成', 7), ('数据状态', 1), ('新增线索', 2), ('变化线索', 2),
                ('待核查', 2), ('成功查询网站', 2), ('未解决失败查询', 2), ('仍有失败网站', 2),
-               ('已排除', 2), ('核查中', 2), ('提交法务', 2), ('复核待处理', 2)],
+               ('已排除', 2), ('核查中', 2), ('提交法务', 2), ('复核待处理', 2),
+               ('高优先级', 2), ('中优先级', 2), ('低优先级', 2)],
     '更新记录': [('更新编号', 1), ('日报日期', 1), ('归档日期', 5), ('执行时间', 5),
                ('执行类型', 1), ('历史摘要', 7), ('内容校验', 1), ('本次新增', 2),
                ('本次变化', 2), ('本次重复', 2), ('成功查询', 2), ('失败查询', 2),
@@ -30,7 +31,7 @@ SCHEMA = {
     '线索证据': [('证据编号', 1), ('更新编号', 1), ('日报日期', 1), ('记录时间', 5),
                ('变化类型', 1), ('标题', 1), ('目标平台', 1), ('原页面', 15), ('检索关键词', 1),
                ('检索链接', 15), ('当时摘要', 1), ('处理状态', 1), ('核查依据', 1),
-               ('证据链接', 15), ('复核入口', 15), ('内容校验', 1)],
+               ('证据链接', 15), ('复核入口', 15), ('内容校验', 1), ('优先级', 1)],
     '检索执行': [('查询编号', 1), ('更新编号', 1), ('日报日期', 1), ('执行时间', 5),
                ('目标平台', 1), ('目标域名', 1), ('检索关键词', 1), ('检索链接', 15),
                ('执行状态', 1), ('结果或失败原因', 1), ('内容校验', 1)],
@@ -178,6 +179,8 @@ class BaseReports:
                       '目标平台': entry.get('platform', ''), '检索关键词': entry.get('query', ''),
                       '当时摘要': entry.get('snippet', ''), '核查依据': entry.get('note', ''),
                       '处理状态': REVIEW.get(entry.get('status'), '待核查'), '内容校验': signature(entry)}
+            fields['优先级'] = {'high': '高 · 人工确认异常且有依据', 'medium': '中 · 待核查信号',
+                               'routine': '低 · 一般文字命中'}.get(entry.get('priority'), '未记录优先级')
             workspace = event.get('workspaceUrl', '')
             if workspace.startswith('https://wang10086-creator.github.io/fjd-brand-watch-/'):
                 fields['复核入口'] = hyperlink(workspace + '#inbox?day=' + day + '&scope=all&lead=' +
@@ -218,6 +221,9 @@ class BaseReports:
                                '未解决失败查询': cumulative['failed'], '仍有失败网站': cumulative.get('failedSites', 0),
                                '已排除': review['cleared'], '核查中': review['reviewing'],
                                '提交法务': review['escalated'], '复核待处理': review['pending']})
+                if cumulative.get('priority'):
+                    fields.update({'高优先级': cumulative['priority']['high'], '中优先级': cumulative['priority']['medium'],
+                                   '低优先级': cumulative['priority']['routine']})
         if old:
             self.api('PUT', self.prefix + '/tables/' + self.tables['日报概览'] +
                      '/records/' + old['record_id'], {'fields': fields})

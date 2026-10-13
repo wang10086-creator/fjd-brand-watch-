@@ -39,7 +39,7 @@
 
 ## 飞书日报与免费本机助手
 
-用户当前反馈文档权限需审核、多维表格权限可直接开通。已准备 [多维表格接入说明](FEISHU_BITABLE_SETUP.md)、最小用户权限清单及 `bridge/bitable.py` 写入适配。真实云端切换仍待多维表格目标链接、本人授权与执行端配置；现有浏览器检索尚未改为云端调度。
+用户当前反馈文档权限需审核、多维表格权限可直接开通。已准备 [多维表格接入说明](FEISHU_BITABLE_SETUP.md)、最小用户权限清单及 `bridge/bitable.py` 写入适配。目标多维表格已固定，`.github/workflows/fjd-cloud.yml` 提供每天 09:00 检索、09:30 简报，`cloud/portal.html` 提供本人设备授权、台账迁移及云端读取。真实切换仍待 GitHub Secrets 和本人授权。
 
 见 [本机助手接入说明](FEISHU_SETUP.md)，下载 [完整运行包](downloads/fjd-feishu-assistant.zip)。Python 3.10+ 标准库实现，无 pip 依赖。保留原网页、存储与检索技术，增加本机文档同步执行端。
 

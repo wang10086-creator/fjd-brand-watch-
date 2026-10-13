@@ -1,7 +1,7 @@
-import {chainFor,triggerNames} from './report-chain.js?v=20261013-feishu';
-import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261013-feishu';
-import {reportModel,reportPublication} from './report-model.js?v=20261013-feishu';
-import {safeUrl} from './model.js?v=20261013-feishu';
+import {chainFor,triggerNames} from './report-chain.js?v=20261013-cloud';
+import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261013-cloud';
+import {reportModel,reportPublication} from './report-model.js?v=20261013-cloud';
+import {safeUrl} from './model.js?v=20261013-cloud';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const names={new:'首次发现',changed:'内容信号变化',repeat:'再次发现'},levels={high:'高优先级',medium:'中优先级',routine:'常规线索'};

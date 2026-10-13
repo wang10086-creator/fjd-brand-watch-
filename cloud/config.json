@@ -1,0 +1,11 @@
+{
+  "repository": "wang10086-creator/fjd-brand-watch-",
+  "branch": "data-cloud",
+  "workflow": "fjd-cloud.yml",
+  "appId": "cli_aa44b8da6d385bdb",
+  "baseUrl": "https://fjdynamics.feishu.cn/base/XfajbNeHSaAoHesjDlwc51AEnqV",
+  "siteUrl": "https://wang10086-creator.github.io/fjd-brand-watch-/",
+  "searchTime": "09:00",
+  "pushTime": "09:30",
+  "timezone": "Asia/Shanghai"
+}

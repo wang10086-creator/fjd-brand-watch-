@@ -1,6 +1,6 @@
-import {dayOf} from './monitor.js?v=20261013-feishu';
-import {reportModel} from './report-model.js?v=20261013-feishu';
-import {canonical} from './model.js?v=20261013-feishu';
+import {dayOf} from './monitor.js?v=20261013-cloud';
+import {reportModel} from './report-model.js?v=20261013-cloud';
+import {canonical,risk} from './model.js?v=20261013-cloud';
 export const triggerNames={schedule:'自动检索',manual:'手动检索',refresh:'立即检索','site-retry':'站点补查',retry:'失败重试',watch:'重点复查','public-collector':'公共补充检索',review:'人工复核'};
 export function chainFor(m,day){return (m.updateChain||[]).filter(e=>e.day===day).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));}
 const tally=items=>({new:items.filter(x=>x.kind==='new').length,changed:items.filter(x=>x.kind==='changed').length,repeat:items.filter(x=>x.kind==='repeat').length});
@@ -8,7 +8,7 @@ function overview(m,day){const d=reportModel(m,day);return {new:d.fresh.length,c
 export function appendRun(m,run,rows,{historical=false}={}){
  if(run.running)return null;const id='run:'+run.id;m.updateChain||=[];const prior=m.updateChain.find(e=>e.id===id);if(prior)return prior;
  const day=run.reportDay||dayOf(run.startedAt),delta=run.delta||[],keys=new Set(delta.filter(d=>d.kind!=='repeat').map(x=>x.key));
- const entries=historical?[]:rows.filter(r=>keys.has(canonical(r.url))).map(r=>({key:canonical(r.url),kind:delta.find(x=>x.key===canonical(r.url))?.kind,title:r.title,url:r.url,query:r.query,searchUrl:r.searchUrl,platform:r.platform,snippet:r.snippet}));
+ const entries=historical?[]:rows.filter(r=>keys.has(canonical(r.url))).map(r=>({key:canonical(r.url),kind:delta.find(x=>x.key===canonical(r.url))?.kind,title:r.title,url:r.url,query:r.query,searchUrl:r.searchUrl,platform:r.platform,snippet:r.snippet,priority:risk(r).level,status:r.status,note:r.note,evidence:r.evidence}));
  const event={id,day,at:run.endedAt||run.startedAt,startedAt:run.startedAt,type:run.trigger||'manual',historical,summary:{...tally(delta),attempted:run.attempted||0,success:run.success||0,failed:run.failed||0,cancelled:!!run.cancelled},entries,queries:(run.items||[]).map(i=>({query:i.query,searchUrl:i.searchUrl,status:i.status,message:i.message,platform:i.platform,domain:i.domain||i.plan?.domain||'',at:i.at})),cumulative:historical?null:overview(m,day)};
  m.updateChain.push(event);return event;
 }

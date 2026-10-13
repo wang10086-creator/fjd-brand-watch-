@@ -1,0 +1,42 @@
+name: 丰疆云端监控
+on:
+  schedule:
+    - cron: '0 1 * * *'
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'authorize 首次本人授权；scan 立即检索；sync 补同步；digest 群简报；migrate 迁移完整台账'
+        type: choice
+        default: authorize
+        options: [authorize, scan, site-retry, sync, digest, migrate, review]
+      payload:
+        description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
+        required: false
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: fjd-cloud-monitor
+  cancel-in-progress: false
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 云端检索、本人授权与飞书同步
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_APP_ID: cli_aa44b8da6d385bdb
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
+          FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          FJD_OPERATION: ${{ inputs.operation }}
+          FJD_PAYLOAD: ${{ inputs.payload }}
+          FJD_SCHEDULE: ${{ github.event.schedule }}
+        run: node cloud/runner.mjs
