@@ -1,0 +1,6 @@
+{
+  "scopes": {
+    "tenant": ["wiki:wiki", "docx:document", "drive:drive", "im:message:send_as_bot", "im:chat:readonly"],
+    "user": []
+  }
+}
