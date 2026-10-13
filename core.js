@@ -1,5 +1,5 @@
-import {chinaPlatforms} from './china.js?v=20261013-cn';
-import {expansion} from './expansion.js?v=20261013-cn';
+import {chinaPlatforms} from './china.js?v=20261013-exec';
+import {expansion} from './expansion.js?v=20261013-exec';
 export const marketData = {
   IE:{name:'爱尔兰',lang:'en',language:'英语',area:'欧洲'},AT:{name:'奥地利',lang:'de',language:'德语',area:'欧洲'},CZ:{name:'捷克',lang:'cs',language:'捷克语',area:'欧洲'},SK:{name:'斯洛伐克',lang:'sk',language:'斯洛伐克语',area:'欧洲'},HU:{name:'匈牙利',lang:'hu',language:'匈牙利语',area:'欧洲'},
   KE:{name:'肯尼亚',lang:'en',language:'英语',area:'非洲'},GH:{name:'加纳',lang:'en',language:'英语',area:'非洲'},MA:{name:'摩洛哥',lang:'ar',language:'阿拉伯语',area:'非洲'},UG:{name:'乌干达',lang:'en',language:'英语',area:'非洲'},CI:{name:'科特迪瓦',lang:'fr',language:'法语',area:'非洲'},SN:{name:'塞内加尔',lang:'fr',language:'法语',area:'非洲'},

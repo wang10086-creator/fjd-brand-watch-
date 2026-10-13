@@ -1,6 +1,6 @@
-import {chinaPlatforms} from './china.js?v=20261013-cn';
-import {expansion} from './expansion.js?v=20261013-cn';
-import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261013-cn';
+import {chinaPlatforms} from './china.js?v=20261013-exec';
+import {expansion} from './expansion.js?v=20261013-exec';
+import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261013-exec';
 export {marketData,platforms,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt};
 export const languageNames={en:'英语',de:'德语',fr:'法语',es:'西班牙语',it:'意大利语',nl:'荷兰语',pl:'波兰语',sv:'瑞典语',tr:'土耳其语',ja:'日语',ko:'韩语',ms:'马来语',id:'印尼语',th:'泰语',vi:'越南语',pt:'葡萄牙语',ar:'阿拉伯语',cs:'捷克语',sk:'斯洛伐克语',hu:'匈牙利语',zh:'简体中文','zh-Hans':'简体中文','zh-Hant':'繁体中文',hi:'印地语',ru:'俄语',el:'希腊语',bs:'波斯尼亚语',hy:'亚美尼亚语',ka:'格鲁吉亚语',he:'希伯来语'};
 words.ru={commerce:['купить','дилер','дистрибьютор'],official:['официальный','официальный дилер'],used:['б/у','восстановленный']};
@@ -23,7 +23,7 @@ export function planLanguages(p,c,registry,mode='relevant'){
 export function buildPlans(config,registry){
  const allAliases=(config.aliases||[]).map(String).map(x=>x.trim()).filter(Boolean);if(!allAliases.length)return [];
  const groups=Array.from({length:Math.ceil(allAliases.length/5)},(_,i)=>allAliases.slice(i*5,i*5+5));
- const quote=x=>'"'+x.replaceAll('"','').slice(0,90)+'"';const list=[];
+ const quote=x=>'"'+x.replaceAll('"','').slice(0,90)+'"';const unique=new Map();const emit=p=>{const key=JSON.stringify([p.domain,p.query]),old=unique.get(key);if(old){if(!old.countries.includes(p.country))old.countries.push(p.country);if(!old.languages.includes(p.language))old.languages.push(p.language);old.combinations++;}else unique.set(key,{...p,id:'q:'+encodeURIComponent(key),countries:[p.country],languages:[p.language],combinations:1});};
  for(const [groupIndex,aliases] of groups.entries())for(const country of [...new Set(config.regions||[])].filter(c=>marketData[c]))for(const p of platforms.filter(x=>(config.platforms||[]).includes(x.id)).sort((a,b)=>country==='CN'?((a.id==='nongjitong'?-1:a.markets.CN?0:1)-(b.id==='nongjitong'?-1:b.markets.CN?0:1)):0)){
   if(!supportedMarkets(p).includes(country))continue;const domain=p.markets[country]||p.globalDomain||'';
   for(const lang of planLanguages(p,country,registry,config.languageMode)){
@@ -33,9 +33,15 @@ export function buildPlans(config,registry){
    const query=[domain?'site:'+domain:'','('+aliases.map(a=>{const r=config.termRules?.find(r=>r.text===a);return r?.requiresContext?'('+quote(a)+' ('+r.contextTerms.slice(0,8).map(quote).join(' OR ')+'))':quote(a)}).join(' OR ')+')',config.broad?'':'('+localized.map(quote).join(' OR ')+')',models.length?'('+models.map(quote).join(' OR ')+')':'',...excluded.map(x=>'-'+quote(x))].filter(Boolean).join(' ');
    const google='https://www.google.com/search?'+new URLSearchParams({q:query,gl:country.toLowerCase(),hl:language==='zh-Hant'?'zh-TW':language==='zh'?'zh-CN':language});
    const bing='https://www.bing.com/search?'+new URLSearchParams({q:query,setlang:language,cc:country});
-   list.push({id:[p.id,country,language,...(groupIndex?['g'+groupIndex]:[])].join(':'),country,platform:p.id,domain,language,query,models,excluded,keywords:[...aliases,...localized,...models],aliases,termRules:config.termRules||[],terms:localized,searchUrl:google,bingUrl:bing,...lang});
+   emit({id:[p.id,country,language,...(groupIndex?['g'+groupIndex]:[])].join(':'),country,platform:p.id,domain,language,query,models,excluded,keywords:[...aliases,...localized,...models],aliases,termRules:config.termRules||[],terms:localized,searchUrl:google,bingUrl:bing,...lang});
   }
- }return list;
+ }
+ // Identical index requests do not gain regional coverage by being sent again.
+
+ // Round-robin sources: a large global marketplace cannot monopolize the first session.
+ const buckets=new Map();for(const p of unique.values()){if(!buckets.has(p.platform))buckets.set(p.platform,[]);buckets.get(p.platform).push(p);}
+ const result=[];for(let i=0;result.length<unique.size;i++)for(const bucket of buckets.values())if(bucket[i])result.push(bucket[i]);
+ return result;
 }
 export function risk(row){
  const text=[row.title,row.snippet].join(' ').toLowerCase();
@@ -58,7 +64,7 @@ export function normalizeConfig(data={}){
 
 // Match complete wordmarks across typography, not arbitrary short substrings.
 export function matchedAliases(item,plan){
- const text=String([item.title,item.content,decodeURI(item.url||'')].join(' ')).normalize('NFKC').toLowerCase();
+ const text=String([item.title,item.content].join(' ')).normalize('NFKC').toLowerCase();
  return plan.aliases.filter(a=>{
   const chars=[...String(a).normalize('NFKC').toLowerCase()].filter(c=>/[\p{L}\p{N}]/u.test(c));if(!chars.length)return false;
   const escaped=chars.map(c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('[\\s._-]*');

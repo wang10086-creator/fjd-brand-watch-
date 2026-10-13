@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261013-cn';
+import {canonical, safeUrl, risk} from './model.js?v=20261013-exec';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
@@ -26,6 +26,7 @@ export function observe(m,rows,existing,{at=new Date().toISOString(),runId='manu
   const provenance={query:query||row.query||'',searchUrl:searchUrl||row.searchUrl||'',runId,at};
   if(!event){event={id,key,day,at,lastAt:at,kind:isNew?'new':changed?'changed':'repeat',method,before:changed?comparison:null,snapshot:snap,queries:[],hits:0};m.observations.push(event);}
   else if(changed&&event.kind==='repeat'){event.kind='changed';event.before=comparison;}
+  if(isNew||changed)event.changedAt=at;
   if(at>=event.lastAt){event.snapshot=snap;event.lastAt=at;}
   if(!event.queries.some(q=>q.runId===runId&&q.query===provenance.query)){event.queries.push(provenance);event.hits++;}
   if(!known||at>=known.at)m.known[key]={firstKnownAt:known?.firstKnownAt||at,at,baseline:known?.baseline||false,snapshot:snap,variants:Object.fromEntries(Object.entries({...known?.variants,[queryKey]:snap}).slice(-40))};
@@ -54,7 +55,7 @@ export function dayReport(m,day){
  const signature=i=>[i.query,i.platform,i.country,i.plan?.watchUrl||''].join('|');
  const success=items.filter(i=>i.status==='成功'),failed=items.filter(i=>i.status==='失败').map(i=>({...i,recovered:items.slice(items.indexOf(i)+1).some(later=>later.status==='成功'&&signature(later)===signature(i))})),cancelled=items.filter(i=>i.status==='已取消');
  const pendingFailures=[...new Map(failed.filter(i=>!i.recovered).map(i=>[signature(i),i])).values()],pendingChecks=[...new Map(checks.map(c=>[c.key,c])).values()].filter(c=>c.result!=='indexed');
- const markets=[...new Set(success.map(i=>i.country).filter(Boolean))],platforms=[...new Set(success.map(i=>i.platform).filter(Boolean))];
+ const markets=[...new Set(success.flatMap(i=>i.plan?.countries||[i.country]).filter(Boolean))],platforms=[...new Set(success.map(i=>i.platform).filter(Boolean))];
  const domainOf=i=>i.domain||i.plan?.domain||'';const successfulSites=[...new Set(success.map(domainOf).filter(Boolean))],failedSites=[...new Set(pendingFailures.map(domainOf).filter(Boolean))],resultSites=[...new Set(success.flatMap(i=>i.resultDomains||[]))];
  return {successfulSites,failedSites,resultSites,day,observations,reviews,checks,runs,items,legacy,fresh,changed,repeat,uniqueReviews,success,failed,pendingFailures,pendingChecks,cancelled,markets,platforms,hasActivity:!!(runs.length||observations.length||reviews.length||checks.length),legacyOnly:!!legacy.length&&!runs.length&&!observations.length&&!reviews.length,attention:[...fresh,...changed].filter(e=>e.snapshot.level!=='routine').length,raw:success.reduce((n,i)=>n+(i.rawCount||0),0),retained:success.reduce((n,i)=>n+(i.retainedCount||0),0)};
 }
@@ -65,6 +66,7 @@ export function mergeMonitors(current,incoming,rows){
  for(const field of ['observations','reviews','runs','checks','legacyRuns']){const map=new Map(out[field].map(x=>[x.id,x]));for(const x of incoming[field]||[]){if(!x?.id)continue;const old=map.get(x.id);if(!old)map.set(x.id,structuredClone(x));else if(field==='observations'){const latest=(x.lastAt||x.at)>(old.lastAt||old.at)?x:old;const earliest=x.at<old.at?x:old;const queries=[...new Map([...(old.queries||[]),...(x.queries||[])].map(q=>[q.runId+'|'+q.query,q])).values()];map.set(x.id,{...latest,kind:old.kind==='new'||x.kind==='new'?'new':old.kind==='changed'||x.kind==='changed'?'changed':'repeat',at:earliest.at,before:earliest.before||old.before||x.before,queries,hits:queries.length});}else if(field==='runs'&&((x.items||[]).length>(old.items||[]).length||x.endedAt>old.endedAt))map.set(x.id,structuredClone(x));}out[field]=[...map.values()];}
  const firstNew=new Map();for(const e of out.observations.filter(e=>e.kind==='new')){if(!firstNew.has(e.key)||e.day<firstNew.get(e.key))firstNew.set(e.key,e.day)}for(const e of out.observations){if(e.kind==='new'&&e.day>firstNew.get(e.key))e.kind=e.before?'changed':'repeat';}
  for(const [key,value] of Object.entries(incoming.known||{})){if(!out.known[key]||value.at>out.known[key].at)out.known[key]=structuredClone(value);}
+ out.publications={...incoming.publications,...out.publications};
  if(incoming.startedAt<out.startedAt)out.startedAt=incoming.startedAt;return out;
 }
 export async function evidencePackage(row,m,at=new Date().toISOString()){
