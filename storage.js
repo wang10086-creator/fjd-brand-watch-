@@ -4,7 +4,7 @@ let dbPromise,queue=Promise.resolve();
 const db=()=>dbPromise??=new Promise((resolve,reject)=>{const r=indexedDB.open('fjd-watch-durable',1);r.onupgradeneeded=()=>r.result.createObjectStore('records');r.onsuccess=()=>resolve(r.result);r.onerror=()=>{dbPromise=null;reject(r.error)}});
 async function operation(mode,value){const d=await db();return new Promise((resolve,reject)=>{const t=d.transaction('records',mode),s=t.objectStore('records'),r=mode==='readonly'?s.get('state'):s.put(value,'state');t.oncomplete=()=>resolve(r.result);t.onabort=t.onerror=()=>reject(t.error||Error('本机数据库写入失败'));});}
 function read(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}
-export const taskFields=['config','schedule','batchSize','assetIds','taskName','includeWatch','selectedBrandIds','customAliases','catalogVersion','taskSavedAt'];
+export const taskFields=['config','schedule','batchSize','assetIds','taskName','includeWatch','selectedBrandIds','customAliases','catalogVersion','chinaScopeVersion','taskSavedAt'];
 export async function loadState(){
  let full=read(STATE_KEY)||read('fjd-watch-v1')||{};try{const saved=await operation('readonly');if(saved&&(saved.revision||0)>(full.revision||0))full=saved}catch{}
  const task=read(TASK_KEY);if(task&&(task.revision||0)>=(full.revision||0))Object.assign(full,task.values);

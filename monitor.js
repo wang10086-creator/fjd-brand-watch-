@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261012-v3';
+import {canonical, safeUrl, risk} from './model.js?v=20261013-cn';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
@@ -33,7 +33,7 @@ export function observe(m,rows,existing,{at=new Date().toISOString(),runId='manu
  }
  return events;
 }
-const decisionFields=['status','note','imageMatch','confirmedIssue','evidence','decision','watch','pageState','needsRecheck'];
+const decisionFields=['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','decision','watch','pageState','needsRecheck'];
 export function recordReview(m,before,after,at=new Date().toISOString()){
  const changed=decisionFields.filter(k=>JSON.stringify(before[k]??null)!==JSON.stringify(after[k]??null));
  if(!changed.length)return null;
