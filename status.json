@@ -1,0 +1,1 @@
+{"version":1,"configured":false,"authorized":false,"runtime":{"phase":"configuration-required"},"configurationError":"云端配置检查失败：FEISHU_APP_SECRET 未传入；MONITOR_CLOUD_PASSWORD 未传入。请检查本仓库的 Settings → Secrets and variables → Actions → Repository secrets。","updatedAt":"2026-10-13T11:44:29.607Z","runId":"38392290596"}
