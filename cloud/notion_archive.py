@@ -18,18 +18,18 @@ def block(kind, value, **extra):
 
 def plain(value):
     body = value.get(value.get('type'), {})
-    return ''.join(x.get('plain_text', x.get('text', {}).get('content', '')) for x in body.get('rich_text', []))
+    return ''.join(x.get('plain_text', x.get('text', {}).get('content', '')) for x in body.get('rich_text', body.get('caption', [])))
 
 
 def marker_of(value):
     body = value.get(value.get('type'), {})
-    links = [x.get('text', {}).get('link') or {} for x in body.get('rich_text', [])]
+    links = [x.get('text', {}).get('link') or {} for x in body.get('rich_text', body.get('caption', []))]
     return ' '.join(x.get('url', '') for x in links) or plain(value)
 
 
 def public_event(event):
     """Public reports exclude internal review notes and authorization evidence."""
-    return {k: event.get(k) for k in ('id', 'day', 'at', 'type', 'historical', 'summary', 'cumulative')} | {
+    return {k: event.get(k) for k in ('id', 'day', 'at', 'type', 'historical', 'summary', 'cumulative', 'chartUrl')} | {
         'entries': [{k: row.get(k) for k in ('kind', 'title', 'url', 'query', 'searchUrl', 'platform', 'snippet', 'priority', 'status')} for row in event.get('entries', [])],
         'queries': [{k: row.get(k) for k in ('query', 'searchUrl', 'status', 'platform', 'domain', 'at')} | {'failure': '公开索引请求失败，详见工作台执行记录' if row.get('status') == '失败' else ''} for row in event.get('queries', [])]}
 
@@ -44,6 +44,8 @@ def link_block(label, url):
 def event_blocks(event):
     s = event.get('summary') or {}
     result = [block('callout', f"新增 {s.get('new',0)}  ｜  变化 {s.get('changed',0)}  ｜  重复 {s.get('repeat',0)}\n查询成功 {s.get('success',0)}  ｜  失败 {s.get('failed',0)}" + ('\n本次已停止，未执行部分不计成功。' if s.get('cancelled') else ''), icon={'type': 'emoji', 'emoji': '📌'})]
+    if (event.get('chartUrl') or '').startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
+        result.insert(0, {'object':'block','type':'image','image':{'type':'external','external':{'url':event['chartUrl']},'caption':text('本次检索后的日报图表')}})
     for row in event.get('entries', []):
         result.append(block('heading_3', row.get('title') or row.get('url') or '线索复核更新'))
         result.append(block('paragraph', f"优先级：{ {'high':'高 · 人工异常','medium':'中 · 优先核查','routine':'低 · 常规线索'}.get(row.get('priority'),'见当日累计')}\n检索词：{row.get('query') or '本次为复核更新'}"))
@@ -125,6 +127,13 @@ class NotionReports:
             summary = next((b for b in blocks if b.get('type') == 'callout' and plain(b).startswith('📊 自动累计概览')), None)
             prior = re.search(r'累计截止：([^\s]+)', plain(summary)) if summary else None
             if not prior or prior[1] <= event['at']:
+                if (event.get('chartUrl') or '').startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
+                    graph=next((b for b in blocks if b.get('type')=='image' and plain(b)=='日报一图读懂'),None)
+                    picture={'type':'external','external':{'url':event['chartUrl']},'caption':text('日报一图读懂')}
+                    if graph:self.request('PATCH','/blocks/'+graph['id'],{'image':picture})
+                    else:
+                        result=self.request('PATCH','/blocks/'+page['id']+'/children',{'children':[{'object':'block','type':'image','image':picture}],**({'after':blocks[0]['id']} if blocks else {})})
+                        blocks.extend(result.get('results',[]))
                 content = {'rich_text': text(summary_text(event)), 'icon': {'type': 'emoji', 'emoji': '📊'}}
                 if summary:
                     self.request('PATCH', '/blocks/'+summary['id'], {'callout': content})

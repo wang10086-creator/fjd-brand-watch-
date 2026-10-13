@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: 'check 检查配置；scan 立即检索；sync Notion 补同步；digest 飞书简报；migrate 迁移完整台账'
+        description: 'check 配置检查；verify 检索归档及群测试；scan 立即检索；sync 归档；digest 每日简报'
         type: choice
         default: check
-        options: [check, scan, site-retry, sync, digest, migrate, review]
+        options: [check, verify, scan, site-retry, sync, digest, test-digest, migrate, review]
       payload:
         description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
         required: false
@@ -28,6 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: 准备日报图表
+        run: python3 -m pip install --quiet Pillow==11.3.0
       - name: 云端检索、Notion 归档与飞书简报
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

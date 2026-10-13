@@ -22,16 +22,16 @@ export function applyReviews(state,events){
   Object.assign(r,review.after,{reviewedAt:review.at});state.monitor.reviews.push(structuredClone(review));state.monitor.updateChain.push(structuredClone(event));
  }
 }
-export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},onSite=()=>{},siteUrl=''}={}){
- const plans=await configure(state),budget=Math.min(60,Math.max(1,Number(state.batchSize)||60)),pinned=state.rows.filter(r=>r.watch);
+export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},onSite=()=>{},budget:queryBudget=null,maxDurationMs=12*60000,siteUrl='' }={}){
+ const plans=await configure(state),budget=Math.min(120,Math.max(1,Number(queryBudget??state.batchSize)||60)),pinned=state.rows.filter(r=>r.watch);
  if(!plans.length&&!watchOnly)throw Error('未启用可执行的品牌、市场和平台');
  const key=site?site.platform+'|'+(site.domain||''):null;
  const count=site?0:watchOnly?Math.min(budget,pinned.length):state.includeWatch===false?0:Math.min(2,pinned.length,budget),watched=Array.from({length:count},(_,i)=>{const r=pinned[((state.watchCursor||0)+i)%pinned.length],query='"'+r.url.replaceAll('"','')+'"';return {id:'watch:'+canonical(r.url),watchUrl:r.url,query,aliases:state.config.aliases,platform:r.platform||'dealer',country:r.country||'US',language:r.language||'en',searchUrl:'https://www.google.com/search?'+new URLSearchParams({q:query}),domain:new URL(r.url).hostname}});
  const queue=site?sitePlans(plans,state.completed||[],site,{limit:5,cursor:state.siteCursors?.[key]||0,failed:dayReport(state.monitor,dayOf()).pendingFailures.map(i=>i.plan)}):[...watched,...(watchOnly?[]:Array.from({length:Math.min(budget-count,plans.length)},(_,i)=>plans[((state.cursor||0)+i)%plans.length]))];
  if(!queue.length)throw Error('该网站不在云端任务范围');
  const startedAt=now(),h={id:crypto.randomUUID(),startedAt,reportDay:dayOf(startedAt),trigger,planned:queue.length,attempted:0,success:0,failed:0,added:0,delta:[],items:[],running:true,deviceId:'fjd-cloud'};
- state.history.unshift(h);state.history=state.history.slice(0,100);recordRun(state.monitor,h);state.lastAttempt=startedAt;await checkpoint();let errors=0;
- try{for(const p of queue){await onSite({platform:p.platform,domain:p.domain||''});if(h.attempted)await wait(1200);h.attempted++;const start=Date.now();
+ state.history.unshift(h);state.history=state.history.slice(0,100);recordRun(state.monitor,h);state.lastAttempt=startedAt;await checkpoint();let errors=0;const deadline=Date.now()+maxDurationMs;
+ try{for(const p of queue){if(Date.now()>=deadline){h.cancelled=true;h.stopReason='达到单次云端时间预算，进度已保存，下次续查';break}await onSite({platform:p.platform,domain:p.domain||''});if(h.attempted)await wait(1200);h.attempted++;const start=Date.now();
   try{const data=await searchPlan(p,{fetcher,wait,signal:AbortSignal.timeout(60000)}),at=now(),effective=data.effectivePlan,rows=p.watchUrl?data.results.filter(r=>canonical(r.url)===canonical(p.watchUrl)).map(r=>enrichLead({url:r.url,title:r.title,snippet:String(r.content||'').slice(0,900),platform:p.platform,country:p.country,query:p.query,searchUrl:p.searchUrl,keywords:p.aliases,source:'指定网址复查 · 公开索引',verification:'search-index',checkedAt:at})):normalizeResults(data.results,effective,at),changes=observe(state.monitor,rows,state.rows,{at,reportDay:h.reportDay,runId:h.id,query:effective.query,searchUrl:effective.searchUrl}),before=state.rows.length;
    for(const change of changes){const kind=change.isNew?'new':change.changed?'changed':'repeat',old=h.delta.find(x=>x.key===change.key);if(!old)h.delta.push({key:change.key,kind});else if(old.kind==='repeat'&&kind==='changed')old.kind='changed';}
    state.rows=mergeRows(state.rows,rows).map(enrichLead);for(const c of changes)if(c.changed)state.rows.find(r=>canonical(r.url)===c.key).needsRecheck=true;

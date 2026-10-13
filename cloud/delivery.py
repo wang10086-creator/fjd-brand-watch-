@@ -62,9 +62,9 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
         state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'
     checkpoint()
     # A Notion failure never blocks the independent scheduled group brief.
-    if operation == 'digest':
+    if operation in ('digest','test-digest'):
         try:
-            digest(state, env.get('FEISHU_BOT_WEBHOOK', ''), env.get('FEISHU_BOT_SECRET', ''), checkpoint, **({'request': bot_request} if bot_request else {}), now=now)
+            digest(state, env.get('FEISHU_BOT_WEBHOOK', ''), env.get('FEISHU_BOT_SECRET', ''), checkpoint, **({'request': bot_request} if bot_request else {}), now=now, test=operation=='test-digest')
         except Failure as error:
             state['botError'] = str(error)
     elif not state['botConfigured']:

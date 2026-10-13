@@ -1,4 +1,4 @@
-import {cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261013-notion-v2';
+import {cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261014-global';
 import {loadState,persist,flush} from '../storage.js';
 const $=s=>document.querySelector(s);let polling=false;
 const status=text=>$('#status').textContent=text;

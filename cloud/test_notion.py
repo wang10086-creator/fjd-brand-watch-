@@ -64,3 +64,17 @@ class Tests(unittest.TestCase):
         self.assertEqual(state['receipts'][EVENT['id']]['status'],'synced');self.assertEqual(state['archiveError'],'')
 
 if __name__=='__main__':unittest.main()
+
+class BotIsolationTests(unittest.TestCase):
+    def test_test_brief_does_not_consume_daily_brief_or_repeat_itself(self):
+        state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','events':[EVENT]};sent=[];env={'FEISHU_BOT_WEBHOOK':'https://open.feishu.cn/open-apis/bot/v2/hook/test'}
+        def request(url,method,body):sent.append(body);return {'code':0}
+        now=dt.datetime(2026,10,14,1,30,tzinfo=dt.timezone.utc)
+        deliver(state,'test-digest',lambda:None,env=env,bot_request=request,now=now)
+        deliver(state,'test-digest',lambda:None,env=env,bot_request=request,now=now)
+        deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
+        self.assertEqual(len(sent),2);self.assertIn('联调测试',sent[0]['content']['text']);self.assertNotIn('联调测试',sent[1]['content']['text']);self.assertEqual(state['lastTest']['status'],'sent');self.assertEqual(state['pushes']['2026-10-14']['status'],'sent')
+    def test_public_chart_is_embedded_in_daily_page_and_original_event(self):
+        store=Store();event=copy.deepcopy(EVENT);event['chartUrl']='https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/2026-10-13/chart.png'
+        sink=NotionReports(store.request,'parent');sink.sync(event);sink.sync(event)
+        blocks=next(v for k,v in store.blocks.items() if k!='parent');self.assertEqual(sum(b['type']=='image' for b in blocks),1);self.assertEqual(sum(b['type']=='toggle' for b in blocks),1)

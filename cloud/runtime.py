@@ -129,7 +129,7 @@ class UserClient:
         return result.get('data', {})
 
 
-def digest(state, webhook, secret, checkpoint, request=http, now=None):
+def digest(state, webhook, secret, checkpoint, request=http, now=None, test=False):
     day = (now or dt.datetime.now(BEIJING)).astimezone(BEIJING).date().isoformat()
     if not webhook:
         state['pushStatus'] = '尚未配置群机器人'
@@ -137,19 +137,20 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None):
     u = urllib.parse.urlparse(webhook)
     if u.scheme != 'https' or u.hostname != 'open.feishu.cn' or not u.path.startswith('/open-apis/bot/v2/hook/') or u.username or u.password:
         raise Failure('群机器人地址格式不正确')
-    pushes = state.setdefault('pushes', {})
+    pushes = state.setdefault('testPushes' if test else 'pushes', {})
     if pushes.get(day, {}).get('status') in ('sent', 'sending', 'uncertain'):
         return
     today = sorted([event for event in state.get('events', []) if event['day'] == day], key=lambda e: (e.get('at',''), e.get('id','')))
     latest = next((e['cumulative'] for e in reversed(today) if e.get('cumulative')), None)
-    automatic = any(e.get('type') == 'schedule' for e in today)
-    text = day + ' 丰疆品牌监控简报\n' + ('今日自动检索已完成。' if automatic else '今日尚无自动检索完成记录。')
+    automatic = any(e.get('type') == 'schedule' and not e.get('summary',{}).get('cancelled') for e in today)
+    text = ('【联调测试，不替代每日简报】\n' if test else '') + day + ' 丰疆品牌监控简报\n' + ('今日自动检索已完成。' if automatic else '今日尚无自动检索完成记录。')
     if latest:
         text += f"\n新增 {latest.get('new', 0)} ｜变化 {latest.get('changed', 0)} ｜待核查 {latest.get('pending', 0)}\n成功查询网站 {latest.get('sites', 0)} ｜未解决失败 {latest.get('failed', 0)}"
     else:
         text += '\n尚无可用累计，不代表没有风险。'
     pending = sum(state.get('receipts', {}).get(e['id'], {}).get('status') != 'synced' for e in today)
     text += f"\n待归档更新 {pending} 项。手动补查追加到同日更新链。\n日报：" + state['baseUrl']
+    text += '\n自动计划：北京时间每天 09:00 检索 / 09:30 简报；无需打开网页。'
     body = {'msg_type': 'text', 'content': {'text': text}}
     if secret:
         timestamp = str(int(time.time()))
@@ -159,12 +160,13 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None):
     try:
         result = request(webhook, 'POST', body)
         if result.get('code', result.get('StatusCode', 0)) != 0:
-            raise Failure('群机器人拒绝消息，请检查签名、关键词或群设置')
+            raise Failure('群机器人拒绝消息（错误码 '+str(result.get('code',result.get('StatusCode')))+'），请检查签名、关键词或群设置')
         pushes[day]['status'] = 'sent'
     except Failure as error:
         pushes[day].update(status='uncertain' if error.uncertain else 'failed', error=str(error))
         raise
     finally:
+        if test: state['lastTest']={'day':day,**pushes[day]}
         checkpoint()
 
 

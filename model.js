@@ -1,6 +1,6 @@
-import {chinaPlatforms} from './china.js?v=20261013-notion';
-import {expansion} from './expansion.js?v=20261013-notion';
-import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261013-notion';
+import {chinaPlatforms} from './china.js?v=20261014-global';
+import {expansion} from './expansion.js?v=20261014-global';
+import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261014-global';
 export {marketData,platforms,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt};
 export const languageNames={en:'英语',de:'德语',fr:'法语',es:'西班牙语',it:'意大利语',nl:'荷兰语',pl:'波兰语',sv:'瑞典语',tr:'土耳其语',ja:'日语',ko:'韩语',ms:'马来语',id:'印尼语',th:'泰语',vi:'越南语',pt:'葡萄牙语',ar:'阿拉伯语',cs:'捷克语',sk:'斯洛伐克语',hu:'匈牙利语',zh:'简体中文','zh-Hans':'简体中文','zh-Hant':'繁体中文',hi:'印地语',ru:'俄语',el:'希腊语',bs:'波斯尼亚语',hy:'亚美尼亚语',ka:'格鲁吉亚语',he:'希伯来语'};
 words.ru={commerce:['купить','дилер','дистрибьютор'],official:['официальный','официальный дилер'],used:['б/у','восстановленный']};
@@ -9,7 +9,7 @@ const regional={US:['en','es'],CA:['en','fr'],BE:['nl','fr','de'],CH:['de','fr',
 Object.assign(regional,expansion.regionalLanguageSupplements);
 for(const m of Object.values(expansion.addedMarkets))languageNames[m.lang]=m.language;
 Object.assign(languageNames,{sw:'斯瓦希里语',ha:'豪萨语'});
-export const defaults={aliases:['FJDynamics','FJ Dynamics','FJD Trion','丰疆智能'],regions:['CN','US','CA','GB','DE','FR','ES','AU','JP','BR','SG'],platforms:[...chinaPlatforms.map(p=>p.id),'amazon','ebay','alibaba','dealer'],intent:'commerce',models:'',exclude:'',broad:false,languageMode:'all',languageTerms:{}};
+export const defaults={aliases:['FJDynamics','FJ Dynamics','FJD Trion','丰疆智能'],regions:Object.keys(marketData),platforms:platforms.map(p=>p.id),intent:'commerce',models:'',exclude:'',broad:false,languageMode:'all',languageTerms:{}};
 export function supportedMarkets(p){return p.globalDomain||p.kind==='dealer'?Object.keys(marketData):Object.keys(p.markets)}
 export function suitablePlatforms(markets){return platforms.filter(p=>markets.some(c=>supportedMarkets(p).includes(c))).map(p=>p.id)}
 export function planLanguages(p,c,registry,mode='relevant'){

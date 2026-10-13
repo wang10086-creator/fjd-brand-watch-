@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {upgradeGlobalScope,nextDailyTime} from '../monitor-policy.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -17,16 +19,27 @@ async function github(path,method='GET',body){
 async function file(name){try{const r=await github('/contents/'+name+'?ref='+config.branch);return {sha:r.sha,value:JSON.parse(Buffer.from(r.content,'base64').toString())}}catch(e){if(e.status===404)return null;throw e}}
 async function put(name,value){const existing=await file(name);await github('/contents/'+name,'PUT',{message:'Cloud monitor checkpoint',branch:config.branch,content:Buffer.from(JSON.stringify(value)).toString('base64'),...(existing?{sha:existing.sha}:{})})}
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
+function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return {version:3,configured:true,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',searchTime:'09:00',pushTime:'09:30',nextSearchAt:nextDailyTime(9),nextPushAt:nextDailyTime(9.5),queryBudget:120,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{configured:!!vault.delivery.notionConfigured,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length},bot:{configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function dashboard(){return {version:2,state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
 async function checkpoint(){
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';await put('vault.json',cipher);
  await put('dashboard.json',await seal(dashboard(),password,'dashboard'));
- await put('status.json',{version:2,configured:true,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null});
+ await put('status.json',publicStatus());
 }
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
  vault.delivery.events=vault.state.monitor.updateChain.map(({chartPng,...event})=>event);vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
+ if(!['check'].includes(operation))for(const event of vault.delivery.events){
+  if(!event.cumulative||vault.delivery.receipts?.[event.id]?.status==='synced')continue;
+  try{const digest=createHash('sha256').update(JSON.stringify({day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),name='reports/'+event.day+'/'+digest+'.png';
+  const input=join(root,'chart.json'),png=join(root,'chart.png');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
+  await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_chart.py',import.meta.url).pathname,input,png],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('日报图表生成失败')))});
+  const content=await readFile(png);let existing;try{existing=await github('/contents/'+name+'?ref='+config.branch)}catch(e){if(e.status!==404)throw e}
+  if(!existing)await github('/contents/'+name,'PUT',{message:'Public aggregate report chart',branch:config.branch,content:content.toString('base64')});
+  event.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/'+name;
+  }catch{console.warn('图表暂未生成，继续归档文字日报与发送简报');}
+ }
  await writeFile(path,JSON.stringify(vault.delivery),{mode:0o600});
  const processDone=new Promise((resolve,reject)=>{
   child=spawn('python3',[new URL('./delivery.py',import.meta.url).pathname,path,operation],{stdio:['pipe','pipe','pipe'],env});let buffer='';
@@ -47,7 +60,7 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
- const op=operation();if(!['check','authorize','schedule','scan','site-retry','sync','digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
+ const op=operation();if(!['check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -58,24 +71,29 @@ async function main(){
    vault.delivery={receipts:{},pages:{},pushes:vault.feishu?.pushes||{}};delete vault.feishu;
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
- vault.version=2;vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
+ vault.version=2;upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}payload=await unseal(source,password,'payload');}
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
  if(op==='review'){applyReviews(vault.state,payload.events);await checkpoint();}
  if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config=payload.config;vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
+ upgradeGlobalScope(vault.state);
  vault.lastError='';
  vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};await checkpoint();
  try{
-   if(['schedule','scan','site-retry'].includes(op)){
+   if(['schedule','scan','site-retry','verify'].includes(op)){
     const day=dayOf();const already=vault.state.monitor.runs.some(r=>r.trigger==='schedule'&&r.reportDay===day&&!r.running&&!r.cancelled);
-    if(op!=='schedule'||!already){const run=await scan(vault.state,{trigger:op==='schedule'?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',{version:2,configured:true,runtime:vault.runtime,updatedAt:new Date().toISOString()});}});vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
+    if(op!=='schedule'||!already){const run=await scan(vault.state,{budget:op==='schedule'?120:op==='verify'?8:60,trigger:op==='schedule'?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
    }
    vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
-   await delivery(op==='digest'?'digest':['check','authorize'].includes(op)?'check':'sync');
+   await delivery(['test-digest','verify'].includes(op)?'test-digest':op==='digest'?'digest':['check','authorize'].includes(op)?'check':'sync');
  }catch(error){vault.lastError=error.message||'云端操作失败，原记录保留'}
  finally{vault.runtime={...vault.runtime,currentSite:null,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString()};await checkpoint();}
  if(uploadName&&!vault.lastError){const uploaded=await file(uploadName);if(uploaded)await github('/contents/'+uploadName,'DELETE',{message:'Completed encrypted monitor transfer',branch:config.branch,sha:uploaded.sha});}
+ console.log('监控范围：'+vault.state.config.platforms.length+' 类平台 / '+vault.state.config.regions.length+' 个市场');
+ console.log('归档状态：'+(vault.delivery.archiveError||('已确认 '+Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length+' 次更新')));
+ console.log('群发送状态：'+(vault.delivery.botError||vault.delivery.pushStatus||'尚无发送'));
+ if(['test-digest','verify'].includes(op))console.log('机器人测试：'+JSON.stringify(vault.delivery.lastTest||{}));
  if(op==='check'){console.log('Notion 自动归档：'+(vault.delivery.archiveError||'连接检查通过'));console.log('飞书机器人：'+(vault.delivery.botConfigured?'已配置，等待发送回执':'尚未配置 FEISHU_BOT_WEBHOOK'));}
  console.log(vault.lastError?'云端运行未全部成功，请在归档与推送设置查看详情。':'云端操作完成；Notion 归档与飞书推送状态分别显示，以实际回执为准。');
  if(vault.lastError)process.exitCode=1;
