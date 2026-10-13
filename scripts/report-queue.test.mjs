@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {initMonitor,observe,recordReview,recordRun} from '../monitor.js';
+import {initMonitor,observe,recordReview,recordRun,dayReport} from '../monitor.js';
 import {reportModel,finalizeReport,reportPublication} from '../report-model.js';
 import {buildPlans,defaults,normalizeResults} from '../model.js';
 import {dailyHTML} from '../daily-view.js';import {notionBundle} from '../notion-report.js';import {searchPlan} from '../search-engine.js';
@@ -31,3 +31,5 @@ test('429 cooldown respects Retry-After and can recover; long source cooldown pa
  const r=await searchPlan(p,{wait:async ms=>delays.push(ms),fetcher:async()=>++calls===1?{ok:false,status:429,headers:new Headers({'Retry-After':'2'})}:{ok:true,json:async()=>({results:[{url:row.url,title:row.title}]})}});assert.deepEqual(delays,[2000]);assert.equal(r.attempts.length,2);
  calls=0;await assert.rejects(searchPlan(p,{wait:async()=>assert.fail('must not wait prematurely'),fetcher:async()=>{calls++;return {ok:false,status:429,headers:new Headers({'Retry-After':'120'})}}}),/冷却/);assert.equal(calls,1);
 });
+
+test('result website totals combine desktop and mobile subdomains of the scoped target',()=>{const m=initMonitor(null,[],at);recordRun(m,{id:'run',startedAt:at,items:[{at,status:'成功',domain:'jd.com',resultDomains:['www.jd.com','item.jd.com','item.m.jd.com']}]});const d=dayReport(m,day);assert.deepEqual(d.successfulSites,['jd.com']);assert.deepEqual(d.resultSites,['jd.com']);});
