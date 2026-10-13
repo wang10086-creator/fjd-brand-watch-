@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: 'authorize 首次本人授权；scan 立即检索；sync 补同步；digest 群简报；migrate 迁移完整台账'
+        description: 'check 检查配置；scan 立即检索；sync Notion 补同步；digest 飞书简报；migrate 迁移完整台账'
         type: choice
-        default: authorize
-        options: [authorize, scan, site-retry, sync, digest, migrate, review]
+        default: check
+        options: [check, scan, site-retry, sync, digest, migrate, review]
       payload:
         description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
         required: false
@@ -28,11 +28,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: 云端检索、本人授权与飞书同步
+      - name: 云端检索、Notion 归档与飞书简报
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FEISHU_APP_ID: cli_aa44b8da6d385bdb
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}

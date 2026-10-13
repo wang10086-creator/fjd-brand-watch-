@@ -5,13 +5,14 @@ import {appendRun,appendReview,sitePlans,migrateChain} from '../report-chain.js'
 import {searchPlan,pacedWait} from '../search-engine.js';
 import {mergeWorkspace} from './state.js';
 const read=async name=>JSON.parse(await readFile(new URL('../'+name,import.meta.url),'utf8'));
-export async function initialState(){const rows=(await read('leads.json')).map(enrichLead);return {config:structuredClone(defaults),rows,monitor:{...initMonitor(null,rows),updateChain:[],chainVersion:1},history:[],selectedBrandIds:null,customAliases:defaults.aliases,batchSize:60,cursor:0,completed:[],siteCursors:{},deviceId:'fjd-cloud',schedule:{enabled:true,hour:9,timezone:'Asia/Shanghai'},feishu:{receipts:{},autoSync:true}};}
+export async function initialState(){const rows=(await read('leads.json')).map(enrichLead);return {config:structuredClone(defaults),rows,monitor:{...initMonitor(null,rows),updateChain:[],chainVersion:1},history:[],selectedBrandIds:null,customAliases:defaults.aliases,batchSize:60,cursor:0,completed:[],siteCursors:{},deviceId:'fjd-cloud',schedule:{enabled:true,hour:9,timezone:'Asia/Shanghai'},archive:{receipts:{}}};}
 export async function configure(state){const catalog=await read('brand-catalog.json');const ids=state.selectedBrandIds??catalog.entries.map(e=>e.id),groups=catalog.entries.filter(g=>ids.includes(g.id));state.config=normalizeConfig(state.config);state.config.aliases=[...new Set([...groups.flatMap(g=>g.searchTerms),...(state.customAliases||state.config.aliases)])];state.config.termRules=groups.flatMap(g=>g.termRules||[]);state.config.languageMode='all';return buildPlans(state.config,await read('platform-languages.json'));}
 export function mergeState(current,incoming){
  if(!incoming?.config||!Array.isArray(incoming.rows))throw Error('未找到原网站的完整台账');
  const out=mergeWorkspace(current,incoming);migrateChain(out.monitor);
- out.feishu.receipts={...incoming.feishu?.receipts,...current.feishu?.receipts};
- out.deviceId='fjd-cloud';out.cursor=0;out.completed=[];out.siteCursors={};return out;
+ out.archive={...out.archive,receipts:{...incoming.archive?.receipts,...current.archive?.receipts}};
+ const scope=s=>JSON.stringify([s.config?.regions,s.config?.platforms,s.config?.intent,s.config?.models,s.config?.exclude,s.selectedBrandIds,s.customAliases]);
+ const unchanged=scope(current)===scope(incoming);out.deviceId='fjd-cloud';out.cursor=unchanged?current.cursor||0:0;out.completed=unchanged?current.completed||[]:[];out.siteCursors=unchanged?current.siteCursors||{}:{};return out;
 }
 export function applyReviews(state,events){
  for(const event of events||[]){if(event.type!=='review'||!event.entries?.[0]||!event.id.startsWith('review:'))throw Error('仅可提交真实的复核更新');if(state.monitor.updateChain.some(x=>x.id===event.id))continue;
@@ -21,7 +22,7 @@ export function applyReviews(state,events){
   Object.assign(r,review.after,{reviewedAt:review.at});state.monitor.reviews.push(structuredClone(review));state.monitor.updateChain.push(structuredClone(event));
  }
 }
-export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},siteUrl=''}={}){
+export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},onSite=()=>{},siteUrl=''}={}){
  const plans=await configure(state),budget=Math.min(60,Math.max(1,Number(state.batchSize)||60)),pinned=state.rows.filter(r=>r.watch);
  if(!plans.length&&!watchOnly)throw Error('未启用可执行的品牌、市场和平台');
  const key=site?site.platform+'|'+(site.domain||''):null;
@@ -30,7 +31,7 @@ export async function scan(state,{trigger='manual',site=null,watchOnly=false,now
  if(!queue.length)throw Error('该网站不在云端任务范围');
  const startedAt=now(),h={id:crypto.randomUUID(),startedAt,reportDay:dayOf(startedAt),trigger,planned:queue.length,attempted:0,success:0,failed:0,added:0,delta:[],items:[],running:true,deviceId:'fjd-cloud'};
  state.history.unshift(h);state.history=state.history.slice(0,100);recordRun(state.monitor,h);state.lastAttempt=startedAt;await checkpoint();let errors=0;
- try{for(const p of queue){if(h.attempted)await wait(1200);h.attempted++;const start=Date.now();
+ try{for(const p of queue){await onSite({platform:p.platform,domain:p.domain||''});if(h.attempted)await wait(1200);h.attempted++;const start=Date.now();
   try{const data=await searchPlan(p,{fetcher,wait,signal:AbortSignal.timeout(60000)}),at=now(),effective=data.effectivePlan,rows=p.watchUrl?data.results.filter(r=>canonical(r.url)===canonical(p.watchUrl)).map(r=>enrichLead({url:r.url,title:r.title,snippet:String(r.content||'').slice(0,900),platform:p.platform,country:p.country,query:p.query,searchUrl:p.searchUrl,keywords:p.aliases,source:'指定网址复查 · 公开索引',verification:'search-index',checkedAt:at})):normalizeResults(data.results,effective,at),changes=observe(state.monitor,rows,state.rows,{at,reportDay:h.reportDay,runId:h.id,query:effective.query,searchUrl:effective.searchUrl}),before=state.rows.length;
    for(const change of changes){const kind=change.isNew?'new':change.changed?'changed':'repeat',old=h.delta.find(x=>x.key===change.key);if(!old)h.delta.push({key:change.key,kind});else if(old.kind==='repeat'&&kind==='changed')old.kind='changed';}
    state.rows=mergeRows(state.rows,rows).map(enrichLead);for(const c of changes)if(c.changed)state.rows.find(r=>canonical(r.url)===c.key).needsRecheck=true;

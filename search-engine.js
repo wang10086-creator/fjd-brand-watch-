@@ -1,4 +1,4 @@
-import {normalizeResults,canonical} from './model.js?v=20261013-cloud';
+import {normalizeResults,canonical} from './model.js?v=20261013-notion';
 const endpoint='https://api.tavily.com/search';
 const quote=s=>'"'+String(s).replaceAll('"','')+'"';
 export function simplifiedQuery(p){const aliases=[...p.aliases].sort((a,b)=>(p.country==='CN'?Number(/[\u4e00-\u9fff]/.test(b))-Number(/[\u4e00-\u9fff]/.test(a)):0)).slice(0,2);return ['('+aliases.map(a=>{const rule=p.termRules?.find(r=>r.text===a);return rule?.requiresContext?quote(a)+' ('+rule.contextTerms.slice(0,5).map(quote).join(' OR ')+')':quote(a)}).join(' OR ')+')',...(p.models||[]).map(quote),...(p.excluded||[]).map(x=>'-'+quote(x))].join(' ');}

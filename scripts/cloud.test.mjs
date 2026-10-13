@@ -5,12 +5,12 @@ import {initialState,scan} from '../cloud/scan.mjs';
 import {mergeWorkspace} from '../cloud/state.js';
 import {recoverLedger} from '../cloud/recovery.mjs';
 const password='cloud-test-password-only';
-test('first cloud authorization has an empty report chain without inventing daily reports',async()=>{
+test('first cloud initialization has an empty report chain without inventing daily reports',async()=>{
  const s=await initialState();assert.deepEqual(s.monitor.updateChain,[]);assert.deepEqual(s.monitor.runs,[]);assert.equal(s.monitor.chainVersion,1);
  assert.ok(s.rows.length>0);assert.deepEqual(s.monitor.updateChain.map(({chartPng,...event})=>event),[]);
 });
 test('application secret correction preserves the ledger, receipts and push history while requiring a new grant',async()=>{
- const state=await initialState(),baseUrl='https://example.feishu.cn/base/test';state.rows[0].note='private-review';state.feishu.receipts={event:{status:'synced'}};
+ const state=await initialState(),baseUrl='https://example.feishu.cn/base/test';state.rows[0].note='private-review';state.feishu={receipts:{event:{status:'synced'}}};
  const cipher=await seal({state,baseUrl,authorized:true,pushes:{'2026-10-13':{status:'sent'}},revision:10},password,'dashboard');
  const recovered=await recoverLedger(cipher,password,baseUrl);assert.equal(recovered.state.rows[0].note,'private-review');assert.deepEqual(recovered.feishu.receipts,state.feishu.receipts);assert.equal(recovered.feishu.pushes['2026-10-13'].status,'sent');assert.equal(recovered.feishu.authorized,false);assert.equal(recovered.feishu.oauth,undefined);
  await assert.rejects(recoverLedger(cipher,'incorrect-password',baseUrl));await assert.rejects(recoverLedger(cipher,password,'https://other.feishu.cn/base/test'));
