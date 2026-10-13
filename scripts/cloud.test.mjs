@@ -4,6 +4,10 @@ import {seal,unseal,migrationState} from '../cloud/crypto.js';
 import {initialState,scan} from '../cloud/scan.mjs';
 import {mergeWorkspace} from '../cloud/state.js';
 const password='cloud-test-password-only';
+test('first cloud authorization has an empty report chain without inventing daily reports',async()=>{
+ const s=await initialState();assert.deepEqual(s.monitor.updateChain,[]);assert.deepEqual(s.monitor.runs,[]);assert.equal(s.monitor.chainVersion,1);
+ assert.ok(s.rows.length>0);assert.deepEqual(s.monitor.updateChain.map(({chartPng,...event})=>event),[]);
+});
 test('cloud ciphertext authenticates role, password and compressed data without exposing review notes',async()=>{
  const data={rows:[{note:'private-test-note'}],oauth:{refreshToken:'dummy-private-token'}},e=await seal(data,password,'vault');assert.ok(!JSON.stringify(e).includes('private-test'));assert.deepEqual(await unseal(e,password,'vault'),data);await assert.rejects(unseal(e,password,'dashboard'));await assert.rejects(unseal(e,'wrong-password','vault'));
  const state=migrationState({rows:[],monitor:{updateChain:[{id:'a',chartPng:'large'}]}});assert.equal(state.monitor.updateChain[0].chartPng,undefined);

@@ -52,6 +52,7 @@ async function main(){
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
  await branch();const saved=await file('vault.json');
  vault=saved?await unseal(saved.value,appSecret+'|'+password,'vault'):{version:1,state:await initialState(),feishu:{receipts:{},pushes:{}},runtime:{phase:'ready'}};
+ vault.state.monitor.updateChain||=[];
  if(vault.feishu.baseUrl&&vault.feishu.baseUrl!==config.baseUrl)throw Error('目标表格与原归档不一致，已停止');
  const op=operation();if(!['authorize','schedule','scan','site-retry','sync','digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}payload=await unseal(source,password,'payload');}
@@ -59,6 +60,7 @@ async function main(){
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
  if(op==='review'){applyReviews(vault.state,payload.events);await checkpoint();}
  if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config=payload.config;vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
+ vault.lastError='';if(op==='authorize')vault.feishu.lastError='';
  vault.runtime={phase:op==='authorize'?'authorizing':'running',operation:op,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};await checkpoint();
  try{
   if(op==='authorize'){await feishu('authorize')}
