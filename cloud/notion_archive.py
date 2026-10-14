@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 import urllib.parse
+from report_sections_text import sections, beijing
 
 TYPES = {'schedule': '自动检索', 'manual': '手动检索', 'refresh': '立即检索', 'site-retry': '站点补查', 'retry': '失败重试', 'review': '人工复核', 'watch': '重点复查', 'public-collector': '公共补充检索'}
 
@@ -104,6 +105,45 @@ class NotionReports:
         self.pages[day] = {'id': page['id'], 'url': page.get('public_url') or page.get('url'), 'publicUrl': page.get('public_url')}
         return self.pages[day]
 
+    def overview(self, event):
+        """Update only managed presentation blocks; immutable evidence toggles stay intact."""
+        if not event.get('cumulative'): return
+        page=self.day_page(event['day']);blocks=self.children(page['id'])
+        marker='https://wang10086-creator.github.io/fjd-brand-watch-/#report-section='
+        owned={marker_of(b).split(marker)[1].split('&')[0]:b for b in blocks if marker in marker_of(b)}
+        old=owned.get('title');old_url=marker_of(old) if old else ''
+        old_at=urllib.parse.parse_qs(urllib.parse.urlparse(old_url).fragment).get('at',[''])[0]
+        if old_at and old_at>event['at']: return
+        charts=event.get('reportCharts') or {}
+        specs=[('title',block('heading_2','日报概览 · '+beijing(event['at'])))]
+        for key,title,copy in sections(event):
+            specs.append((key+'-title',block('heading_3',title)))
+            url=charts.get(key,'')
+            if url.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
+                specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':text(title+' · 数据图表')}}))
+            specs.append((key+'-copy',block('paragraph',copy)))
+        specs.append(('details',block('heading_2','检索明细与更新记录')))
+        after=blocks[0]['id'] if blocks else None
+        for key,value in specs:
+            body=value[value['type']];rich=body.get('rich_text',body.get('caption'))
+            rich[0]['text']['link']={'url':marker+key+'&at='+urllib.parse.quote(event['at'],safe='')}
+            existing=owned.get(key)
+            if existing:
+                if value['type']=='image' and existing['image'].get('external',{}).get('url')!=body['external']['url']:
+                    result=self.request('PATCH','/blocks/'+page['id']+'/children',{'children':[value],'after':existing['id']})
+                    after=result['results'][0]['id'];self.request('PATCH','/blocks/'+existing['id'],{'archived':True})
+                else:
+                    if value['type']!='image' and existing[value['type']]!=body:self.request('PATCH','/blocks/'+existing['id'],{value['type']:body})
+                    after=existing['id']
+            else:
+                result=self.request('PATCH','/blocks/'+page['id']+'/children',{'children':[value],**({'after':after} if after else {})})
+                after=result['results'][0]['id']
+        # Remove obsolete presentation only after the replacement has been written.
+        for b in blocks:
+            if (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
+                self.request('PATCH','/blocks/'+b['id'],{'archived':True})
+        self.children_cache.pop(page['id'],None)
+
     def sync(self, raw_event):
         event = public_event(raw_event)
         page = self.day_page(event['day'])
@@ -118,12 +158,12 @@ class NotionReports:
         for i, children in enumerate(chunks):
             marker = f'{key}/{digest}/{i+1}'
             if any(marker in value for value in existing): continue
-            title = f"{TYPES.get(event['type'],event['type'])} · {event['at']} · {i+1}/{len(chunks)}"
+            title = f"{TYPES.get(event['type'],event['type'])} · {beijing(event['at'])} · {i+1}/{len(chunks)}"
             entry = block('toggle', title, children=children)
             entry['toggle']['rich_text'][0]['text']['link'] = {'url': 'https://wang10086-creator.github.io/fjd-brand-watch-/#daily?day='+event['day']+'&update='+marker}
             result = self.request('PATCH', '/blocks/'+page['id']+'/children', {'children': [entry]})
             blocks.extend(result.get('results', []))
-        if event.get('cumulative') and not event.get('historical'):
+        if event.get('cumulative') and not event.get('historical') and raw_event.get('reportLayoutVersion')!=2:
             summary = next((b for b in blocks if b.get('type') == 'callout' and plain(b).startswith('📊 自动累计概览')), None)
             prior = re.search(r'累计截止：([^\s]+)', plain(summary)) if summary else None
             if not prior or prior[1] <= event['at']:

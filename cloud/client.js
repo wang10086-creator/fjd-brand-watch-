@@ -34,10 +34,10 @@ export function cloudRunning(state){return ['submitting','queued','running'].inc
 export async function runCloud(state,{site=null,watch=false}={}){
  if(cloudRunning(state))throw Error('已有云端任务，请等待完成后再提交');
  const previous=state.cloudService;state.cloudService={...previous,phase:'submitting',currentSite:site,queuedAt:new Date().toISOString()};
- try{const payload=await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
+ try{const payload=!cloudCredentials().password&&!state.cloudTaskDirty?JSON.stringify({publicRequest:{...(site?{site}:{}),...(watch?{watchOnly:true}:{})}}):await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
 }
 export async function refreshRuntime(state){
- const info=await publicCloudFile('status.json');if(!info?.runtime)return;state.automation=info.automation||state.automation;
+ const info=await publicCloudFile('status.json');if(!info?.runtime)return;state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;state.cloudStatusError='';
  const old=state.cloudService||{},newer=Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt||old.startedAt||'1970-01-01');
  if(newer)state.cloudService={...old,...info.runtime};
 }

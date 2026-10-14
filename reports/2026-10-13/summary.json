@@ -1,0 +1,34 @@
+{
+  "day": "2026-10-13",
+  "at": "2026-10-13T06:36:30.189227+00:00",
+  "cumulative": {
+    "new": 22,
+    "changed": 0,
+    "repeat": 0,
+    "pending": 22,
+    "priority": {
+      "routine": 22,
+      "medium": 0,
+      "high": 0
+    },
+    "review": {
+      "pending": 22,
+      "reviewing": 0,
+      "cleared": 0,
+      "escalated": 0
+    },
+    "sites": 6,
+    "failedSites": 0,
+    "success": 6,
+    "failed": 0,
+    "trend": [
+      {
+        "day": "2026-10-13",
+        "known": true,
+        "new": 22,
+        "changed": 0
+      }
+    ]
+  },
+  "source": "public-scan.json · 已归档公共补充检索"
+}

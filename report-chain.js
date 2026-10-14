@@ -1,6 +1,6 @@
-import {dayOf} from './monitor.js?v=20261014-global';
-import {reportModel} from './report-model.js?v=20261014-global';
-import {canonical,risk} from './model.js?v=20261014-global';
+import {dayOf} from './monitor.js?v=20261014-fix';
+import {reportModel} from './report-model.js?v=20261014-fix';
+import {canonical,risk} from './model.js?v=20261014-fix';
 export const triggerNames={schedule:'自动检索',manual:'手动检索',refresh:'立即检索','site-retry':'站点补查',retry:'失败重试',watch:'重点复查','public-collector':'公共补充检索',review:'人工复核'};
 export function chainFor(m,day){return (m.updateChain||[]).filter(e=>e.day===day).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));}
 const tally=items=>({new:items.filter(x=>x.kind==='new').length,changed:items.filter(x=>x.kind==='changed').length,repeat:items.filter(x=>x.kind==='repeat').length});

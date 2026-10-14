@@ -30,16 +30,21 @@ async function checkpoint(){
 }
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
- vault.delivery.events=vault.state.monitor.updateChain.map(({chartPng,...event})=>event);vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
- if(!['check'].includes(operation))for(const event of vault.delivery.events){
-  if(!event.cumulative||vault.delivery.receipts?.[event.id]?.status==='synced')continue;
-  try{const digest=createHash('sha256').update(JSON.stringify({day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),name='reports/'+event.day+'/'+digest+'.png';
-  const input=join(root,'chart.json'),png=join(root,'chart.png');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
-  await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_chart.py',import.meta.url).pathname,input,png],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('日报图表生成失败')))});
-  const content=await readFile(png);let existing;try{existing=await github('/contents/'+name+'?ref='+config.branch)}catch(e){if(e.status!==404)throw e}
-  if(!existing)await github('/contents/'+name,'PUT',{message:'Public aggregate report chart',branch:config.branch,content:content.toString('base64')});
-  event.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/'+name;
-  }catch{console.warn('图表暂未生成，继续归档文字日报与发送简报');}
+ vault.delivery.events=vault.state.monitor.updateChain.map(({chartPng,...event})=>({...event,reportLayoutVersion:2}));
+ // Recover the immutable checksum used by old partially archived records.
+ for(const e of vault.delivery.events)if(e.cumulative&&e.at<='2026-10-14T01:25:00.000Z'){const d=createHash('sha256').update(JSON.stringify({day:e.day,at:e.at,cumulative:e.cumulative})).digest('hex').slice(0,24);e.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/reports/'+e.day+'/'+d+'.png';}vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
+ if(operation!=='check'){
+ const latest=new Map();for(const e of vault.delivery.events)if(e.cumulative&&(!latest.has(e.day)||latest.get(e.day).at<e.at))latest.set(e.day,e);
+ for(const event of latest.values())try{
+  if(vault.delivery.reportLayouts?.[event.day]===event.at)continue;
+  const digest=createHash('sha256').update(JSON.stringify({version:2,day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),prefix='reports/'+event.day+'/'+digest;
+  const input=join(root,'sections.json'),output=join(root,'sections');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
+  await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_sections.py',import.meta.url).pathname,input,output],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('图表生成失败')))});
+  event.reportCharts={};for(const kind of ['discovery','review','trend']){const name=prefix+'-'+kind+'.png';let existing;try{existing=await github('/contents/'+name+'?ref='+config.branch)}catch(e){if(e.status!==404)throw e}
+   if(!existing)await github('/contents/'+name,'PUT',{message:'Daily report data chart',branch:config.branch,content:(await readFile(join(output,kind+'.png'))).toString('base64')});
+   event.reportCharts[kind]='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/'+name;
+  }
+ }catch{console.warn('部分日报图表生成失败，保留文字概括和原始明细');}
  }
  await writeFile(path,JSON.stringify(vault.delivery),{mode:0o600});
  const processDone=new Promise((resolve,reject)=>{
@@ -73,7 +78,7 @@ async function main(){
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
  vault.version=2;upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
- let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}payload=await unseal(source,password,'payload');}
+ let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
  if(op==='review'){applyReviews(vault.state,payload.events);await checkpoint();}

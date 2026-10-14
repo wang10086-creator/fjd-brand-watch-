@@ -23,8 +23,12 @@ def notion_request(token):
                 if error.code == 429 and attempt < 2:
                     time.sleep(min(15, max(1, int(error.headers.get('Retry-After', '3')))))
                     continue
+                detail=''
+                if error.code==400:
+                    try:detail='；'+str(json.load(error).get('message',''))[:900]
+                    except Exception:pass
                 hint = {401: '请更新 GitHub Secret NOTION_TOKEN', 403: '请给 Notion 连接编辑权限', 404: '请在日报总页添加该 Notion 连接', 429: '请求限流，待下一次补同步'}.get(error.code, '写入未确认，原记录保留待补同步')
-                raise ValueError('Notion HTTP '+str(error.code)+'，'+hint) from None
+                raise ValueError('Notion HTTP '+str(error.code)+'，'+hint+detail) from None
             except (urllib.error.URLError, TimeoutError):
                 # Never blindly repeat a mutation after an ambiguous response.
                 raise ValueError('Notion 响应超时，已确认的更新保留；下次按编号核对后补传') from None
@@ -59,6 +63,15 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
                 except Exception:
                     state['receipts'][event['id']] = {'id': event['id'], 'status': 'failed', 'provider': 'notion', 'error': 'Notion 写入尚未确认，等待补同步'}
                     raise
+            latest={}
+            for event in state.get('events',[]):
+                if event.get('cumulative') and (event['day'] not in latest or event['at']>latest[event['day']]['at']):latest[event['day']]=event
+            for event in latest.values():
+                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']:continue
+                sink.overview(event)
+                state['reportLayouts'][event['day']]=event['at']
+                checkpoint()
+            state['reportLayoutVersion']=2
     except Exception as error:
         state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'
     checkpoint()

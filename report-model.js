@@ -1,4 +1,4 @@
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261014-global';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261014-fix';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){
