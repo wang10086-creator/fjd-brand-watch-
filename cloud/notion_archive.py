@@ -102,7 +102,7 @@ class NotionReports:
         if matches:
             page = self.request('GET', '/pages/'+matches[0]['id'])
         else:
-            page = self.request('POST', '/pages', {'parent': {'page_id': self.parent}, 'icon': {'type': 'emoji', 'emoji': '📊'}, 'properties': {'title': {'type': 'title', 'title': text(title)}}, 'children': [block('paragraph', '北京时间每天一页。上方累计概览随进展更新，下方逐次保留自动检索、手动补查和复核记录。重复页面只计首次发现；公开报告包含统计及公开线索。'), block('heading_2', '当日累计与更新记录')]})
+            page = self.request('POST', '/pages', {'parent': {'page_id': self.parent}, 'icon': {'type': 'emoji', 'emoji': '📊'}, 'properties': {'title': {'type': 'title', 'title': text(title)}}, 'children': [block('paragraph', '按北京时间归档，汇总当日检索与复核进展；后续更新保留完整追溯记录。'), block('heading_2', '当日累计与更新记录')]})
         self.pages[day] = {'id': page['id'], 'url': page.get('public_url') or page.get('url'), 'publicUrl': page.get('public_url')}
         return self.pages[day]
 
@@ -110,6 +110,8 @@ class NotionReports:
         """Compact chart-first overview; block IDs are persisted outside public content."""
         if not event.get('cumulative'): return
         page=self.day_page(event['day']);blocks=self.children(page['id'])
+        if blocks and blocks[0]['type']=='paragraph' and plain(blocks[0]).startswith('北京时间每天一页。'):
+            self.request('PATCH','/blocks/'+blocks[0]['id'],{'paragraph':{'rich_text':text('按北京时间归档，汇总当日检索与复核进展；后续更新保留完整追溯记录。')}})
         marker='https://wang10086-creator.github.io/fjd-brand-watch-/#report-section='
         legacy=[b for b in blocks if marker in marker_of(b)]
         meta=self.layouts.setdefault(page['id'],{'blocks':{}})

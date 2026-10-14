@@ -67,9 +67,9 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
             for event in state.get('events',[]):
                 if event.get('cumulative') and (event['day'] not in latest or event['at']>latest[event['day']]['at']):latest[event['day']]=event
             for event in latest.values():
-                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']+'|v6':continue
+                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']+'|v7':continue
                 sink.overview(event)
-                state['reportLayouts'][event['day']]=event['at']+'|v6'
+                state['reportLayouts'][event['day']]=event['at']+'|v7'
                 checkpoint()
             state['reportLayoutVersion']=2
     except Exception as error:
