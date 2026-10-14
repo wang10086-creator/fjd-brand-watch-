@@ -22,7 +22,8 @@ class Store:
             for b in copy.deepcopy(body['children']):
                 self.counter+=1;b['id']='block-'+str(self.counter);result.append(b)
             existing=self.blocks[path.split('/')[2]]
-            if body.get('after'):idx=next(i for i,b in enumerate(existing) if b['id']==body['after'])+1;existing[idx:idx]=result
+            if body.get('after')=='start':existing[0:0]=result
+            elif body.get('after'):idx=next(i for i,b in enumerate(existing) if b['id']==body['after'])+1;existing[idx:idx]=result
             else:existing.extend(result)
             if self.fail_append and any(b['type']=='toggle' for b in result):self.fail_append=False;raise TimeoutError('response lost after server persisted mutation')
             return {'results':copy.deepcopy(result)}
@@ -32,6 +33,23 @@ class Store:
         raise AssertionError((method,path))
 
 class Tests(unittest.TestCase):
+    def test_archive_hub_refresh_preserves_history_and_recovers_mapping(self):
+        from notion_archive import block
+        store=Store();layouts={};pages={};sink=NotionReports(store.request,'parent',pages,layouts)
+        store.request('PATCH','/blocks/parent/children',{'children':[block('heading_2','日报归档'),block('heading_2','数据接收状态'),block('paragraph','已归档 旧快照')]})
+        sink.sync(EVENT);sink.parent_overview(EVENT)
+        active=lambda:[b for b in store.blocks['parent'] if not b.get('archived')]
+        child_ids=[b['id'] for b in active() if b['type']=='child_page'];count=len(active())
+        NotionReports(store.request,'parent',pages,{}).parent_overview(EVENT)
+        self.assertEqual(len(active()),count)
+        newer=copy.deepcopy(EVENT);newer['at']='2026-10-13T05:00:00Z';newer['cumulative']['new']=6
+        sink.parent_overview(newer);sink.parent_overview(EVENT)
+        self.assertEqual([b['id'] for b in active() if b['type']=='child_page'],child_ids)
+        self.assertIn('新增 6 条',str(active()));self.assertNotIn('已归档 旧快照',str(active()))
+        self.assertNotIn('private-review',str(active()));self.assertIn('00:00',str(active()));self.assertIn('10:30',str(active()))
+        self.assertEqual(sum(b['type']=='child_page' for b in active()),1)
+        self.assertLess(next(i for i,b in enumerate(active()) if plain(b)=='历史日报 · 按日期查阅'),next(i for i,b in enumerate(active()) if b['type']=='child_page'))
+
     def test_same_day_appends_retry_after_lost_response_does_not_duplicate(self):
         store=Store();store.fail_append=True
         with self.assertRaises(TimeoutError):NotionReports(store.request,'parent').sync(EVENT)

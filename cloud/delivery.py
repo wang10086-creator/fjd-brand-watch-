@@ -72,6 +72,12 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
                 state['reportLayouts'][event['day']]=event['at']+'|v7'
                 checkpoint()
             state['reportLayoutVersion']=2
+            if latest:
+                event=max(latest.values(),key=lambda e:(e['day'],e['at']))
+                if state.get('archiveHubVersion')!=event['at']+'|v1':
+                    sink.parent_overview(event)
+                    state['archiveHubVersion']=event['at']+'|v1'
+                    checkpoint()
     except Exception as error:
         state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'
     checkpoint()

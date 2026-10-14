@@ -106,6 +106,56 @@ class NotionReports:
         self.pages[day] = {'id': page['id'], 'url': page.get('public_url') or page.get('url'), 'publicUrl': page.get('public_url')}
         return self.pages[day]
 
+    def parent_overview(self, event):
+        """Maintain the public archive hub without touching daily child pages."""
+        blocks=[b for b in self.children(self.parent) if not b.get('archived')]
+        meta=self.layouts.setdefault('archive-hub',{'blocks':{}})
+        if meta.get('at','')>event['at']:return
+        page=self.day_page(event['day']);c=event['cumulative'];cv=c.get('coverage') or {};p=c.get('priority') or {}
+        specs=[
+            ('title',block('heading_2','最新归档｜'+event['day'])),
+            ('summary',block('callout',f"新增 {c.get('new',0)} 条  ·  内容变化 {c.get('changed',0)} 条  ·  待核查 {c.get('pending',0)} 条\n高、中优先级 {p.get('high',0)+p.get('medium',0)} 条；累计截至 {beijing(event['at'])}。",icon={'type':'emoji','emoji':'📊'})),
+            ('latest',link_block('阅读最新日报 · 图表概览与核查明细','https://adventurous-eyebrow-6d5.notion.site/'+page['id'].replace('-',''))),
+        ]
+        chart=(event.get('reportCharts') or {}).get('coverage','')
+        if chart.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
+            specs.append(('coverage-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':chart},'caption':[]}}))
+        copy=(f"归档时的执行覆盖：{cv['total']} 个站点与全网入口中，已查 {cv['searched']} 个、失败待补查 {cv['failedOnly']} 个、尚未执行 {cv['unattempted']} 个。" if cv else '该日期未留存完整目标范围，暂不计算覆盖率。')
+        specs.extend([
+            ('coverage-copy',block('paragraph',copy+' 已查表示至少一次有效索引查询，不代表全站覆盖；未执行不等同网站不可访问。')),
+            ('schedule',block('paragraph','监控安排｜北京时间 00:00 起分批检索，10:30 推送飞书简报，后续补查继续归入当日日报。云端队列可能延迟；本页展示已归档快照，实时执行状态见工作台。')),
+            ('workbench',link_block('进入监控工作台 · 执行状态与线索复核','https://wang10086-creator.github.io/fjd-brand-watch-/')),
+            ('method',block('toggle','阅读指引与统计口径',children=[
+                block('paragraph','日报先呈现线索增量、复核进展与覆盖图表，随后列出具体线索及逐次执行记录。检索范围包含中国与海外电商、经销、代理和转售平台。'),
+                block('paragraph','每天一份日报，按北京时间归档；自动检索、手动补查与复核更新追加到同一天的更新链。页面累计概览随归档刷新，重复页面不重复计入新增。'),
+                block('paragraph','风险优先级用于安排复核，不构成侵权认定。公开站点仅呈现统计及公开线索；内部核查备注、授权材料与非公开证据不在此披露。')
+            ])),
+            ('archive',block('heading_2','历史日报 · 按日期查阅')),
+        ])
+        ids=meta.setdefault('blocks',{});byid={b['id']:b for b in blocks}
+        anchor=byid.get(ids.get('title')) or next((b for b in blocks if b['type']=='heading_2' and (plain(b)=='日报归档' or plain(b).startswith('最新归档｜'))),None)
+        if anchor:ids['title']=anchor['id']
+        after=None
+        for key,value in specs:
+            kind=value['type'];body=value[kind];existing=byid.get(ids.get(key))
+            def same(b):
+                return b['type']==kind and (b[kind].get('external',{}).get('url')==body['external']['url'] if kind=='image' else plain(b)==plain(value) and marker_of(b)==marker_of(value))
+            if not existing:existing=next((b for b in blocks if same(b)),None)
+            if existing and same(existing):pass
+            elif existing and kind==existing['type'] and kind not in ('image','toggle'):
+                self.request('PATCH','/blocks/'+existing['id'],{kind:body})
+            else:
+                result=self.request('PATCH','/blocks/'+self.parent+'/children',{'children':[value],'after':after or 'start'})
+                if existing:self.request('PATCH','/blocks/'+existing['id'],{'archived':True})
+                existing=result['results'][0];blocks.append(existing)
+            ids[key]=existing['id'];after=existing['id']
+        keep={ids[k] for k,_ in specs}
+        legacy_starts=('按北京时间每天一页。','中国及海外电商、经销、代理与转售平台','已归档 ','打开品牌监控工作台','📊 阅读顺序：','📁 Notion 用于日报归档','🔎 公开内容包括统计')
+        for b in blocks:
+            obsolete=(b['type']=='heading_2' and plain(b) in ('记录范围','数据接收状态','使用入口')) or (b['type']=='paragraph' and plain(b).startswith(legacy_starts)) or b['id'] in set(ids.values())-keep
+            if obsolete and b['id'] not in keep and b['type']!='child_page':self.request('PATCH','/blocks/'+b['id'],{'archived':True})
+        meta.update(at=event['at'],version=1,blocks={k:ids[k] for k,_ in specs})
+
     def overview(self, event):
         """Compact chart-first overview; block IDs are persisted outside public content."""
         if not event.get('cumulative'): return
