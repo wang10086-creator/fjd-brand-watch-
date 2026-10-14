@@ -1,7 +1,7 @@
-import {applyPublicFeed,pendingLocalEvents} from './public-feed.js';
+import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261014-navigation';
 import {notionPublicUrl} from '../archive-config.js';
 import {seal,unseal,migrationState} from './crypto.js';
-import {mergeWorkspace} from './state.js?v=20261014-shared';
+import {mergeWorkspace} from './state.js?v=20261014-navigation';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
 let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;

@@ -52,6 +52,16 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
         sink.check()
         state['notionCheckedAt'] = dt.datetime.now(dt.timezone.utc).isoformat()
         if operation != 'check':
+            for day in state.get('deletedReportDays', []):
+                page=state['pages'].get(day)
+                if page:
+                    removal=sink.request('PATCH','/pages/'+page['id'],{'archived':True})
+                    if removal.get('archived') is not True:raise ValueError('Notion 尚未确认指定日期的日报已删除')
+                    state['layoutBlocks'].pop(page['id'],None)
+                    state['pages'].pop(day,None)
+                    state.setdefault('reportLayouts',{}).pop(day,None)
+                    state.setdefault('removedReportPages',{})[day]=dt.datetime.now(dt.timezone.utc).isoformat()
+                    checkpoint()
             for event in sorted(state.get('events', []), key=lambda e: (e['at'], e['id'])):
                 if state.setdefault('receipts', {}).get(event['id'], {}).get('status') == 'synced':
                     continue

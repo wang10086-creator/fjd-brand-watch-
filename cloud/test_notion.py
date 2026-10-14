@@ -28,11 +28,23 @@ class Store:
             if self.fail_append and any(b['type']=='toggle' for b in result):self.fail_append=False;raise TimeoutError('response lost after server persisted mutation')
             return {'results':copy.deepcopy(result)}
         if method=='PATCH':
+            if path.startswith('/pages/'):
+                self.pages[path.split('/')[-1]].update(copy.deepcopy(body));return copy.deepcopy(self.pages[path.split('/')[-1]])
             blockid=path.split('/')[-1]
             b=next(b for values in self.blocks.values() for b in values if b['id']==blockid);b.update(copy.deepcopy(body));return b
         raise AssertionError((method,path))
 
 class Tests(unittest.TestCase):
+    def test_requested_date_page_is_archived_once_and_other_days_are_preserved(self):
+        store=Store();pages={};sink=NotionReports(store.request,'parent',pages)
+        old=copy.deepcopy(EVENT);old.update(id='remove-me',day='2026-10-12',at='2026-10-12T01:00:00Z')
+        sink.sync(old);sink.sync(EVENT);old_id=pages['2026-10-12']['id'];keep_id=pages['2026-10-13']['id']
+        state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','pages':pages,'events':[EVENT],'deletedReportDays':['2026-10-12']}
+        deliver(state,'sync',lambda:None,env={'NOTION_TOKEN':'dummy'},request=store.request)
+        self.assertEqual(state['archiveError'],'');self.assertTrue(store.pages[old_id]['archived']);self.assertNotIn('2026-10-12',state['pages']);self.assertNotIn('archived',store.pages[keep_id])
+        deliver(state,'sync',lambda:None,env={'NOTION_TOKEN':'dummy'},request=store.request)
+        self.assertEqual(state['archiveError'],'');self.assertEqual(len(store.pages),2)
+
     def test_merged_overview_updates_archive_and_brief_without_rewriting_events(self):
         store=Store();event=copy.deepcopy(EVENT)
         overview=copy.deepcopy(EVENT);overview['cumulative']['new']=7;overview['reportVersion']='merged-v1'

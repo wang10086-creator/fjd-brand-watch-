@@ -1,4 +1,4 @@
-import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261014-shared';
+import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261014-navigation';
 import {loadState,persist,flush} from '../storage.js';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false;
 const status=text=>$('#status').textContent=text;
