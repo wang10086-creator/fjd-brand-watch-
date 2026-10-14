@@ -24,6 +24,7 @@ export function applyPublicFeed(state,feed){
   if(local?.reviewedAt&&local.reviewedAt>=(incoming?.reviewedAt||''))return enrichLead({...r,...pick(local,'status reviewOutcome reviewedAt note evidence decision confirmedIssue imageMatch needsRecheck watch pageState'),publicOnly:false});
   return enrichLead(incoming?{...r,...pick(incoming,'status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck'),publicOnly:true}:r);
  });
+ const history=new Map((state.history||[]).map(r=>[r.id,r]));for(const r of feed.monitor.runs||[]){const old=history.get(r.id);if(!old||old.publicOnly)history.set(r.id,structuredClone(r));}state.history=[...history.values()].sort((a,b)=>b.startedAt.localeCompare(a.startedAt)).slice(0,100);
  state.monitor=mergeMonitors(state.monitor,feed.monitor,state.rows);
  state.archive={...state.archive,receipts:{...state.archive?.receipts,...feed.receipts}};
  state.publicRevision=feed.revision;state.publicUpdatedAt=feed.updatedAt;
