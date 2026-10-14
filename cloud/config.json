@@ -3,8 +3,8 @@
   "branch": "data-cloud",
   "workflow": "fjd-cloud.yml",
   "siteUrl": "https://wang10086-creator.github.io/fjd-brand-watch-/",
-  "searchTime": "09:00",
-  "pushTime": "09:30",
+  "searchTime": "00:00",
+  "pushTime": "10:30",
   "timezone": "Asia/Shanghai",
   "notionParentId": "3f865b80-3b2b-81cf-800b-ff7fcf1624db",
   "notionPublicUrl": "https://adventurous-eyebrow-6d5.notion.site/3f865b803b2b81cf800bff7fcf1624db"

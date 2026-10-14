@@ -1,8 +1,10 @@
+import {hydratePublicRecords} from './public-feed.js';
 import {mergeRows,enrichLead,canonical} from '../model.js?v=20261014-compact';
 import {mergeMonitors} from '../monitor.js?v=20261014-compact';
 import {migrateChain} from '../report-chain.js?v=20261014-compact';
 const fields=['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'];
 export function mergeWorkspace(local,remote){
+ local=hydratePublicRecords(local,remote);
  const rows=mergeRows(local.rows||[],remote.rows||[]).map(enrichLead),byUrl=new Map((remote.rows||[]).map(r=>[canonical(r.url),r]));
  for(const r of rows){const incoming=byUrl.get(canonical(r.url));if(incoming?.reviewedAt&&(!r.reviewedAt||incoming.reviewedAt>r.reviewedAt))for(const k of fields)if(incoming[k]!==undefined)r[k]=incoming[k];}
  const monitor=mergeMonitors(local.monitor,remote.monitor,rows);migrateChain(monitor);
