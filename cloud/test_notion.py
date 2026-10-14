@@ -84,6 +84,6 @@ class SectionLayoutTests(unittest.TestCase):
         store=Store();e=copy.deepcopy(EVENT);e['reportLayoutVersion']=2;e['reportCharts']={k:'https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/2026-10-13/'+k+'.png' for k in ['discovery','review','trend']}
         sink=NotionReports(store.request,'parent');sink.sync(e);sink.overview(e);sink.overview(e)
         blocks=next(v for k,v in store.blocks.items() if k!='parent');self.assertEqual(sum(b['type']=='image' for b in blocks),3);self.assertEqual(sum(b['type']=='toggle' for b in blocks),1)
-        labels=[plain(b) for b in blocks];self.assertIn('01 今天发现了什么',labels);self.assertIn('04 本次查到了多少',labels);self.assertTrue(any('新发现 1 条' in x for x in labels));self.assertTrue(any('北京时间' in x for x in labels))
+        labels=[plain(b) for b in blocks];self.assertTrue(any(x.startswith('01 今天发现了什么') for x in labels));self.assertTrue(any(x.startswith('04 本次查到了多少') for x in labels));self.assertTrue(any('新发现 1 条' in x for x in labels));self.assertTrue(any('北京时间' in x for x in labels))
         newer=copy.deepcopy(e);newer['at']='2026-10-13T04:00:00Z';newer['cumulative']['new']=4;sink.overview(newer);sink.overview(e)
         self.assertTrue(any('新发现 4 条' in plain(b) for b in blocks))

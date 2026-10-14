@@ -95,7 +95,7 @@ async function main(){
    vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
    await delivery(['test-digest','verify'].includes(op)?'test-digest':(op==='digest'||(op==='auto'&&dueActions(vault).digest))?'digest':['check','authorize'].includes(op)?'check':'sync');
  }catch(error){vault.lastError=error.message||'云端操作失败，原记录保留'}
- finally{vault.runtime={...vault.runtime,currentSite:null,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString()};await checkpoint();}
+ finally{vault.runtime={...vault.runtime,currentSite:null,phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
  if(uploadName&&!vault.lastError){const uploaded=await file(uploadName);if(uploaded)await github('/contents/'+uploadName,'DELETE',{message:'Completed encrypted monitor transfer',branch:config.branch,sha:uploaded.sha});}
  console.log('监控范围：'+vault.state.config.platforms.length+' 类平台 / '+vault.state.config.regions.length+' 个市场');
  console.log('归档状态：'+(vault.delivery.archiveError||('已确认 '+Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length+' 次更新')));
@@ -103,6 +103,6 @@ async function main(){
  if(['test-digest','verify'].includes(op))console.log('机器人测试：'+JSON.stringify(vault.delivery.lastTest||{}));
  if(op==='check'){console.log('Notion 自动归档：'+(vault.delivery.archiveError||'连接检查通过'));console.log('飞书机器人：'+(vault.delivery.botConfigured?'已配置，等待发送回执':'尚未配置 FEISHU_BOT_WEBHOOK'));}
  console.log(vault.lastError?'云端运行未全部成功，请在归档与推送设置查看详情。':'云端操作完成；Notion 归档与飞书推送状态分别显示，以实际回执为准。');
- if(vault.lastError)process.exitCode=1;
+ if(vault.lastError||vault.delivery.archiveError||vault.delivery.botError)process.exitCode=1;
 }
 main().catch(error=>{console.error(error.message&&/^(GitHub|缺少|不支持|云端|目标|尚未)/.test(error.message)?error.message:'云端持久化或数据校验失败，未继续执行；请核对密码和受保护配置');process.exitCode=1});
