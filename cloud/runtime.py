@@ -143,7 +143,9 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
     today = sorted([event for event in state.get('events', []) if event['day'] == day], key=lambda e: (e.get('at',''), e.get('id','')))
     latest = next((e['cumulative'] for e in reversed(today) if e.get('cumulative')), None)
     automatic = any(e.get('type') == 'schedule' and not e.get('summary',{}).get('cancelled') for e in today)
-    text = ('【联调测试，不替代每日简报】\n' if test else '') + day + ' 丰疆品牌监控简报\n' + ('今日自动检索已完成。' if automatic else '今日尚无自动检索完成记录。')
+    partial = any(e.get('type')=='schedule' for e in today)
+    search_state = '今日自动检索已完成本批预算。' if automatic else '今日自动检索部分完成，剩余查询待续查。' if partial else '今日尚无自动检索启动记录。'
+    text = ('【联调测试，不替代每日简报】\n' if test else '') + day + ' 丰疆品牌监控简报\n' + search_state
     if latest:
         text += f"\n新增 {latest.get('new', 0)} ｜变化 {latest.get('changed', 0)} ｜待核查 {latest.get('pending', 0)}\n成功查询网站 {latest.get('sites', 0)} ｜未解决失败 {latest.get('failed', 0)}"
     else:

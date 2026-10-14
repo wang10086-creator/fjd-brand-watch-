@@ -36,7 +36,7 @@ async function delivery(operation){
  if(operation!=='check'){
  const latest=new Map();for(const e of vault.delivery.events)if(e.cumulative&&(!latest.has(e.day)||latest.get(e.day).at<e.at))latest.set(e.day,e);
  for(const event of latest.values())try{
-  if(vault.delivery.reportLayouts?.[event.day]===event.at)continue;
+  if(vault.delivery.reportLayouts?.[event.day]===event.at+'|v3')continue;
   const digest=createHash('sha256').update(JSON.stringify({version:2,day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),prefix='reports/'+event.day+'/'+digest;
   const input=join(root,'sections.json'),output=join(root,'sections');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
   await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_sections.py',import.meta.url).pathname,input,output],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('图表生成失败')))});

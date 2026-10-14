@@ -126,7 +126,7 @@ class NotionReports:
         after=blocks[0]['id'] if blocks else None
         for key,value in specs:
             body=value[value['type']];rich=body.get('rich_text',body.get('caption'))
-            rich[0]['text']['link']={'url':marker+key+'&at='+urllib.parse.quote(event['at'],safe='')}
+            rich.append({'type':'text','text':{'content':' ↗','link':{'url':marker+key+'&at='+urllib.parse.quote(event['at'],safe='')}}})
             existing=owned.get(key)
             if existing:
                 if value['type']=='image' and existing['image'].get('external',{}).get('url')!=body['external']['url']:
