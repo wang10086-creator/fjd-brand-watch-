@@ -118,6 +118,11 @@ class NotionReports:
             ('latest',link_block('阅读最新日报 · 图表概览与核查明细','https://adventurous-eyebrow-6d5.notion.site/'+page['id'].replace('-',''))),
         ]
         chart=(event.get('reportCharts') or {}).get('coverage','')
+        if not chart:
+            # Previously synced events may omit chart URLs on subsequent runs.
+            chart_id=self.layouts.get(page['id'],{}).get('blocks',{}).get('coverage-chart')
+            chart_block=next((b for b in self.children(page['id']) if b['id']==chart_id and not b.get('archived')),None)
+            if chart_block:chart=chart_block.get('image',{}).get('external',{}).get('url','')
         if chart.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
             specs.append(('coverage-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':chart},'caption':[]}}))
         copy=(f"归档时的执行覆盖：{cv['total']} 个站点与全网入口中，已查 {cv['searched']} 个、失败待补查 {cv['failedOnly']} 个、尚未执行 {cv['unattempted']} 个。" if cv else '该日期未留存完整目标范围，暂不计算覆盖率。')
