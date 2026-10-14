@@ -55,7 +55,7 @@ class Tests(unittest.TestCase):
         now=dt.datetime(2026,10,13,1,30,tzinfo=dt.timezone.utc)
         deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
         deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
-        self.assertIn('NOTION_TOKEN',state['archiveError']);self.assertEqual(len(sent),1);self.assertIn(state['publicUrl'],sent[0]['content']['text']);self.assertNotIn('private-review',str(sent))
+        self.assertIn('NOTION_TOKEN',state['archiveError']);self.assertEqual(len(sent),1);self.assertIn(state['publicUrl'],str(sent[0]));self.assertNotIn('private-review',str(sent))
     def test_check_is_read_only_then_sync_confirms_notion_receipt(self):
         store=Store();state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','events':[EVENT]}
         deliver(state,'check',lambda:None,env={'NOTION_TOKEN':'dummy'},request=store.request)
@@ -73,7 +73,7 @@ class BotIsolationTests(unittest.TestCase):
         deliver(state,'test-digest',lambda:None,env=env,bot_request=request,now=now)
         deliver(state,'test-digest',lambda:None,env=env,bot_request=request,now=now)
         deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
-        self.assertEqual(len(sent),2);self.assertIn('联调测试',sent[0]['content']['text']);self.assertNotIn('联调测试',sent[1]['content']['text']);self.assertEqual(state['lastTest']['status'],'sent');self.assertEqual(state['pushes']['2026-10-14']['status'],'sent')
+        self.assertEqual(len(sent),2);self.assertIn('联调测试',str(sent[0]));self.assertNotIn('联调测试',str(sent[1]));self.assertEqual(state['lastTest']['status'],'sent');self.assertEqual(state['pushes']['2026-10-14']['status'],'sent')
     def test_public_chart_is_embedded_in_daily_page_and_original_event(self):
         store=Store();event=copy.deepcopy(EVENT);event['chartUrl']='https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/2026-10-13/chart.png'
         sink=NotionReports(store.request,'parent');sink.sync(event);sink.sync(event)
@@ -84,6 +84,17 @@ class SectionLayoutTests(unittest.TestCase):
         store=Store();e=copy.deepcopy(EVENT);e['reportLayoutVersion']=2;e['reportCharts']={k:'https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/2026-10-13/'+k+'.png' for k in ['discovery','review','trend']}
         sink=NotionReports(store.request,'parent');sink.sync(e);sink.overview(e);sink.overview(e)
         blocks=next(v for k,v in store.blocks.items() if k!='parent');self.assertEqual(sum(b['type']=='image' for b in blocks),3);self.assertEqual(sum(b['type']=='toggle' for b in blocks),1)
-        labels=[plain(b) for b in blocks];self.assertTrue(any(x.startswith('01 今天发现了什么') for x in labels));self.assertTrue(any(x.startswith('04 本次查到了多少') for x in labels));self.assertTrue(any('新发现 1 条' in x for x in labels));self.assertTrue(any('北京时间' in x for x in labels))
+        labels=[plain(b) for b in blocks];self.assertTrue(any(x.startswith('01 线索增量') for x in labels));self.assertTrue(any(x.startswith('04 检索覆盖与执行质量') for x in labels));self.assertTrue(any('新发现 1 条' in x for x in labels));self.assertTrue(any('北京时间' in x for x in labels))
         newer=copy.deepcopy(e);newer['at']='2026-10-13T04:00:00Z';newer['cumulative']['new']=4;sink.overview(newer);sink.overview(e)
         self.assertTrue(any('新发现 4 条' in plain(b) for b in blocks))
+
+class CompactOverviewTests(unittest.TestCase):
+    def test_chart_first_no_decorative_links_and_block_ids_survive_reload(self):
+        store=Store();e=copy.deepcopy(EVENT);e['reportLayoutVersion']=2;e['reportCharts']={'discovery':'https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/day/discovery.png'};e['reportBrief']=[{'title':'FJD product','url':'https://shop.example/item','priority':'routine'}]
+        layouts={};pages={};sink=NotionReports(store.request,'parent',pages,layouts);sink.sync(e);sink.overview(e)
+        blocks=store.blocks[pages[e['day']]['id']];active=lambda:[b for b in blocks if not b.get('archived')]
+        count=len(active());NotionReports(store.request,'parent',pages,layouts).overview(e);self.assertEqual(len(active()),count)
+        labels=[plain(b) for b in active()];chart=next(i for i,b in enumerate(active()) if b['type']=='image');case=next(i for i,t in enumerate(labels) if t.startswith('1. FJD'))
+        self.assertLess(chart,case);self.assertFalse(any('report-section=' in marker_of(b) for b in active()))
+        # Recover an insertion whose response was lost before the external mapping persisted.
+        NotionReports(store.request,'parent',pages,{}).overview(e);self.assertEqual(len(active()),count)

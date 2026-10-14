@@ -1,4 +1,4 @@
-import {marketData,platforms} from './model.js?v=20261014-report';
+import {marketData,platforms} from './model.js?v=20261014-compact';
 export const scopeVersion='20261014-global';
 export function upgradeGlobalScope(state){
  if(state.monitorScopeVersion===scopeVersion)return false;

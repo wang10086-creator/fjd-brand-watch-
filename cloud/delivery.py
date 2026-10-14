@@ -47,7 +47,7 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
     try:
         if not token:
             raise ValueError('Notion 自动归档待配置：请添加 NOTION_TOKEN，并将连接加入日报总页')
-        sink = NotionReports(request or notion_request(token), state['parentId'], state.setdefault('pages', {}))
+        sink = NotionReports(request or notion_request(token), state['parentId'], state.setdefault('pages', {}), state.setdefault('layoutBlocks', {}))
         sink.check()
         state['notionCheckedAt'] = dt.datetime.now(dt.timezone.utc).isoformat()
         if operation != 'check':
@@ -67,9 +67,9 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
             for event in state.get('events',[]):
                 if event.get('cumulative') and (event['day'] not in latest or event['at']>latest[event['day']]['at']):latest[event['day']]=event
             for event in latest.values():
-                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']+'|v5':continue
+                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']+'|v6':continue
                 sink.overview(event)
-                state['reportLayouts'][event['day']]=event['at']+'|v5'
+                state['reportLayouts'][event['day']]=event['at']+'|v6'
                 checkpoint()
             state['reportLayoutVersion']=2
     except Exception as error:

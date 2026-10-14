@@ -63,7 +63,7 @@ class Tests(unittest.TestCase):
         digest(state, 'https://open.feishu.cn/open-apis/bot/v2/hook/test', 'dummy-signature', checkpoint, request, now)
         digest(state, 'https://open.feishu.cn/open-apis/bot/v2/hook/test', 'dummy-signature', checkpoint, request, now)
         self.assertEqual(len(calls), 1)
-        self.assertIn('不代表没有风险', calls[0][2]['content']['text'])
+        self.assertIn('不代表没有风险', str(calls[0][2]))
         self.assertTrue(calls[0][2]['sign'])
 
     def test_uncertain_digest_delivery_is_not_blindly_repeated(self):
@@ -81,3 +81,12 @@ class Tests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class CardTests(unittest.TestCase):
+    def test_card_has_one_report_action_truthful_scope_and_no_chat_claim(self):
+        from brief import brief_card
+        state={'baseUrl':'https://example.notion.site/root','publicUrl':'https://example.notion.site/root','pages':{'2026-10-14':{'id':'day-page'}}}
+        c={'new':7,'pending':7,'coverage':{'total':210,'searched':40,'unattempted':161,'failedOnly':9}}
+        body=brief_card(state,'2026-10-14',c,[])
+        self.assertEqual(body['msg_type'],'interactive');self.assertIn('40 / 210',str(body));self.assertIn('不支持群内问答',str(body));self.assertIn('00:00',str(body))
+        buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),1)

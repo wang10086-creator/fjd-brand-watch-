@@ -1,4 +1,4 @@
-import {cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261014-report';
+import {cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261014-compact';
 import {loadState,persist,flush} from '../storage.js';
 const $=s=>document.querySelector(s);let polling=false;
 const status=text=>$('#status').textContent=text;

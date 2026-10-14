@@ -1,4 +1,4 @@
-import {eventPackage,chainFor,triggerNames} from './report-chain.js?v=20261014-report';
+import {eventPackage,chainFor,triggerNames} from './report-chain.js?v=20261014-compact';
 const KEY='fjd-feishu-connection-v1';
 export function bridgeConnection(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch{return {}}}
 export function saveConnection(endpoint,key){const u=new URL(endpoint);if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||u.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(u.hostname)))throw Error('同步服务须使用 HTTPS，或本机 localhost 地址');const v={endpoint:u.href.replace(/\/$/,''),key:String(key||'').trim()};if(v.key.length<20)throw Error('请填写同步助手提供的连接码');localStorage.setItem(KEY,JSON.stringify(v));return v;}

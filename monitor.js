@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261014-report';
+import {canonical, safeUrl, risk} from './model.js?v=20261014-compact';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);

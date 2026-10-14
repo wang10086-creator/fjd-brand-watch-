@@ -75,8 +75,9 @@ def summary_text(event):
 
 
 class NotionReports:
-    def __init__(self, request, parent, pages=None):
+    def __init__(self, request, parent, pages=None, layouts=None):
         self.request, self.parent, self.pages = request, parent, pages if pages is not None else {}
+        self.layouts = layouts if layouts is not None else {}
         self.children_cache = {}
 
     def children(self, page_id):
@@ -106,54 +107,52 @@ class NotionReports:
         return self.pages[day]
 
     def overview(self, event):
-        """Update only managed presentation blocks; immutable evidence toggles stay intact."""
+        """Compact chart-first overview; block IDs are persisted outside public content."""
         if not event.get('cumulative'): return
         page=self.day_page(event['day']);blocks=self.children(page['id'])
         marker='https://wang10086-creator.github.io/fjd-brand-watch-/#report-section='
-        owned={marker_of(b).split(marker)[1].split('&')[0]:b for b in blocks if marker in marker_of(b)}
-        old=owned.get('title');old_url=marker_of(old) if old else ''
-        old_at=urllib.parse.parse_qs(urllib.parse.urlparse(old_url).fragment).get('at',[''])[0]
-        if old_at and old_at>event['at']: return
-        charts=event.get('reportCharts') or {}
-        c=event.get('cumulative') or {};cv=c.get('coverage');p=c.get('priority') or {}
-        headline=f"新增 {c.get('new',0)} 条，变化 {c.get('changed',0)} 条；优先核查 {p.get('high',0)+p.get('medium',0)} 条。"
-        headline+=f" 已查 {cv['searched']}/{cv['total']} 个入口，尚未执行 {cv['unattempted']} 个。" if cv else ' 历史目标范围未留存，不计算覆盖率。'
-        specs=[('title',block('heading_2','品牌保护监控日报 · '+beijing(event['at']))),('executive',block('callout',headline+'\n行动建议：先核对线索的商家身份与授权关系，再补查未执行入口和失败请求。',icon={'type':'emoji','emoji':'📌'}))]
-        if event.get('reportBrief'):
-            specs.append(('case-heading',block('heading_3','线索摘选 · 优先核实品牌与授权')))
-            for i,row in enumerate(event['reportBrief']):
-                item=link_block(f"{i+1}. {row.get('title') or row.get('url')} · "+{'high':'高优先级','medium':'中优先级','routine':'低优先级'}.get(row.get('priority'),'待分级'),row.get('url'))
-                if item:
-                    item['paragraph']['rich_text'].extend(text('\n'+('标题提及监控品牌；原页面与授权待核实。' if row.get('titleBrandMatch') else '索引提示相关；标题未明确提及监控品牌，需核对具体商品。')))
-                    specs.append(('case-'+str(i),item))
-
+        legacy=[b for b in blocks if marker in marker_of(b)]
+        meta=self.layouts.setdefault(page['id'],{'blocks':{}})
+        if meta.get('at','')>event['at']:return
+        charts=event.get('reportCharts') or {};c=event['cumulative'];cv=c.get('coverage');p=c.get('priority') or {}
+        headline=f"新增 {c.get('new',0)} · 变化 {c.get('changed',0)} · 待核查 {c.get('pending',0)} · 高中优先级 {p.get('high',0)+p.get('medium',0)}"
+        specs=[('title',block('heading_3','监控概览｜截至 '+beijing(event['at']))),('executive',block('paragraph',headline))]
         for key,title,copy in sections(event):
             specs.append((key+'-title',block('heading_3',title)))
             url=charts.get(key,'')
             if url.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
-                specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':text(title+' · 数据图表')}}))
+                specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':[]}}))
             specs.append((key+'-copy',block('paragraph',copy)))
-        specs.append(('method',block('paragraph','方法与口径：以品牌文字及其业务语境查询公开索引，商标图形用于人工辅助比对。新增按页面去重；未核实授权的页面仅作为线索。以下保留查询词、原页面和逐次执行记录。')))
-        specs.append(('details',block('heading_2','证据附录与更新记录')))
+        specs.append(('method',block('paragraph','统计口径：按公开页面去重，优先级用于安排复核；索引命中不构成侵权认定。检索范围与证据完整性以执行记录为准。')))
+        specs.append(('details',block('heading_2','线索与执行附录')))
+        if event.get('reportBrief'):
+            specs.append(('case-heading',block('heading_3','重点线索摘录')))
+            for i,row in enumerate(event['reportBrief']):
+                item=link_block(f"{i+1}. {row.get('title') or row.get('url')} · "+{'high':'高优先级','medium':'中优先级','routine':'常规核查'}.get(row.get('priority'),'待分级'),row.get('url'))
+                if item:specs.append(('case-'+str(i),item))
+        ids=meta.setdefault('blocks',{});byid={b['id']:b for b in blocks if not b.get('archived')};oldids={b['id'] for b in legacy}
         after=blocks[0]['id'] if blocks else None
         for key,value in specs:
-            body=value[value['type']];rich=body.get('rich_text',body.get('caption'))
-            rich.append({'type':'text','text':{'content':' ↗','link':{'url':marker+key+'&at='+urllib.parse.quote(event['at'],safe='')}}})
-            existing=owned.get(key)
-            if existing:
-                if value['type']=='image' and existing['image'].get('external',{}).get('url')!=body['external']['url']:
-                    result=self.request('PATCH','/blocks/'+page['id']+'/children',{'children':[value],'after':existing['id']})
-                    after=result['results'][0]['id'];self.request('PATCH','/blocks/'+existing['id'],{'archived':True})
-                else:
-                    if value['type']!='image' and existing[value['type']]!=body:self.request('PATCH','/blocks/'+existing['id'],{value['type']:body})
-                    after=existing['id']
+            kind=value['type'];body=value[kind];existing=byid.get(ids.get(key))
+            def same(b):
+                if b.get('type')!=kind or b.get('archived') or b['id'] in oldids:return False
+                return b[kind].get('external',{}).get('url')==body['external']['url'] if kind=='image' else plain(b)==plain(value) and marker_of(b)==marker_of(value)
+            # Recover an acknowledged or lost-response insertion without duplicate blocks.
+            if not existing:existing=next((b for b in blocks if same(b)),None)
+            if existing and same(existing):pass
+            elif existing and kind==existing['type'] and kind!='image':
+                self.request('PATCH','/blocks/'+existing['id'],{kind:body})
             else:
                 result=self.request('PATCH','/blocks/'+page['id']+'/children',{'children':[value],**({'after':after} if after else {})})
-                after=result['results'][0]['id']
-        # Remove obsolete presentation only after the replacement has been written.
+                fresh=result['results'][0]
+                if existing:self.request('PATCH','/blocks/'+existing['id'],{'archived':True})
+                existing=fresh;blocks.append(fresh)
+            ids[key]=existing['id'];after=existing['id']
+        keep={ids[k] for k,_ in specs}
         for b in blocks:
-            if (b['type']=='heading_2' and plain(b)=='当日累计与更新记录') or (marker in marker_of(b) and marker_of(b).split(marker)[1].split('&')[0].startswith('case-') and marker_of(b).split(marker)[1].split('&')[0] not in {key for key,_ in specs}) or (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
-                self.request('PATCH','/blocks/'+b['id'],{'archived':True})
+            obsolete=b['id'] in oldids or b['id'] in set(ids.values())-keep or (b['type']=='heading_2' and plain(b)=='当日累计与更新记录')
+            if obsolete and b['id'] not in keep and not b.get('archived'):self.request('PATCH','/blocks/'+b['id'],{'archived':True})
+        meta.update(version=6,at=event['at'],blocks={k:ids[k] for k,_ in specs})
         self.children_cache.pop(page['id'],None)
 
     def sync(self, raw_event):
