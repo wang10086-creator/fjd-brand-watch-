@@ -1,3 +1,4 @@
+import {dueActions,progressSnapshot} from './automation.mjs';
 import {createHash} from 'node:crypto';
 import {upgradeGlobalScope,nextDailyTime} from '../monitor-policy.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -19,7 +20,7 @@ async function github(path,method='GET',body){
 async function file(name){try{const r=await github('/contents/'+name+'?ref='+config.branch);return {sha:r.sha,value:JSON.parse(Buffer.from(r.content,'base64').toString())}}catch(e){if(e.status===404)return null;throw e}}
 async function put(name,value){const existing=await file(name);await github('/contents/'+name,'PUT',{message:'Cloud monitor checkpoint',branch:config.branch,content:Buffer.from(JSON.stringify(value)).toString('base64'),...(existing?{sha:existing.sha}:{})})}
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
-function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return {version:3,configured:true,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',searchTime:'09:00',pushTime:'09:30',nextSearchAt:nextDailyTime(9),nextPushAt:nextDailyTime(9.5),queryBudget:120,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{configured:!!vault.delivery.notionConfigured,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length},bot:{configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
+function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return {version:3,configured:true,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{progress:progressSnapshot(vault.state),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===dayOf()).map(r=>({startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',searchTime:'09:00',pushTime:'09:30',nextSearchAt:nextDailyTime(9),nextPushAt:nextDailyTime(9.5),queryBudget:120,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{configured:!!vault.delivery.notionConfigured,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length},bot:{configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function dashboard(){return {version:2,state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
 async function checkpoint(){
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
@@ -48,7 +49,7 @@ async function delivery(operation){
  });
  await processDone;await checkpointChain;vault.delivery=JSON.parse(await readFile(path,'utf8'));delete vault.delivery.events;
 }
-function operation(){if(env.GITHUB_EVENT_NAME==='schedule')return env.FJD_SCHEDULE==='0 1 * * *'?'schedule':'digest';return env.FJD_OPERATION||'sync'}
+function operation(){if(env.GITHUB_EVENT_NAME==='schedule')return 'auto';return env.FJD_OPERATION||'scan'}
 async function main(){
  const configurationErrors=[];
  if(!password)configurationErrors.push('MONITOR_CLOUD_PASSWORD 未传入');
@@ -60,7 +61,7 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
- const op=operation();if(!['check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
+ const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -81,12 +82,13 @@ async function main(){
  vault.lastError='';
  vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};await checkpoint();
  try{
-   if(['schedule','scan','site-retry','verify'].includes(op)){
+   const due=dueActions(vault);
+   if(['schedule','scan','site-retry','verify'].includes(op)||(op==='auto'&&due.scan)){
     const day=dayOf();const already=vault.state.monitor.runs.some(r=>r.trigger==='schedule'&&r.reportDay===day&&!r.running&&!r.cancelled);
-    if(op!=='schedule'||!already){const run=await scan(vault.state,{budget:op==='schedule'?120:op==='verify'?8:60,trigger:op==='schedule'?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
+    if(op!=='schedule'||!already){const run=await scan(vault.state,{budget:op==='auto'?due.budget:op==='schedule'?120:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
    }
    vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
-   await delivery(['test-digest','verify'].includes(op)?'test-digest':op==='digest'?'digest':['check','authorize'].includes(op)?'check':'sync');
+   await delivery(['test-digest','verify'].includes(op)?'test-digest':(op==='digest'||(op==='auto'&&dueActions(vault).digest))?'digest':['check','authorize'].includes(op)?'check':'sync');
  }catch(error){vault.lastError=error.message||'云端操作失败，原记录保留'}
  finally{vault.runtime={...vault.runtime,currentSite:null,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString()};await checkpoint();}
  if(uploadName&&!vault.lastError){const uploaded=await file(uploadName);if(uploaded)await github('/contents/'+uploadName,'DELETE',{message:'Completed encrypted monitor transfer',branch:config.branch,sha:uploaded.sha});}
