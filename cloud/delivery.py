@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from notion_archive import NotionReports, public_event
 from runtime import digest, Failure
+from report_state import report_overviews
 
 
 def notion_request(token):
@@ -63,20 +64,20 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
                 except Exception:
                     state['receipts'][event['id']] = {'id': event['id'], 'status': 'failed', 'provider': 'notion', 'error': 'Notion 写入尚未确认，等待补同步'}
                     raise
-            latest={}
-            for event in state.get('events',[]):
-                if event.get('cumulative') and (event['day'] not in latest or event['at']>latest[event['day']]['at']):latest[event['day']]=event
+            latest={event['day']:event for event in report_overviews(state)}
             for event in latest.values():
-                if state.setdefault('reportLayouts',{}).get(event['day'])==event['at']+'|v7':continue
+                version=event.get('reportVersion',event['at']+'|v7')
+                if state.setdefault('reportLayouts',{}).get(event['day'])==version:continue
                 sink.overview(event)
-                state['reportLayouts'][event['day']]=event['at']+'|v7'
+                state['reportLayouts'][event['day']]=version
                 checkpoint()
             state['reportLayoutVersion']=2
             if latest:
                 event=max(latest.values(),key=lambda e:(e['day'],e['at']))
-                if state.get('archiveHubVersion')!=event['at']+'|v2':
+                version=event.get('reportVersion',event['at'])+'|hub-v3'
+                if state.get('archiveHubVersion')!=version:
                     sink.parent_overview(event)
-                    state['archiveHubVersion']=event['at']+'|v2'
+                    state['archiveHubVersion']=version
                     checkpoint()
     except Exception as error:
         state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'

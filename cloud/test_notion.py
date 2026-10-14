@@ -33,6 +33,23 @@ class Store:
         raise AssertionError((method,path))
 
 class Tests(unittest.TestCase):
+    def test_merged_overview_updates_archive_and_brief_without_rewriting_events(self):
+        store=Store();event=copy.deepcopy(EVENT)
+        overview=copy.deepcopy(EVENT);overview['cumulative']['new']=7;overview['reportVersion']='merged-v1'
+        state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','events':[event],'reportOverviews':[overview]}
+        env={'NOTION_TOKEN':'dummy','FEISHU_BOT_WEBHOOK':'https://open.feishu.cn/open-apis/bot/v2/hook/test'};sent=[]
+        deliver(state,'digest',lambda:None,env=env,request=store.request,bot_request=lambda u,m,b:sent.append(b) or {'code':0},now=dt.datetime(2026,10,13,1,30,tzinfo=dt.timezone.utc))
+        self.assertEqual(state['archiveError'],'');self.assertEqual(state['events'][0],event)
+        self.assertEqual(sent[0]['card']['elements'][1]['fields'][0]['text']['content'],'**新增线索**\n7')
+        self.assertIn('新增 7',str(store.blocks))
+        page=store.blocks[state['pages'][event['day']]['id']]
+        self.assertEqual(sum(b['type']=='toggle' for b in page),1)
+        # An older imported observation changes totals, without changing the last event's timestamp.
+        overview['cumulative']['new']=8;overview['reportVersion']='merged-v2'
+        deliver(state,'sync',lambda:None,env=env,request=store.request)
+        self.assertIn('新增 8',str(store.blocks));self.assertEqual(sum(b['type']=='toggle' for b in page),1)
+        self.assertEqual(state['reportLayouts'][event['day']],'merged-v2')
+
     def test_archive_hub_refresh_preserves_history_and_recovers_mapping(self):
         from notion_archive import block
         store=Store();layouts={};pages={};sink=NotionReports(store.request,'parent',pages,layouts)

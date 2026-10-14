@@ -1,5 +1,5 @@
 import {publicFeed} from './public-feed.js';
-import {matchedAliases} from '../model.js';
+import {reportOverviews} from './report-overviews.mjs';
 import {siteCoverage} from '../coverage.js';
 import {dueActions,progressSnapshot,retryAfterAt} from './automation.mjs';
 import {createHash} from 'node:crypto';
@@ -35,16 +35,15 @@ async function checkpoint(){
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
  vault.delivery.events=vault.state.monitor.updateChain.map(({chartPng,...event})=>({...event,reportLayoutVersion:2}));
+ vault.delivery.reportOverviews=reportOverviews(vault.state);
  // Recover the immutable checksum used by old partially archived records.
  for(const e of vault.delivery.events)if(e.cumulative&&e.at<='2026-10-14T01:25:00.000Z'){const d=createHash('sha256').update(JSON.stringify({day:e.day,at:e.at,cumulative:e.cumulative})).digest('hex').slice(0,24);e.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/reports/'+e.day+'/'+d+'.png';}vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
  if(operation!=='check'){
- const latest=new Map();for(const e of vault.delivery.events)if(e.cumulative&&(!latest.has(e.day)||latest.get(e.day).at<e.at))latest.set(e.day,e);
- for(const event of latest.values())try{
-  if(vault.delivery.reportLayouts?.[event.day]===event.at+'|v7')continue;
+ for(const event of vault.delivery.reportOverviews)try{
+  if(vault.delivery.reportLayouts?.[event.day]===event.reportVersion)continue;
   const digest=createHash('sha256').update(JSON.stringify({version:3,day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),prefix='reports/'+event.day+'/'+digest;
   const input=join(root,'sections.json'),output=join(root,'sections');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
   await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_sections.py',import.meta.url).pathname,input,output],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('图表生成失败')))});
-  const cases=new Map();for(const item of vault.delivery.events.filter(e=>e.day===event.day&&e.at<=event.at).flatMap(e=>e.entries||[])){const prior=cases.get(item.url)||{};cases.set(item.url,{...prior,...Object.fromEntries(Object.entries(item).filter(([k,v])=>['title','url','priority','status','platform'].includes(k)&&v!=null))});}event.reportBrief=[...cases.values()].map(row=>({...row,titleBrandMatch:matchedAliases({title:row.title},vault.state.config).length>0})).sort((a,b)=>({high:0,medium:1,routine:2}[a.priority]??3)-({high:0,medium:1,routine:2}[b.priority]??3)||Number(b.titleBrandMatch)-Number(a.titleBrandMatch)).slice(0,3);
   event.reportCharts={};for(const kind of ['discovery','review','trend',...(event.cumulative.coverage?['coverage']:[])]){const name=prefix+'-'+kind+'.png';let existing;try{existing=await github('/contents/'+name+'?ref='+config.branch)}catch(e){if(e.status!==404)throw e}
    if(!existing)await github('/contents/'+name,'PUT',{message:'Daily report data chart',branch:config.branch,content:(await readFile(join(output,kind+'.png'))).toString('base64')});
    event.reportCharts[kind]='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/'+name;

@@ -143,7 +143,8 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
     if pushes.get(delivery_key, {}).get('status') in ('sent', 'sending', 'uncertain'):
         return
     today = sorted([event for event in state.get('events', []) if event['day'] == day], key=lambda e: (e.get('at',''), e.get('id','')))
-    latest = next((e['cumulative'] for e in reversed(today) if e.get('cumulative')), None)
+    from report_state import report_overviews
+    latest = next((e['cumulative'] for e in report_overviews(state) if e['day']==day), None)
     automatic = any(e.get('type') == 'schedule' and not e.get('summary',{}).get('cancelled') for e in today)
     partial = any(e.get('type')=='schedule' for e in today)
     search_state = '今日自动检索已完成本批预算。' if automatic else '今日自动检索部分完成，剩余查询待续查。' if partial else '今日尚无自动检索启动记录。'

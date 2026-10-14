@@ -4,7 +4,8 @@ from urllib.parse import urlparse
 def brief_card(state, day, latest, today, test=False):
     c=latest or {};cv=c.get('coverage') or {};priority=c.get('priority') or {}
     pending=sum(state.get('receipts',{}).get(e['id'],{}).get('status')!='synced' for e in today)
-    current=next((e for e in reversed(today) if e.get('cumulative')),None)
+    from report_state import report_overviews
+    current=next((e for e in report_overviews(state) if e['day']==day),None)
     cutoff=(current or {}).get('at')
     if cutoff:
         from report_sections_text import beijing
