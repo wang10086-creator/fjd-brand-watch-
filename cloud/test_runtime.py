@@ -83,10 +83,12 @@ if __name__ == '__main__':
     unittest.main()
 
 class CardTests(unittest.TestCase):
-    def test_card_has_one_report_action_truthful_scope_and_no_chat_claim(self):
+    def test_card_has_daily_report_and_two_footer_destinations(self):
         from brief import brief_card
         state={'baseUrl':'https://example.notion.site/root','publicUrl':'https://example.notion.site/root','pages':{'2026-10-14':{'id':'day-page'}}}
         c={'new':7,'pending':7,'coverage':{'total':210,'searched':40,'unattempted':161,'failedOnly':9}}
         body=brief_card(state,'2026-10-14',c,[])
         self.assertEqual(body['msg_type'],'interactive');self.assertIn('40 / 210',str(body));self.assertIn('不支持群内问答',str(body));self.assertIn('00:00',str(body))
-        buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),1)
+        buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),2)
+        self.assertEqual(buttons[0]['actions'][0]['text']['content'],'查阅当日日报')
+        self.assertEqual([(x['text']['content'],x['url']) for x in buttons[1]['actions']], [('监控工作台','https://wang10086-creator.github.io/fjd-brand-watch-/'),('日报总览',state['publicUrl'])])
