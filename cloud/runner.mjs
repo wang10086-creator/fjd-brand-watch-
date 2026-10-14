@@ -105,6 +105,7 @@ async function main(){
  console.log('群发送状态：'+(vault.delivery.botError||vault.delivery.pushStatus||'尚无发送'));
  if(['test-digest','verify'].includes(op))console.log('机器人测试：'+JSON.stringify(vault.delivery.lastTest||{}));
  if(op==='check'){const failed=vault.state.monitor.runs.flatMap(r=>r.items||[]).filter(i=>i.status==='失败').slice(-5);console.log('最近失败诊断：'+JSON.stringify(failed.map(i=>({at:i.at,platform:i.platform,domain:i.domain,code:i.errorCode,message:i.message,attempts:(i.attempts||[]).map(a=>({code:a.code,status:a.status}))}))));console.log('Notion 自动归档：'+(vault.delivery.archiveError||'连接检查通过'));console.log('飞书机器人：'+(vault.delivery.botConfigured?'已配置，等待发送回执':'尚未配置 FEISHU_BOT_WEBHOOK'));}
+ if(vault.lastError)console.error('运行诊断：'+(/^(GitHub|归档|云端|目标|未找到)/.test(vault.lastError)?vault.lastError:'执行流程中断，需核对状态记录'));
  console.log(vault.lastError?'云端运行未全部成功，请在归档与推送设置查看详情。':'云端操作完成；Notion 归档与飞书推送状态分别显示，以实际回执为准。');
  if(vault.lastError||vault.delivery.archiveError||vault.delivery.botError)process.exitCode=1;
 }
