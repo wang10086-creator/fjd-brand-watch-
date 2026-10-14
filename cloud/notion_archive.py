@@ -120,10 +120,12 @@ class NotionReports:
         headline+=f" 已查 {cv['searched']}/{cv['total']} 个入口，尚未执行 {cv['unattempted']} 个。" if cv else ' 历史目标范围未留存，不计算覆盖率。'
         specs=[('title',block('heading_2','品牌保护监控日报 · '+beijing(event['at']))),('executive',block('callout',headline+'\n行动建议：先核对线索的商家身份与授权关系，再补查未执行入口和失败请求。',icon={'type':'emoji','emoji':'📌'}))]
         if event.get('reportBrief'):
-            specs.append(('case-heading',block('heading_3','优先查看 · 线索摘要')))
+            specs.append(('case-heading',block('heading_3','线索摘选 · 优先核实品牌与授权')))
             for i,row in enumerate(event['reportBrief']):
                 item=link_block(f"{i+1}. {row.get('title') or row.get('url')} · "+{'high':'高优先级','medium':'中优先级','routine':'低优先级'}.get(row.get('priority'),'待分级'),row.get('url'))
-                if item:specs.append(('case-'+str(i),item))
+                if item:
+                    item['paragraph']['rich_text'].extend(text('\n'+('标题提及监控品牌；原页面与授权待核实。' if row.get('titleBrandMatch') else '索引提示相关；标题未明确提及监控品牌，需核对具体商品。')))
+                    specs.append(('case-'+str(i),item))
 
         for key,title,copy in sections(event):
             specs.append((key+'-title',block('heading_3',title)))
@@ -150,7 +152,7 @@ class NotionReports:
                 after=result['results'][0]['id']
         # Remove obsolete presentation only after the replacement has been written.
         for b in blocks:
-            if (marker in marker_of(b) and marker_of(b).split(marker)[1].split('&')[0].startswith('case-') and marker_of(b).split(marker)[1].split('&')[0] not in {key for key,_ in specs}) or (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
+            if (b['type']=='heading_2' and plain(b)=='当日累计与更新记录') or (marker in marker_of(b) and marker_of(b).split(marker)[1].split('&')[0].startswith('case-') and marker_of(b).split(marker)[1].split('&')[0] not in {key for key,_ in specs}) or (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
                 self.request('PATCH','/blocks/'+b['id'],{'archived':True})
         self.children_cache.pop(page['id'],None)
 

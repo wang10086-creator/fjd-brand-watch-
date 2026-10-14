@@ -148,6 +148,9 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
     text = ('【联调测试，不替代每日简报】\n' if test else '') + day + ' 丰疆品牌监控简报\n' + search_state
     if latest:
         text += f"\n新增 {latest.get('new', 0)} ｜变化 {latest.get('changed', 0)} ｜待核查 {latest.get('pending', 0)}\n成功查询网站 {latest.get('sites', 0)} ｜未解决失败 {latest.get('failed', 0)}"
+        coverage = latest.get('coverage')
+        if coverage:
+            text += f"\n覆盖 {coverage.get('searched',0)}/{coverage.get('total',0)} 个入口 ｜未执行 {coverage.get('unattempted',0)} ｜失败待补查 {coverage.get('failedOnly',0)}"
     else:
         text += '\n尚无可用累计，不代表没有风险。'
     pending = sum(state.get('receipts', {}).get(e['id'], {}).get('status') != 'synced' for e in today)

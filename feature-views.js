@@ -9,7 +9,7 @@ export function siteActivity(site,{busy=false,activeSite=null,phase='running',el
 }
 export function operationsView(state,{busy,activeSite=null,pname,fmt,storageStatus='尚未写入',plans=[]}){
  const all=state.monitor.runs.flatMap(r=>(r.items||[]).map(i=>({...i,at:i.at||r.startedAt}))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
- const last=all.find(i=>['成功','失败'].includes(i.status)),phase=state.cloudMode?state.cloudService?.phase:'running';
+ const cloudLast=state.cloudMode?(state.automation?.coverage?.rows||[]).filter(s=>s.attempted).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0]:null;const last=cloudLast||all.find(i=>['成功','失败'].includes(i.status)),phase=state.cloudMode?state.cloudService?.phase:'running';
  const sites=new Map();for(const i of all){const domain=i.domain||i.plan?.domain||'',key=i.platform+'|'+domain;if(!sites.has(key))sites.set(key,{...i,domain});}
  for(const id of state.config.platforms){const p=platforms.find(x=>x.id===id);for(const country of state.config.regions){if(!p)continue;const domain=p.markets[country]||p.globalDomain||'';if(!domain&&p.kind!=='dealer')continue;const key=id+'|'+domain;if(!sites.has(key))sites.set(key,{platform:id,domain,status:'未执行'});}}
  if(state.cloudMode&&state.automation?.coverage?.rows?.length){for(const s of state.automation.coverage.rows)sites.set(s.key,s);}
