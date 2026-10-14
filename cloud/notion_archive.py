@@ -115,14 +115,24 @@ class NotionReports:
         old_at=urllib.parse.parse_qs(urllib.parse.urlparse(old_url).fragment).get('at',[''])[0]
         if old_at and old_at>event['at']: return
         charts=event.get('reportCharts') or {}
-        specs=[('title',block('heading_2','日报概览 · '+beijing(event['at'])))]
+        c=event.get('cumulative') or {};cv=c.get('coverage');p=c.get('priority') or {}
+        headline=f"新增 {c.get('new',0)} 条，变化 {c.get('changed',0)} 条；优先核查 {p.get('high',0)+p.get('medium',0)} 条。"
+        headline+=f" 已查 {cv['searched']}/{cv['total']} 个入口，尚未执行 {cv['unattempted']} 个。" if cv else ' 历史目标范围未留存，不计算覆盖率。'
+        specs=[('title',block('heading_2','品牌保护监控日报 · '+beijing(event['at']))),('executive',block('callout',headline+'\n行动建议：先核对线索的商家身份与授权关系，再补查未执行入口和失败请求。',icon={'type':'emoji','emoji':'📌'}))]
+        if event.get('reportBrief'):
+            specs.append(('case-heading',block('heading_3','优先查看 · 线索摘要')))
+            for i,row in enumerate(event['reportBrief']):
+                item=link_block(f"{i+1}. {row.get('title') or row.get('url')} · "+{'high':'高优先级','medium':'中优先级','routine':'低优先级'}.get(row.get('priority'),'待分级'),row.get('url'))
+                if item:specs.append(('case-'+str(i),item))
+
         for key,title,copy in sections(event):
             specs.append((key+'-title',block('heading_3',title)))
             url=charts.get(key,'')
             if url.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
                 specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':text(title+' · 数据图表')}}))
             specs.append((key+'-copy',block('paragraph',copy)))
-        specs.append(('details',block('heading_2','检索明细与更新记录')))
+        specs.append(('method',block('paragraph','方法与口径：以品牌文字及其业务语境查询公开索引，商标图形用于人工辅助比对。新增按页面去重；未核实授权的页面仅作为线索。以下保留查询词、原页面和逐次执行记录。')))
+        specs.append(('details',block('heading_2','证据附录与更新记录')))
         after=blocks[0]['id'] if blocks else None
         for key,value in specs:
             body=value[value['type']];rich=body.get('rich_text',body.get('caption'))
@@ -140,7 +150,7 @@ class NotionReports:
                 after=result['results'][0]['id']
         # Remove obsolete presentation only after the replacement has been written.
         for b in blocks:
-            if (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
+            if (marker in marker_of(b) and marker_of(b).split(marker)[1].split('&')[0].startswith('case-') and marker_of(b).split(marker)[1].split('&')[0] not in {key for key,_ in specs}) or (b['type']=='image' and plain(b)=='日报一图读懂') or (b['type']=='callout' and plain(b).startswith('📊 自动累计概览')):
                 self.request('PATCH','/blocks/'+b['id'],{'archived':True})
         self.children_cache.pop(page['id'],None)
 

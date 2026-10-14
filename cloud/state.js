@@ -1,6 +1,6 @@
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261014-fix';
-import {mergeMonitors} from '../monitor.js?v=20261014-fix';
-import {migrateChain} from '../report-chain.js?v=20261014-fix';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261014-coverage';
+import {mergeMonitors} from '../monitor.js?v=20261014-coverage';
+import {migrateChain} from '../report-chain.js?v=20261014-coverage';
 const fields=['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'];
 export function mergeWorkspace(local,remote){
  const rows=mergeRows(local.rows||[],remote.rows||[]).map(enrichLead),byUrl=new Map((remote.rows||[]).map(r=>[canonical(r.url),r]));

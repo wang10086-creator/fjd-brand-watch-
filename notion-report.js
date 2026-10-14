@@ -1,7 +1,7 @@
-import {platforms,marketData} from './model.js?v=20261014-fix';
-import {reportModel} from './report-model.js?v=20261014-fix';
-import {dailyHTML} from './daily-view.js?v=20261014-fix';
-import {dayReport,reportDates,dayOf} from './monitor.js?v=20261014-fix';
+import {platforms,marketData} from './model.js?v=20261014-coverage';
+import {reportModel} from './report-model.js?v=20261014-coverage';
+import {dailyHTML} from './daily-view.js?v=20261014-coverage';
+import {dayReport,reportDates,dayOf} from './monitor.js?v=20261014-coverage';
 export const notionHome='https://app.notion.com/p/3f865b803b2b81cf800bff7fcf1624db';
 const clean=x=>String(x??'').replace(/[\\`*_<>\[\]{}|]/g,'\\$&').replace(/\r?\n/g,' ');
 export function notionReport(m,day){const publication=m.publications?.[day],d=publication?.report||reportModel(m,day),lines=[`报告日期：${day}（北京时间）`,`更新时间：${new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'short',timeStyle:'medium',hour12:false}).format(new Date())}（北京时间）`,publication?`汇报版 v${publication.version} · 定稿时间 ${publication.createdAt}`:'累计草稿（未定稿）','','## 当日摘要',`- 新增 ${d.fresh.length} 条；内容变化 ${d.changed.length} 条；历史重复 ${d.repeat.length} 条；人工复核 ${d.uniqueReviews.length} 页。`,`- 成功查询 ${d.success.length} 条；失败 ${d.failed.length} 条；成功查询目标网站 ${d.successfulSites.length} 个。`,`- 有效结果涉及网站 ${d.resultSites.length} 个；仍有失败查询的网站 ${d.failedSites.length} 个。`,`- 当日增量复核：待核查 ${d.review.pending}，核查中 ${d.review.reviewing}，已排除/授权核实 ${d.review.cleared}，提交法务 ${d.review.escalated}。`,'','统计基于可追溯查询。零命中不等于无风险；索引成功不表示原网页直连成功。'];

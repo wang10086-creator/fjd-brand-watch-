@@ -1,13 +1,13 @@
 import {dayOf} from '../monitor.js';
+export const automationPolicy={searchHour:8,pushHour:10.5,dailyBudget:360,batchBudget:60};
 export function dueActions(vault,now=new Date()){
- const day=dayOf(now.toISOString()),minutes=now.getUTCHours()*60+now.getUTCMinutes(),local=(minutes+480)%1440;
+ const day=dayOf(now.toISOString()),local=(now.getUTCHours()*60+now.getUTCMinutes()+480)%1440;
  const runs=(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===day);
  const attempted=runs.reduce((n,r)=>n+(r.attempted||0),0),last=runs.at(-1);
- const complete=runs.some(r=>!r.running&&!r.cancelled&&r.attempted>=r.planned);
- const retryDue=!last||Date.parse(now)-Date.parse(last.endedAt||last.startedAt)>=20*60000;
- return {day,scan:local>=540&&!complete&&attempted<120&&retryDue,budget:Math.max(0,120-attempted),digest:local>=570&&!['sent','sending','uncertain'].includes(vault.delivery.pushes?.[day]?.status)};
+ const retryDue=(!last||+now-Date.parse(last.endedAt||last.startedAt)>=15*60000)&&+now>=(vault.state.searchCooldownUntil||0);
+ return {day,scan:local>=480&&local<1080&&attempted<360&&retryDue,budget:Math.min(60,Math.max(0,360-attempted)),digest:local>=630&&!['sent','sending','uncertain'].includes(vault.delivery.pushes?.[day]?.status)};
 }
 export function progressSnapshot(state){
  const runs=state.monitor.runs||[],current=runs.findLast(r=>r.running),last=runs.filter(r=>!r.running).sort((a,b)=>Date.parse(b.startedAt)-Date.parse(a.startedAt))[0],r=current||last;
- return r?{id:r.id,startedAt:r.startedAt,endedAt:r.endedAt||null,reportDay:r.reportDay,trigger:r.trigger,running:!!r.running,planned:r.planned,attempted:r.attempted,success:r.success,failed:r.failed,added:r.added,cancelled:!!r.cancelled,stopReason:r.stopReason||'',lastItemAt:r.items?.at(-1)?.at||null}:null;
+ return r?{id:r.id,startedAt:r.startedAt,endedAt:r.endedAt||null,reportDay:r.reportDay,trigger:r.trigger,running:!!r.running,planned:r.planned,attempted:r.attempted,success:r.success,failed:r.failed,added:r.added,cancelled:!!r.cancelled,stopReason:r.stopReason||'',lastFailure:(r.items||[]).filter(i=>i.status==='失败').slice(-1).map(i=>({code:i.errorCode,message:i.message}))[0]||null,lastItemAt:r.items?.at(-1)?.at||null}:null;
 }

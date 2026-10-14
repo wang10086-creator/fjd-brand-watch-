@@ -33,4 +33,17 @@ def render(event,out):
         t(x-13,280,z['day'][5:],22)
     if not trend:t(40,155,'暂无可比较的历史记录',27)
     im.save(out/'trend.png')
+    cv=c.get('coverage')
+    if cv:
+        im,d,t=canvas(315);t(20,10,'检索覆盖 · 站点与全网入口',28);total=cv.get('total',0);left=30
+        rows=[('已有成功查询',cv.get('searched',0),'green'),('失败待补查',cv.get('failedOnly',0),'amber'),('尚未执行',cv.get('unattempted',0),'gray')]
+        for name,value,color in rows:
+            width=1040*value/max(1,total)
+            if width:d.rectangle((left,85,left+width,127),fill=COLORS[color])
+            left+=width
+        for i,(name,value,color) in enumerate(rows):
+            t(25+i*360,158,name,25,COLORS[color]);t(25+i*360,202,str(value)+' / '+str(total),32)
+        t(25,269,'已查：至少一条索引查询成功，不表示已扫完所有商品。',23)
+        im.save(out/'coverage.png')
+
 if __name__=='__main__':render(json.loads(pathlib.Path(sys.argv[1]).read_text()),sys.argv[2])

@@ -1,4 +1,5 @@
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261014-fix';
+import {siteCoverage} from './coverage.js';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261014-coverage';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){
@@ -15,7 +16,7 @@ export function reportModel(m,day){
  const trend=Array.from({length:7},(_,i)=>{const r=dayReport(m,shiftDay(day,i-6));return {day:r.day,new:r.fresh.length,changed:r.changed.length,known:r.hasActivity}});
  const touched=cohort.length-review.pending,closed=review.cleared+review.escalated;
  const unknown=d.legacyOnly||(day<dayOf(m.startedAt)&&!d.hasActivity);
- const report={...d,cohort,review,priority,sourceBars,trend,touched,closed,pending:review.pending+review.reviewing,unknown};
+ const scope=m.coverageScopes?.[day];const coverage=scope?siteCoverage(scope,m,day):null;const report={...d,coverage,cohort,review,priority,sourceBars,trend,touched,closed,pending:review.pending+review.reviewing,unknown};
  return report;
 }
 export function reportFingerprint(report){

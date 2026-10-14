@@ -1,0 +1,14 @@
+import {searchPlan,simplifiedQuery} from '../search-engine.js';
+const xmlDecode=s=>s.replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/,'$1').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>String.fromCodePoint(n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n))).replace(/&(amp|lt|gt|quot|apos);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[n]));
+export function parseRss(text){if(!/<rss[\s>]/i.test(text)||!/<channel[\s>]/i.test(text))throw Error('备用来源没有返回 RSS 搜索结果');return [...text.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(([,item])=>{const get=k=>xmlDecode(item.match(new RegExp('<'+k+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+k+'>','i'))?.[1]||'');return {url:get('link'),title:get('title'),content:get('description').replace(/<[^>]+>/g,' ')}}).filter(x=>/^https?:\/\//.test(x.url));}
+export async function cloudSearch(plan,{state,fetcher=fetch,wait,signal,now=Date.now()}={}){
+ state.searchProviders||={};const providers=state.searchProviders;let first;
+ if((providers.primaryUntil||0)<=now){try{const data=await searchPlan(plan,{fetcher,wait,signal});if(plan.domain&&data.results.length&&!data.results.some(x=>{try{const h=new URL(x.url).hostname;return h===plan.domain||h.endsWith('.'+plan.domain)}catch{return false}}))throw Error('主索引仅返回域外结果，未确认目标站点检索');return {...data,provider:'Tavily 公开索引'}}catch(e){first=e;if([401,403,429].includes(e.code))providers.primaryUntil=now+Math.max(e.retryAfter||0,20*60000);}}
+ if((providers.rssUntil||0)>now){const e=first||Error('搜索来源冷却中，任务已保留');e.stop=true;e.retryAfter=Math.min(providers.primaryUntil||Infinity,providers.rssUntil)-now;throw e}
+ const query=[plan.domain?'site:'+plan.domain:'',simplifiedQuery(plan)].filter(Boolean).join(' '),url='https://www.bing.com/search?'+new URLSearchParams({q:query,format:'rss',count:'10'}),at=new Date().toISOString();
+ try{const r=await fetcher(url,{signal,headers:{Accept:'application/rss+xml, application/xml;q=0.9'}});if(!r.ok){const e=Error('备用公开索引 HTTP '+r.status);e.code=r.status;const ra=r.headers?.get('Retry-After');e.retryAfter=ra&&/^\d+$/.test(ra)?Number(ra)*1000:20*60000;if([403,429,503].includes(r.status))providers.rssUntil=now+e.retryAfter;throw e}
+  const results=parseRss(await r.text()),inScope=results.filter(x=>{try{const h=new URL(x.url).hostname;return !plan.domain||h===plan.domain||h.endsWith('.'+plan.domain)}catch{return false}});
+  if(results.length&&!inScope.length){const e=Error('备用索引仅返回域外结果，未确认目标站点检索');e.code='scope-unverified';throw e}
+  return {results:inScope,provider:'Bing 公开 RSS 索引',effectivePlan:{...plan,query,searchUrl:url.replace('format=rss','format=html')},attempts:[...(first?.attempts||[]),{query,at,status:'成功',stage:'备用公开索引',raw:results.length,retained:inScope.length,searchUrl:url}]};
+ }catch(e){e.attempts=[...(first?.attempts||[]),{query,at,status:'失败',message:e.message,code:e.code||null,stage:'备用公开索引',searchUrl:url}];e.stop=!!(providers.primaryUntil>now&&providers.rssUntil>now);throw e}
+}

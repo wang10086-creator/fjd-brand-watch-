@@ -1,4 +1,4 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261014-fix';
+import {canonical, safeUrl, risk} from './model.js?v=20261014-coverage';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
@@ -68,6 +68,8 @@ export function mergeMonitors(current,incoming,rows){
  const firstNew=new Map();for(const e of out.observations.filter(e=>e.kind==='new')){if(!firstNew.has(e.key)||e.day<firstNew.get(e.key))firstNew.set(e.key,e.day)}for(const e of out.observations){if(e.kind==='new'&&e.day>firstNew.get(e.key))e.kind=e.before?'changed':'repeat';}
  for(const [key,value] of Object.entries(incoming.known||{})){if(!out.known[key]||value.at>out.known[key].at)out.known[key]=structuredClone(value);}
  out.updateChain=[...new Map([...(incoming.updateChain||[]),...(out.updateChain||[])].map(e=>[e.id,e])).values()];
+ out.coverageScopes||={};out.coverageScopeAt||={};
+ for(const [day,scope] of Object.entries(incoming.coverageScopes||{})){if(!out.coverageScopes[day]||(incoming.coverageScopeAt?.[day]||'')>(out.coverageScopeAt[day]||'')){out.coverageScopes[day]=structuredClone(scope);out.coverageScopeAt[day]=incoming.coverageScopeAt?.[day]||'';}}
  out.publications={...incoming.publications,...out.publications};
  if(incoming.startedAt<out.startedAt)out.startedAt=incoming.startedAt;return out;
 }

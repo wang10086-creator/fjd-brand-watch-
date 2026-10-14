@@ -152,7 +152,7 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
         text += '\n尚无可用累计，不代表没有风险。'
     pending = sum(state.get('receipts', {}).get(e['id'], {}).get('status') != 'synced' for e in today)
     text += f"\n待归档更新 {pending} 项。手动补查追加到同日更新链。\n日报：" + state['baseUrl']
-    text += '\n自动计划：北京时间每天 09:00 检索 / 09:30 简报；无需打开网页。'
+    text += '\n自动计划：北京时间每天 08:00 检索 / 10:30 简报；无需打开网页。'
     body = {'msg_type': 'text', 'content': {'text': text}}
     if secret:
         timestamp = str(int(time.time()))
