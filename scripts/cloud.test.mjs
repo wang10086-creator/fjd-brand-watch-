@@ -29,3 +29,9 @@ test('cloud read never discards a newer unsynchronized local review',()=>{
  const local={rows:[{url:'https://example.com/a',reviewedAt:'2026-10-13T02:00:00Z',status:'reviewing',note:'newer-local'}],monitor:{version:1,known:{},observations:[],reviews:[],runs:[],checks:[],legacyRuns:[]},history:[]};
  const remote={...local,rows:[{...local.rows[0],reviewedAt:'2026-10-13T01:00:00Z',note:'older-cloud'}]};assert.equal(mergeWorkspace(local,remote).rows[0].note,'newer-local');remote.rows[0].reviewedAt='2026-10-13T03:00:00Z';assert.equal(mergeWorkspace(local,remote).rows[0].note,'older-cloud');
 });
+test('progress persistence failure marks the batch interrupted while retaining successful queries',async()=>{
+ const state=await initialState();state.config={...state.config,regions:['CN'],platforms:['jd-cn','1688']};state.selectedBrandIds=[];state.customAliases=['FJDynamics'];let sites=0;
+ const fetcher=async(url,options)=>{const domain=JSON.parse(options.body).include_domains[0];return {ok:true,json:async()=>({results:[{url:'https://'+domain+'/retained-product',title:'FJDynamics P2',content:'FJDynamics product'}]})}};
+ await assert.rejects(scan(state,{budget:2,fetcher,wait:async()=>{},onSite:async()=>{if(++sites===2)throw Error('GitHub 云端台账 HTTP 409')}}),/409/);
+ const run=state.monitor.runs.at(-1);assert.equal(run.attempted,1);assert.equal(run.success,1);assert.equal(run.cancelled,true);assert.equal(run.running,false);assert.match(run.stopReason,/中断/);assert.ok(state.rows.some(r=>r.url.includes('/retained-product')));assert.equal(state.monitor.updateChain.at(-1).summary.cancelled,true);
+});
