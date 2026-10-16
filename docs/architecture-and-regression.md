@@ -62,3 +62,20 @@ These inform layout and workflow only; no proprietary implementation is copied.
   External original-page 403/login remains dependent on the third-party site.
 - Manual search remains browser-local; archive submission requires the previously
   configured session credentials. No test credentials or internal notes published.
+
+## Post-publication cloud verification and source fallback
+- Real sync 38885602121 completed and Notion read-back confirmed full cohorts:
+  Oct 13: 43; Oct 14: 34 (33 pending); Oct 15: 7; Oct 16: 23. A legacy Oct 13
+  initial 22-row snapshot was labelled/folded; its historical chain was retained.
+- Independent desktop/mobile public reads each loaded 159 rows and five review
+  events. The retired Oct 12 date remained absent.
+- Run 38886408056 persisted and archived successfully, but its eight attempted
+  searches failed: primary access was restricted and RSS results were off-site.
+  Workflow completion is therefore distinct from search success.
+- Added a third, normal public HTML index after primary/RSS failure. It rejects
+  challenges, unexpected HTML and off-site results; brand/context normalization
+  remains in the shared scan path. Independent source cooldowns are respected.
+  Source failures and provenance remain in the run history. No login or challenge
+  bypass is implemented. Browser search and its permission model are unchanged.
+- Added seven regression cases for HTML parsing, source fallback, domain checks,
+  throttling and cancellation. All 98 Node and 24 Python tests pass.
