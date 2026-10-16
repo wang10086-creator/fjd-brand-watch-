@@ -7,6 +7,12 @@ from report_sections_text import sections, beijing
 
 TYPES = {'schedule': '自动检索', 'manual': '手动检索', 'refresh': '立即检索', 'site-retry': '站点补查', 'retry': '失败重试', 'review': '人工复核', 'watch': '重点复查', 'public-collector': '公共补充检索'}
 
+OUTCOMES={'pending':'待核查','investigate':'继续核查','authorized':'已排除 · 授权已核实','normal':'已排除 · 正常引用','irrelevant':'已排除 · 无关线索','escalate':'提交法务','legacy':'已完成 · 旧记录结论'}
+STATUSES={'pending':'待核查','reviewing':'继续核查','cleared':'已排除 / 已完成','escalated':'提交法务'}
+def evidence_url(row, day=''):
+    return 'https://wang10086-creator.github.io/fjd-brand-watch-/evidence.html?'+urllib.parse.urlencode({'url':row.get('url',''),**({'day':day} if day else {})})
+
+
 
 def text(value):
     value = str(value or '')
@@ -49,8 +55,8 @@ def event_blocks(event):
         result.insert(0, {'object':'block','type':'image','image':{'type':'external','external':{'url':event['chartUrl']},'caption':text('本次检索后的日报图表')}})
     for row in event.get('entries', []):
         result.append(block('heading_3', row.get('title') or row.get('url') or '线索复核更新'))
-        result.append(block('paragraph', f"优先级：{ {'high':'高 · 人工异常','medium':'中 · 优先核查','routine':'低 · 常规线索'}.get(row.get('priority'),'见当日累计')}\n检索词：{row.get('query') or '本次为复核更新'}"))
-        for label, url in [('查看公开原页面', row.get('url')), ('重现检索', row.get('searchUrl'))]:
+        result.append(block('paragraph', f"处理状态：{STATUSES.get(row.get('status'),'待核查')}\n检索词：{row.get('query') or '本次为复核更新'}"))
+        for label, url in [('线索证据与访问入口', evidence_url(row,event['day']))]:
             item = link_block(label, url)
             if item: result.append(item)
         if row.get('snippet'): result.append(block('paragraph', str(row['snippet'])[:900]))
@@ -71,7 +77,7 @@ def summary_text(event):
             f"成功查询网站 {c.get('sites',0)}  ｜  尚有失败的网站 {c.get('failedSites',0)}\n"
             f"复核进度 {'■'*units}{'□'*(10-units)}  {finished}/{total}\n"
             f"查询成功 {c.get('success',0)}  ｜  未解决失败 {c.get('failed',0)}\n"
-            f"累计截止：{event['at']}\n优先级用于安排核查，提交法务不代表侵权认定。")
+            f"累计截止：{event['at']}\n人工复核结论保留追溯，提交法务不代表侵权认定。")
 
 
 class NotionReports:
@@ -114,7 +120,7 @@ class NotionReports:
         page=self.day_page(event['day']);c=event['cumulative'];cv=c.get('coverage') or {};p=c.get('priority') or {}
         specs=[
             ('title',block('heading_2','最新归档｜'+event['day'])),
-            ('summary',block('callout',f"新增 {c.get('new',0)} 条  ·  内容变化 {c.get('changed',0)} 条  ·  待核查 {c.get('pending',0)} 条\n高、中优先级 {p.get('high',0)+p.get('medium',0)} 条；累计截至 {beijing(event['at'])}。",icon={'type':'emoji','emoji':'📊'})),
+            ('summary',block('callout',f"新增 {c.get('new',0)} 条  ·  内容变化 {c.get('changed',0)} 条  ·  待完成核查 {c.get('pending',0)} 条\n人工复核结论分类呈现；累计截至 {beijing(event['at'])}。",icon={'type':'emoji','emoji':'📊'})),
             ('latest',link_block('阅读最新日报 · 图表概览与核查明细','https://adventurous-eyebrow-6d5.notion.site/'+page['id'].replace('-',''))),
         ]
         chart=(event.get('reportCharts') or {}).get('coverage','')
@@ -133,7 +139,7 @@ class NotionReports:
             ('method',block('toggle','阅读指引与统计口径',children=[
                 block('paragraph','日报先呈现线索增量、复核进展与覆盖图表，随后列出具体线索及逐次执行记录。检索范围包含中国与海外电商、经销、代理和转售平台。'),
                 block('paragraph','每天一份日报，按北京时间归档；自动检索、手动补查与复核更新追加到同一天的更新链。页面累计概览随归档刷新，重复页面不重复计入新增。'),
-                block('paragraph','风险优先级用于安排复核，不构成侵权认定。公开站点仅呈现统计及公开线索；内部核查备注、授权材料与非公开证据不在此披露。')
+                block('paragraph','所有线索由人工核查，不自动评级或认定侵权。公开站点仅呈现统计及公开线索；内部核查备注、授权材料与非公开证据不在此披露。')
             ])),
             ('archive',block('heading_2','历史日报 · 按日期查阅')),
         ])
@@ -144,8 +150,8 @@ class NotionReports:
         for key,value in specs:
             kind=value['type'];body=value[kind];existing=byid.get(ids.get(key))
             def same(b):
-                return b['type']==kind and (b[kind].get('external',{}).get('url')==body['external']['url'] if kind=='image' else plain(b)==plain(value) and marker_of(b)==marker_of(value))
-            if not existing:existing=next((b for b in blocks if same(b)),None)
+                return not (kind=='toggle' and meta.get('version',0)<2) and b['type']==kind and (b[kind].get('external',{}).get('url')==body['external']['url'] if kind=='image' else plain(b)==plain(value) and marker_of(b)==marker_of(value))
+            if not existing:existing=next((b for b in blocks if same(b) or (kind=='toggle' and b['type']==kind and plain(b)==plain(value))),None)
             if existing and same(existing):pass
             elif existing and kind==existing['type'] and kind not in ('image','toggle'):
                 self.request('PATCH','/blocks/'+existing['id'],{kind:body})
@@ -159,7 +165,7 @@ class NotionReports:
         for b in blocks:
             obsolete=(b['type']=='heading_2' and plain(b) in ('记录范围','数据接收状态','使用入口')) or (b['type']=='paragraph' and plain(b).startswith(legacy_starts)) or b['id'] in set(ids.values())-keep
             if obsolete and b['id'] not in keep and b['type']!='child_page':self.request('PATCH','/blocks/'+b['id'],{'archived':True})
-        meta.update(at=event['at'],version=1,blocks={k:ids[k] for k,_ in specs})
+        meta.update(at=event['at'],version=2,blocks={k:ids[k] for k,_ in specs})
 
     def overview(self, event):
         """Compact chart-first overview; block IDs are persisted outside public content."""
@@ -172,7 +178,7 @@ class NotionReports:
         meta=self.layouts.setdefault(page['id'],{'blocks':{}})
         if meta.get('at','')>event['at']:return
         charts=event.get('reportCharts') or {};c=event['cumulative'];cv=c.get('coverage');p=c.get('priority') or {}
-        headline=f"新增 {c.get('new',0)} · 变化 {c.get('changed',0)} · 待核查 {c.get('pending',0)} · 高中优先级 {p.get('high',0)+p.get('medium',0)}"
+        headline=f"新增 {c.get('new',0)} · 变化 {c.get('changed',0)} · 待完成核查 {c.get('pending',0)} · 已完成处置 {(c.get('review') or {}).get('cleared',0)+(c.get('review') or {}).get('escalated',0)}"
         specs=[('title',block('heading_3','监控概览｜截至 '+beijing(event['at']))),('executive',block('paragraph',headline))]
         for key,title,copy in sections(event):
             specs.append((key+'-title',block('heading_3',title)))
@@ -180,12 +186,25 @@ class NotionReports:
             if url.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
                 specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':[]}}))
             specs.append((key+'-copy',block('paragraph',copy)))
-        specs.append(('method',block('paragraph','统计口径：按公开页面去重，优先级用于安排复核；索引命中不构成侵权认定。检索范围与证据完整性以执行记录为准。')))
+        specs.append(('method',block('paragraph','统计口径：按公开页面去重，全部线索由人工复核；索引命中不构成侵权认定。检索范围与证据完整性以执行记录为准。')))
         specs.append(('details',block('heading_2','线索与执行附录')))
-        if event.get('reportBrief'):
-            specs.append(('case-heading',block('heading_3','重点线索摘录')))
+        cases=event.get('reportCases')
+        if cases is not None:
+            pending=sum(row.get('status') in ('pending','reviewing') for row in cases)
+            if pending!=c.get('pending',0) or len(cases)!=c.get('new',0)+c.get('changed',0):
+                raise ValueError('日报完整线索清单与统计数量不一致，已停止发布')
+            specs.append(('case-heading',block('heading_3',f'完整线索清单｜{len(cases)} 条，其中待完成核查 {pending} 条')))
+            specs.append(('case-guide',block('paragraph','每个编号对应一条去重线索；点击标题免登录查看已保存的索引摘要，再选择原页面或公开搜索核查。原网站可能要求登录。以下结论截至本日报日期，工作台显示最新处理结论。')))
+            for i,row in enumerate(sorted(cases,key=lambda r:({'pending':0,'reviewing':1,'escalated':2,'cleared':3}.get(r.get('status'),4),r.get('title','')))):
+                label=f"{i+1:02d}  {row.get('title') or row.get('url')}"
+                item=link_block(label,evidence_url(row,event['day']))
+                if item:
+                    item['paragraph']['rich_text'].extend(text('\n'+OUTCOMES.get(row.get('outcome'),STATUSES.get(row.get('status'),'待核查'))+'  ·  '+('新增' if row.get('kind')=='new' else '内容变化')+'  ·  '+(row.get('platform') or '独立网页')+'\n检索词：'+str(row.get('query') or '见线索证据页')[:400]))
+                    specs.append(('case-'+str(i),item))
+        elif event.get('reportBrief'):
+            specs.append(('case-heading',block('heading_3','历史摘录 · 完整记录见更新链')))
             for i,row in enumerate(event['reportBrief']):
-                item=link_block(f"{i+1}. {row.get('title') or row.get('url')} · "+{'high':'高优先级','medium':'中优先级','routine':'常规核查'}.get(row.get('priority'),'待分级'),row.get('url'))
+                item=link_block(f"{i+1}. {row.get('title') or row.get('url')}",evidence_url(row,event['day']))
                 if item:specs.append(('case-'+str(i),item))
         ids=meta.setdefault('blocks',{});byid={b['id']:b for b in blocks if not b.get('archived')};oldids={b['id'] for b in legacy}
         after=blocks[0]['id'] if blocks else None
@@ -195,7 +214,7 @@ class NotionReports:
                 if b.get('type')!=kind or b.get('archived') or b['id'] in oldids:return False
                 return b[kind].get('external',{}).get('url')==body['external']['url'] if kind=='image' else plain(b)==plain(value) and marker_of(b)==marker_of(value)
             # Recover an acknowledged or lost-response insertion without duplicate blocks.
-            if not existing:existing=next((b for b in blocks if same(b)),None)
+            if not existing:existing=next((b for b in blocks if same(b) or (kind=='toggle' and b['type']==kind and plain(b)==plain(value))),None)
             if existing and same(existing):pass
             elif existing and kind==existing['type'] and kind!='image':
                 self.request('PATCH','/blocks/'+existing['id'],{kind:body})
@@ -211,6 +230,27 @@ class NotionReports:
             if obsolete and b['id'] not in keep and not b.get('archived'):self.request('PATCH','/blocks/'+b['id'],{'archived':True})
         meta.update(version=6,at=event['at'],blocks={k:ids[k] for k,_ in specs})
         self.children_cache.pop(page['id'],None)
+
+    def repair_history_presentation(self, day):
+        """Change old visible labels/entry links, without touching event markers or checksums."""
+        page=self.day_page(day);meta=self.layouts.setdefault(page['id'],{'blocks':{}})
+        if meta.get('historyPresentationVersion')==2:return
+        for entry in self.children(page['id']):
+            if entry.get('type')!='toggle' or 'FJD-' not in marker_of(entry):continue
+            children=entry.get('toggle',{}).get('children') or self.children(entry['id'])
+            for child in children:
+                if not child.get('id'):continue
+                kind=child.get('type');value=plain(child)
+                if kind=='paragraph' and value.startswith('优先级：'):
+                    replacement='核查说明：品牌命中需人工复核'+('\n'+value.split('\n',1)[1] if '\n' in value else '')
+                    self.request('PATCH','/blocks/'+child['id'],{'paragraph':{'rich_text':text(replacement)}})
+                elif kind=='paragraph' and value=='查看公开原页面':
+                    original=marker_of(child)
+                    item=link_block('线索证据与访问入口',evidence_url({'url':original},day))
+                    self.request('PATCH','/blocks/'+child['id'],{'paragraph':item['paragraph']})
+                elif kind=='image' and value in ('本次检索后的日报图表','日报一图读懂'):
+                    self.request('PATCH','/blocks/'+child['id'],{'archived':True})
+        meta['historyPresentationVersion']=2
 
     def sync(self, raw_event):
         event = public_event(raw_event)

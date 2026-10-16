@@ -2,6 +2,7 @@ import {publicFeed} from './public-feed.js';
 import {reportOverviews} from './report-overviews.mjs';
 import {applyRecordPolicy,deletedReportDays} from '../record-policy.js';
 import {siteCoverage} from '../coverage.js';
+import {mergeOwnership} from '../brand-ownership.js';
 import {dueActions,progressSnapshot,retryAfterAt} from './automation.mjs';
 import {createHash} from 'node:crypto';
 import {upgradeGlobalScope,nextDailyTime} from '../monitor-policy.js';
@@ -20,7 +21,7 @@ let vault,revision=0,child,checkpointChain=Promise.resolve();
 const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
-function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{coverage:siteCoverage(vault.state.monitor.coverageScopes?.[dayOf()]||[],vault.state.monitor,dayOf()),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===dayOf()).map(r=>({startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',searchTime:'00:00',pushTime:'10:30',nextSearchAt:nextDailyTime(0),nextPushAt:nextDailyTime(10.5),queryBudget:360,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length},bot:{kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
+function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{coverage:siteCoverage(vault.state.monitor.coverageScopes?.[dayOf()]||[],vault.state.monitor,dayOf()),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===dayOf()).map(r=>({startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',searchTime:'00:00',pushTime:'10:30',nextSearchAt:nextDailyTime(0),nextPushAt:nextDailyTime(10.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length},bot:{kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function dashboard(){return {version:2,state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
 async function checkpoint(){
  applyRecordPolicy(vault.state);
@@ -48,10 +49,10 @@ async function delivery(operation){
  }
  // Recover the immutable checksum used by old partially archived records.
  for(const e of vault.delivery.events)if(e.cumulative&&e.at<='2026-10-14T01:25:00.000Z'){const d=createHash('sha256').update(JSON.stringify({day:e.day,at:e.at,cumulative:e.cumulative})).digest('hex').slice(0,24);e.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/reports/'+e.day+'/'+d+'.png';}vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
- if(operation!=='check'){
+ if(!['check','digest-only'].includes(operation)){
  for(const event of vault.delivery.reportOverviews)try{
   if(vault.delivery.reportLayouts?.[event.day]===event.reportVersion)continue;
-  const digest=createHash('sha256').update(JSON.stringify({version:3,day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),prefix='reports/'+event.day+'/'+digest;
+  const digest=createHash('sha256').update(JSON.stringify({version:4,day:event.day,at:event.at,cumulative:event.cumulative})).digest('hex').slice(0,24),prefix='reports/'+event.day+'/'+digest;
   const input=join(root,'sections.json'),output=join(root,'sections');await writeFile(input,JSON.stringify({day:event.day,cumulative:event.cumulative}));
   await new Promise((resolve,reject)=>{const p=spawn('python3',[new URL('./report_sections.py',import.meta.url).pathname,input,output],{stdio:'ignore'});p.on('error',reject);p.on('exit',n=>n===0?resolve():reject(Error('图表生成失败')))});
   event.reportCharts={};for(const kind of ['discovery','review','trend',...(event.cumulative.coverage?['coverage']:[])]){const name=prefix+'-'+kind+'.png';let existing;try{existing=await github('/contents/'+name+'?ref='+config.branch)}catch(e){if(e.status!==404)throw e}
@@ -97,19 +98,26 @@ async function main(){
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
  if(op==='review'){applyReviews(vault.state,payload.events);await checkpoint();}
  if(op==='check'&&/^[a-f0-9-]{36}$/.test(payload.permissionProbe||''))vault.browserPermissionCheck={id:payload.permissionProbe,at:new Date().toISOString(),repositoryWrite:true,payloadDecrypted:true,workflowTriggered:true};
- if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config=payload.config;vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
+ if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config={...payload.config,brandOwnership:mergeOwnership(vault.state.config.brandOwnership,payload.config.brandOwnership)};vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
  upgradeGlobalScope(vault.state);
  vault.lastError='';
  vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};await checkpoint();
  try{
    const due=dueActions(vault);
+   // A saved daily brief has a separate delivery stage, before any slow scan or archive.
+   if(op==='digest'||(op==='auto'&&due.digest))await delivery('digest-only');
    if(['schedule','scan','site-retry','verify'].includes(op)||(op==='auto'&&due.scan)){
     const day=dayOf();const already=vault.state.monitor.runs.some(r=>r.trigger==='schedule'&&r.reportDay===day&&!r.running&&!r.cancelled);
     if(op!=='schedule'||!already){const run=await scan(vault.state,{budget:op==='auto'?due.budget:op==='schedule'?120:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
    }
    vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
-   await delivery(['test-digest','verify'].includes(op)?'test-digest':(op==='digest'||(op==='auto'&&dueActions(vault).digest))?'digest':['check','authorize'].includes(op)?'check':'sync');
- }catch(error){vault.lastError=error.message||'云端操作失败，原记录保留'}
+   await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync');
+ }catch(error){
+   vault.lastError=error.message||'云端操作失败，原记录保留';
+   // Saved results can still be archived after a search failure. Atomic checkpoints
+   // retain the conflict guards if another ledger writer has intervened.
+   try{await delivery(op==='auto'&&dueActions(vault).digest?'digest-only':'sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
+ }
  finally{vault.runtime={...vault.runtime,currentSite:null,lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
  if(uploadName&&!vault.lastError)await store.remove(uploadName);
  console.log('监控范围：'+vault.state.config.platforms.length+' 类平台 / '+vault.state.config.regions.length+' 个市场');

@@ -1,11 +1,12 @@
-import {platforms,marketData} from './model.js?v=20261014-compact';
-import {reportModel} from './report-model.js?v=20261014-compact';
-import {dailyHTML} from './daily-view.js?v=20261014-compact';
-import {dayReport,reportDates,dayOf} from './monitor.js?v=20261014-compact';
+import {evidenceUrl} from './lead-access.js?v=20261016-review';
+import {platforms,marketData} from './model.js?v=20261016-review';
+import {reportModel} from './report-model.js?v=20261016-review';
+import {dailyHTML} from './daily-view.js?v=20261016-review';
+import {dayReport,reportDates,dayOf} from './monitor.js?v=20261016-review';
 export const notionHome='https://app.notion.com/p/3f865b803b2b81cf800bff7fcf1624db';
 const clean=x=>String(x??'').replace(/[\\`*_<>\[\]{}|]/g,'\\$&').replace(/\r?\n/g,' ');
 export function notionReport(m,day){const publication=m.publications?.[day],d=publication?.report||reportModel(m,day),lines=[`报告日期：${day}（北京时间）`,`更新时间：${new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',dateStyle:'short',timeStyle:'medium',hour12:false}).format(new Date())}（北京时间）`,publication?`汇报版 v${publication.version} · 定稿时间 ${publication.createdAt}`:'累计草稿（未定稿）','','## 当日摘要',`- 新增 ${d.fresh.length} 条；内容变化 ${d.changed.length} 条；历史重复 ${d.repeat.length} 条；人工复核 ${d.uniqueReviews.length} 页。`,`- 成功查询 ${d.success.length} 条；失败 ${d.failed.length} 条；成功查询目标网站 ${d.successfulSites.length} 个。`,`- 有效结果涉及网站 ${d.resultSites.length} 个；仍有失败查询的网站 ${d.failedSites.length} 个。`,`- 当日增量复核：待核查 ${d.review.pending}，核查中 ${d.review.reviewing}，已排除/授权核实 ${d.review.cleared}，提交法务 ${d.review.escalated}。`,'','统计基于可追溯查询。零命中不等于无风险；索引成功不表示原网页直连成功。'];
- for(const [title,events] of [['新增线索',d.fresh],['旧线索变化',d.changed]]){lines.push('',`## ${title}`);if(!events.length)lines.push('无记录。');for(const e of events){lines.push('',`### ${clean(e.snapshot.title)}`,`- 原页面：${e.snapshot.url}`,`- 查询：${clean(e.snapshot.query)}`,`- 检索入口：${e.snapshot.searchUrl}`,`- 当时优先级：${{high:'高',medium:'中',routine:'低'}[e.snapshot.level]}；目标市场：${e.snapshot.country}`,`- 摘要：${clean(e.snapshot.snippet)}`);if(e.kind==='changed')lines.push(`- 之前：${clean(e.before?.title)} · ${clean(e.before?.snippet)}`);}}
+ for(const [title,events] of [['新增线索',d.fresh],['旧线索变化',d.changed]]){lines.push('',`## ${title}`);if(!events.length)lines.push('无记录。');for(const e of events){lines.push('',`### ${clean(e.snapshot.title)}`,`- 原页面：${e.snapshot.url}`,`- 查询：${clean(e.snapshot.query)}`,`- 证据与访问入口：${evidenceUrl(e.snapshot,day)}`,`- 目标市场：${e.snapshot.country}`,`- 摘要：${clean(e.snapshot.snippet)}`);if(e.kind==='changed')lines.push(`- 之前：${clean(e.before?.title)} · ${clean(e.before?.snippet)}`);}}
  lines.push('','## 复核进展');for(const r of d.reviews)lines.push(`- ${clean(r.title)}：${clean(r.after.decision||r.after.status)}；依据：${clean(r.after.note)}；${r.url}`);if(!d.reviews.length)lines.push('无复核变更。');
  lines.push('','## 执行与补查');for(const i of d.items)lines.push(`- ${clean(i.domain||i.plan?.domain||'全网发现')}：${i.status}；${clean(i.message)}；${i.searchUrl||''}`);
  lines.push('','## 重复线索附录',`本日 ${d.repeat.length} 条历史页面再次出现，不重复列为新增。`);for(const e of d.repeat)lines.push(`- ${clean(e.snapshot.title)}：${e.snapshot.url}`);

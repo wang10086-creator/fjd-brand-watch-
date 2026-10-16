@@ -1,6 +1,8 @@
-import {overseasPlatforms} from './overseas-platforms.js?v=20261014-compact';
-import {chinaPlatforms} from './china.js?v=20261014-compact';
-import {expansion} from './expansion.js?v=20261014-compact';
+import {worldMarkets} from './world-markets.js?v=20261016-review';
+import {globalPlatforms} from './global-platforms.js?v=20261016-review';
+import {overseasPlatforms} from './overseas-platforms.js?v=20261016-review';
+import {chinaPlatforms} from './china.js?v=20261016-review';
+import {expansion} from './expansion.js?v=20261016-review';
 export const marketData = {
   IE:{name:'爱尔兰',lang:'en',language:'英语',area:'欧洲'},AT:{name:'奥地利',lang:'de',language:'德语',area:'欧洲'},CZ:{name:'捷克',lang:'cs',language:'捷克语',area:'欧洲'},SK:{name:'斯洛伐克',lang:'sk',language:'斯洛伐克语',area:'欧洲'},HU:{name:'匈牙利',lang:'hu',language:'匈牙利语',area:'欧洲'},
   KE:{name:'肯尼亚',lang:'en',language:'英语',area:'非洲'},GH:{name:'加纳',lang:'en',language:'英语',area:'非洲'},MA:{name:'摩洛哥',lang:'ar',language:'阿拉伯语',area:'非洲'},UG:{name:'乌干达',lang:'en',language:'英语',area:'非洲'},CI:{name:'科特迪瓦',lang:'fr',language:'法语',area:'非洲'},SN:{name:'塞内加尔',lang:'fr',language:'法语',area:'非洲'},
@@ -120,7 +122,7 @@ export function mergeBackup(existing,incoming){
   const next={...row};for(const key of ['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'])if(saved[key]!==undefined)next[key]=saved[key];return next;
  });
 }
-export function csv(rows){const columns={title:'商品或页面',seller:'商家',country:'检索市场',language:'检索语言',platform:'平台',url:'结果链接',query:'检索关键词组合',queryProvenance:'查询来源（recorded原记录/reconstructed补建）',keywords:'命中或查询词',searchUrl:'检索链接',risk:'风险等级',reasons:'风险依据',status:'复核状态',imageMatch:'图片辅助核验',firstSeen:'首次发现',lastSeen:'最近发现',source:'数据来源',evidence:'证据链接',note:'人工备注'};const cell=x=>'"'+String(x??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';return '\ufeff'+[Object.values(columns).map(cell).join(','),...rows.map(r=>Object.keys(columns).map(k=>cell(k==='risk'?({high:'高（人工标记）',medium:'中（待核验）',routine:'低（常规文字命中）'}[assess(r).priority]):k==='reasons'?assess(r).reasons.join('；'):Array.isArray(r[k])?r[k].join(' / '):r[k])).join(','))].join('\r\n')}
+export function csv(rows){const columns={title:'商品或页面',seller:'商家',country:'检索市场',language:'检索语言',platform:'平台',url:'结果链接',query:'检索关键词组合',queryProvenance:'查询来源（recorded原记录/reconstructed补建）',keywords:'命中或查询词',searchUrl:'检索链接',status:'复核状态',imageMatch:'图片辅助核验',firstSeen:'首次发现',lastSeen:'最近发现',source:'数据来源',evidence:'证据链接',note:'人工备注'};const cell=x=>'"'+String(x??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';return '\ufeff'+[Object.values(columns).map(cell).join(','),...rows.map(r=>Object.keys(columns).map(k=>cell(k==='risk'?({high:'高（人工标记）',medium:'中（待核验）',routine:'低（常规文字命中）'}[assess(r).priority]):k==='reasons'?assess(r).reasons.join('；'):Array.isArray(r[k])?r[k].join(' / '):r[k])).join(','))].join('\r\n')}
 export function normalizeSchedule(value={}){const cadence=['daily','weekly','interval'].includes(value.cadence)?value.cadence:'daily';const hour=Number.isInteger(+value.hour)&&+value.hour>=0&&+value.hour<=23?+value.hour:9;const weekday=Number.isInteger(+value.weekday)&&+value.weekday>=0&&+value.weekday<=6?+value.weekday:1;const every=[6,12,24].includes(+value.every)?+value.every:6;const timezone=['Asia/Shanghai','UTC','America/New_York','Europe/London','Europe/Berlin','Asia/Tokyo','Australia/Sydney'].includes(value.timezone)?value.timezone:'Asia/Shanghai';return {enabled:!!value.enabled,cadence,hour,weekday,every,timezone}}
 function zonedParts(date,zone){return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).filter(p=>p.type!=='literal').map(p=>[p.type,Number(p.value)]))}
 export function nextScheduleAt(value,from=new Date()){
@@ -152,3 +154,7 @@ marketData.CN={name:"中国大陆",lang:"zh",language:"简体中文",area:"中�
 platforms.push(...chinaPlatforms);
 
 platforms.push(...overseasPlatforms);
+
+for(const [code,market] of Object.entries(worldMarkets))marketData[code]={...market,...marketData[code],languages:market.languages};
+for(const p of globalPlatforms)if(!platforms.some(x=>x.id===p.id))platforms.push(p);
+Object.assign(regions,Object.fromEntries(Object.entries(marketData).map(([k,v])=>[k,v.name])));

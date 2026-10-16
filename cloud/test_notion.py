@@ -145,3 +145,35 @@ class CompactOverviewTests(unittest.TestCase):
         self.assertLess(chart,case);self.assertFalse(any('report-section=' in marker_of(b) for b in active()))
         # Recover an insertion whose response was lost before the external mapping persisted.
         NotionReports(store.request,'parent',pages,{}).overview(e);self.assertEqual(len(active()),count)
+
+class ReconciliationTests(unittest.TestCase):
+    def test_digest_only_never_waits_for_notion_and_keeps_prior_archive_error(self):
+        state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','events':[EVENT],'archiveError':'pending recovery'};calls=[]
+        def blocked(*a):raise AssertionError('Notion must not run before digest-only')
+        deliver(state,'digest-only',lambda:None,env={'NOTION_TOKEN':'dummy','FEISHU_BOT_WEBHOOK':'https://open.feishu.cn/open-apis/bot/v2/hook/test'},request=blocked,bot_request=lambda *a:calls.append(a) or {'code':0},now=dt.datetime(2026,10,13,3,tzinfo=dt.timezone.utc))
+        self.assertEqual(len(calls),1);self.assertEqual(state['archiveError'],'pending recovery');self.assertEqual(state['pushes']['2026-10-13']['status'],'sent')
+    def test_complete_case_list_matches_statistics_and_is_idempotent(self):
+        event=copy.deepcopy(EVENT);event['cumulative'].update(new=23,pending=22)
+        event['reportCases']=[{'title':'FJDynamics '+str(i),'url':'https://shop.example/'+str(i),'query':'FJDynamics','status':'pending' if i else 'cleared','outcome':'pending' if i else 'authorized','kind':'new'} for i in range(23)]
+        store=Store();sink=NotionReports(store.request,'parent');sink.overview(event);page=sink.pages[event['day']]['id'];before=copy.deepcopy(store.blocks[page]);sink.overview(event)
+        self.assertEqual(before,store.blocks[page]);links=[b for b in before if 'evidence.html?' in marker_of(b)];self.assertEqual(len(links),23);self.assertIn('待完成核查 22',str(before))
+        event['cumulative']['pending']=23
+        with self.assertRaisesRegex(ValueError,'不一致'):sink.overview(event)
+    def test_historical_presentation_keeps_event_marker_and_updates_old_links(self):
+        from notion_archive import block,link_block
+        store=Store();layouts={};sink=NotionReports(store.request,'parent',{},layouts);receipt=sink.sync(EVENT);page=sink.pages[EVENT['day']]['id'];toggle=next(b for b in store.blocks[page] if b['type']=='toggle');marker=marker_of(toggle)
+        # Represent nested API block IDs as returned by Notion, unlike inline fixture children.
+        toggle['toggle'].pop('children',None);store.blocks[toggle['id']]=[]
+        store.request('PATCH','/blocks/'+toggle['id']+'/children',{'children':[block('paragraph','优先级：medium\n检索词：FJDynamics'),link_block('查看公开原页面','https://shop.example/p')]})
+        sink.repair_history_presentation(EVENT['day']);sink.repair_history_presentation(EVENT['day'])
+        self.assertEqual(marker_of(toggle),marker);children=store.blocks[toggle['id']];self.assertNotIn('优先级：',str(children));self.assertIn('evidence.html?',str(children));self.assertEqual(sink.sync(EVENT)['status'],'synced')
+
+class RenderTextTests(unittest.TestCase):
+    def test_report_font_contains_every_chinese_chart_label_character(self):
+        # Check the bundled cmap without adding fontTools to the production runner.
+        from PIL import ImageFont
+        import pathlib
+        font=ImageFont.truetype(str(pathlib.Path(__file__).parent/'assets/report-font.otf'),24)
+        missing=bytes(font.getmask(chr(0x10ffff)))
+        for ch in set('人工复核进展待开始核查继续核查已排除或授权提交法务'):
+            self.assertNotEqual(bytes(font.getmask(ch)),missing,ch)

@@ -1,0 +1,23 @@
+name: 兼容性回归检查
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 数据流、队列与兼容性检查
+        run: npm test
+      - name: 准备图表测试依赖
+        run: python3 -m pip install --quiet Pillow==11.3.0
+      - name: 归档、回执、完整清单与图表检查
+        run: python3 -m unittest discover -s cloud -p 'test_*.py'

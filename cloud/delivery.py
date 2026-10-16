@@ -42,58 +42,61 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
     state['notionConfigured'] = bool(token)
     state['botConfigured'] = bool(env.get('FEISHU_BOT_WEBHOOK'))
     state['pushStatus'] = '机器人已配置，发送结果见回执' if state['botConfigured'] else '飞书群简报待配置：FEISHU_BOT_WEBHOOK'
-    state['archiveError'] = ''
-    state['botError'] = ''
+    if operation != 'digest-only':state['archiveError'] = ''
+    if operation in ('digest','digest-only','test-digest'):state['botError'] = ''
+    else:state.setdefault('botError','')
     state['baseUrl'] = state['publicUrl']  # Shared digest formatter's report link.
-    try:
-        if not token:
-            raise ValueError('Notion 自动归档待配置：请添加 NOTION_TOKEN，并将连接加入日报总页')
-        sink = NotionReports(request or notion_request(token), state['parentId'], state.setdefault('pages', {}), state.setdefault('layoutBlocks', {}))
-        sink.check()
-        state['notionCheckedAt'] = dt.datetime.now(dt.timezone.utc).isoformat()
-        if operation != 'check':
-            for day in state.get('deletedReportDays', []):
-                page=state['pages'].get(day)
-                if page:
-                    removal=sink.request('PATCH','/pages/'+page['id'],{'archived':True})
-                    if removal.get('archived') is not True:raise ValueError('Notion 尚未确认指定日期的日报已删除')
-                    state['layoutBlocks'].pop(page['id'],None)
-                    state['pages'].pop(day,None)
-                    state.setdefault('reportLayouts',{}).pop(day,None)
-                    state.setdefault('removedReportPages',{})[day]=dt.datetime.now(dt.timezone.utc).isoformat()
+    if operation != 'digest-only':
+        try:
+            if not token:
+                raise ValueError('Notion 自动归档待配置：请添加 NOTION_TOKEN，并将连接加入日报总页')
+            sink = NotionReports(request or notion_request(token), state['parentId'], state.setdefault('pages', {}), state.setdefault('layoutBlocks', {}))
+            sink.check()
+            state['notionCheckedAt'] = dt.datetime.now(dt.timezone.utc).isoformat()
+            if operation != 'check':
+                for day in state.get('deletedReportDays', []):
+                    page=state['pages'].get(day)
+                    if page:
+                        removal=sink.request('PATCH','/pages/'+page['id'],{'archived':True})
+                        if removal.get('archived') is not True:raise ValueError('Notion 尚未确认指定日期的日报已删除')
+                        state['layoutBlocks'].pop(page['id'],None)
+                        state['pages'].pop(day,None)
+                        state.setdefault('reportLayouts',{}).pop(day,None)
+                        state.setdefault('removedReportPages',{})[day]=dt.datetime.now(dt.timezone.utc).isoformat()
+                        checkpoint()
+                for event in sorted(state.get('events', []), key=lambda e: (e['at'], e['id'])):
+                    if state.setdefault('receipts', {}).get(event['id'], {}).get('status') == 'synced':
+                        continue
+                    try:
+                        receipt = sink.sync(event)
+                        receipt['at'] = dt.datetime.now(dt.timezone.utc).isoformat()
+                        state['receipts'][event['id']] = receipt
+                        state['lastSyncedAt'] = receipt['at']
+                        checkpoint()
+                    except Exception:
+                        state['receipts'][event['id']] = {'id': event['id'], 'status': 'failed', 'provider': 'notion', 'error': 'Notion 写入尚未确认，等待补同步'}
+                        raise
+                latest={event['day']:event for event in report_overviews(state)}
+                for event in latest.values():
+                    version=event.get('reportVersion',event['at']+'|v7')
+                    if state.setdefault('reportLayouts',{}).get(event['day'])==version:continue
+                    sink.overview(event)
+                    if event.get('reportCases') is not None:sink.repair_history_presentation(event['day'])
+                    state['reportLayouts'][event['day']]=version
                     checkpoint()
-            for event in sorted(state.get('events', []), key=lambda e: (e['at'], e['id'])):
-                if state.setdefault('receipts', {}).get(event['id'], {}).get('status') == 'synced':
-                    continue
-                try:
-                    receipt = sink.sync(event)
-                    receipt['at'] = dt.datetime.now(dt.timezone.utc).isoformat()
-                    state['receipts'][event['id']] = receipt
-                    state['lastSyncedAt'] = receipt['at']
-                    checkpoint()
-                except Exception:
-                    state['receipts'][event['id']] = {'id': event['id'], 'status': 'failed', 'provider': 'notion', 'error': 'Notion 写入尚未确认，等待补同步'}
-                    raise
-            latest={event['day']:event for event in report_overviews(state)}
-            for event in latest.values():
-                version=event.get('reportVersion',event['at']+'|v7')
-                if state.setdefault('reportLayouts',{}).get(event['day'])==version:continue
-                sink.overview(event)
-                state['reportLayouts'][event['day']]=version
-                checkpoint()
-            state['reportLayoutVersion']=2
-            if latest:
-                event=max(latest.values(),key=lambda e:(e['day'],e['at']))
-                version=event.get('reportVersion',event['at'])+'|hub-v3'
-                if state.get('archiveHubVersion')!=version:
-                    sink.parent_overview(event)
-                    state['archiveHubVersion']=version
-                    checkpoint()
-    except Exception as error:
-        state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'
+                state['reportLayoutVersion']=2
+                if latest:
+                    event=max(latest.values(),key=lambda e:(e['day'],e['at']))
+                    version=event.get('reportVersion',event['at'])+'|hub-v3'
+                    if state.get('archiveHubVersion')!=version:
+                        sink.parent_overview(event)
+                        state['archiveHubVersion']=version
+                        checkpoint()
+        except Exception as error:
+            state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 写入异常，待同步记录已保留'
     checkpoint()
     # A Notion failure never blocks the independent scheduled group brief.
-    if operation in ('digest','test-digest'):
+    if operation in ('digest','digest-only','test-digest'):
         try:
             digest(state, env.get('FEISHU_BOT_WEBHOOK', ''), env.get('FEISHU_BOT_SECRET', ''), checkpoint, **({'request': bot_request} if bot_request else {}), now=now, test=operation=='test-digest')
         except Failure as error:

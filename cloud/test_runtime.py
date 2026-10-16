@@ -92,3 +92,19 @@ class CardTests(unittest.TestCase):
         buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),2)
         self.assertEqual(buttons[0]['actions'][0]['text']['content'],'查阅当日日报')
         self.assertEqual([(x['text']['content'],x['url']) for x in buttons[1]['actions']], [('监控工作台','https://wang10086-creator.github.io/fjd-brand-watch-/'),('日报总览',state['publicUrl'])])
+
+class DeliveryRecoveryTests(unittest.TestCase):
+    def test_stale_sending_is_flagged_uncertain_without_duplicate(self):
+        now=dt.datetime(2026,10,16,11,tzinfo=BEIJING)
+        state={'baseUrl':'https://example.notion.site/root','pushes':{'2026-10-16':{'status':'sending','at':'2026-10-16T02:00:00Z'}}};calls=[]
+        digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,lambda *a:calls.append(a),now)
+        self.assertEqual(calls,[]);self.assertEqual(state['pushes']['2026-10-16']['status'],'uncertain')
+    def test_definite_failure_waits_then_retries_and_success_is_not_repeated(self):
+        now=dt.datetime(2026,10,16,11,tzinfo=BEIJING);state={'baseUrl':'https://example.notion.site/root'};calls=[]
+        def reject(*args):calls.append(args);return {'code':19024}
+        with self.assertRaises(Failure):digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,reject,now)
+        digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,reject,now+dt.timedelta(minutes=1));self.assertEqual(len(calls),1)
+        def accept(*args):calls.append(args);return {'code':0}
+        digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,accept,now+dt.timedelta(minutes=16))
+        digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,accept,now+dt.timedelta(minutes=30))
+        self.assertEqual(len(calls),2);self.assertEqual(state['pushes']['2026-10-16']['attempts'],2)

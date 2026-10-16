@@ -1,7 +1,8 @@
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js';
-import {mergeRows,enrichLead,canonical} from '../model.js';
-import {applyRecordPolicy} from '../record-policy.js';
+import {mergeMonitors} from '../monitor.js?v=20261016-review';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261016-review';
+import {applyRecordPolicy} from '../record-policy.js?v=20261016-review';
+import {mergeOwnership} from '../brand-ownership.js?v=20261016-review';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
 const snapshot=v=>v?pick(v,'url title snippet platform country language query searchUrl source verification level status imageMatch checkedAt'):null;
 const review=v=>pick(v,'reviewOutcome status imageMatch confirmedIssue decision watch pageState needsRecheck');
@@ -16,7 +17,7 @@ export function publicFeed(state,{revision,at=new Date().toISOString(),receipts=
  const reviews=m.reviews.map(r=>marked({...pick(r,'id key url title day at levelBefore levelAfter'),before:review(r.before),after:review(r.after)}));
  const updateChain=(m.updateChain||[]).map(e=>marked({...pick(e,'id day at startedAt type historical summary cumulative'),entries:(e.entries||[]).map(r=>pick(r,'key kind title url query searchUrl platform snippet priority status')),queries:(e.queries||[]).map(q=>pick(q,'query searchUrl status platform domain at'))}));
  const known=Object.fromEntries(Object.entries(m.known||{}).map(([key,v])=>[key,{...pick(v,'firstKnownAt at baseline'),snapshot:snapshot(v.snapshot),variants:Object.fromEntries(Object.entries(v.variants||{}).map(([q,s])=>[q,snapshot(s)]))}]));
- return {version:1,revision,updatedAt:at,removedRecordKeys:state.removedRecordKeys||[],rows:state.rows.map(r=>marked(pick(r,'id url title snippet platform country language query searchUrl keywords queryProvenance source verification seller imageUrl checkedAt firstSeen lastSeen status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck pageKind'))),monitor:{version:1,...pick(m,'startedAt baselineCount coverageScopes coverageScopeAt'),known,observations,reviews,runs,checks:[],legacyRuns:[],updateChain},receipts:Object.fromEntries(Object.entries(receipts).map(([id,r])=>[id,pick(r,'id status provider url publicUrl at')]))};
+ return {version:1,revision,updatedAt:at,brandOwnership:mergeOwnership({},state.config?.brandOwnership),removedRecordKeys:state.removedRecordKeys||[],rows:state.rows.map(r=>marked(pick(r,'id url title snippet platform country language query searchUrl keywords queryProvenance source verification seller imageUrl checkedAt firstSeen lastSeen status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck pageKind pageState'))),monitor:{version:1,...pick(m,'startedAt baselineCount coverageScopes coverageScopeAt'),known,observations,reviews,runs,checks:[],legacyRuns:[],updateChain},receipts:Object.fromEntries(Object.entries(receipts).map(([id,r])=>[id,pick(r,'id status provider url publicUrl at')]))};
 }
 export function applyPublicFeed(state,feed){
  if(feed?.version!==1||!Array.isArray(feed.rows)||feed.monitor?.version!==1)throw Error('云端公开日报格式无效');
@@ -29,6 +30,7 @@ export function applyPublicFeed(state,feed){
  const history=new Map((state.history||[]).map(r=>[r.id,r]));for(const r of feed.monitor.runs||[]){const old=history.get(r.id);if(!old||old.publicOnly)history.set(r.id,structuredClone(r));}state.history=[...history.values()].sort((a,b)=>b.startedAt.localeCompare(a.startedAt)).slice(0,100);
  state.monitor=mergeMonitors(state.monitor,feed.monitor,state.rows);
  state.archive={...state.archive,receipts:{...state.archive?.receipts,...feed.receipts}};
+ state.config||={};state.config.brandOwnership=mergeOwnership(state.config.brandOwnership,feed.brandOwnership);
  state.publicRevision=feed.revision;state.publicUpdatedAt=feed.updatedAt;
  state.publicEventIds=(feed.monitor.updateChain||[]).map(e=>e.id);state.removedRecordKeys=[...new Set([...(state.removedRecordKeys||[]),...(feed.removedRecordKeys||[])])];applyRecordPolicy(state);
  return true;

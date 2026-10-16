@@ -1,10 +1,10 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261014-compact';
+import {canonical, safeUrl, risk} from './model.js?v=20261016-review';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
 const clean=v=>String(v||'').normalize('NFKC').replace(/\s+/g,' ').trim();
 const keyOf=r=>canonical(r.url);
-export function snapshot(row){return {url:safeUrl(row.url),title:String(row.title||''),snippet:String(row.snippet||'').slice(0,1500),platform:row.platform||'dealer',country:row.country||'',language:row.language||'',query:String(row.query||''),searchUrl:safeUrl(row.searchUrl),source:String(row.source||''),verification:row.verification||'search-index',level:risk(row).level,status:row.status||'pending',imageMatch:row.imageMatch||'unverified',checkedAt:row.checkedAt||null};}
+export function snapshot(row){return {url:safeUrl(row.url),title:String(row.title||''),snippet:String(row.snippet||'').slice(0,1500),platform:row.platform||'dealer',country:row.country||'',language:row.language||'',query:String(row.query||''),searchUrl:safeUrl(row.searchUrl),source:String(row.source||''),verification:row.verification||'search-index',status:row.status||'pending',imageMatch:row.imageMatch||'unverified',checkedAt:row.checkedAt||null};}
 export const fingerprint=r=>JSON.stringify([clean(r.title),clean(r.snippet)]);
 export function initMonitor(saved,rows,at=new Date().toISOString()){
  const m=saved?.version===1?structuredClone(saved):{version:1,startedAt:at,baselineCount:rows.length,known:{},observations:[],reviews:[],runs:[],checks:[],legacyRuns:[]};
@@ -39,7 +39,7 @@ export function recordReview(m,before,after,at=new Date().toISOString()){
  const changed=decisionFields.filter(k=>JSON.stringify(before[k]??null)!==JSON.stringify(after[k]??null));
  if(!changed.length)return null;
  const fields=row=>Object.fromEntries(decisionFields.map(k=>[k,row[k]??null]));
- const event={id:crypto.randomUUID(),key:keyOf(after),url:after.url,title:after.title,day:dayOf(at),at,changed,before:fields(before),after:fields(after),levelBefore:risk(before).level,levelAfter:risk(after).level};m.reviews.push(event);return event;
+ const event={id:crypto.randomUUID(),key:keyOf(after),url:after.url,title:after.title,day:dayOf(at),at,changed,before:fields(before),after:fields(after)};m.reviews.push(event);return event;
 }
 export function recordRun(m,run){const copy=structuredClone(run),i=m.runs.findIndex(x=>x.id===run.id);if(i<0)m.runs.push(copy);else m.runs[i]=copy;}
 export function recordCheck(m,{url,at=new Date().toISOString(),runId,result,query,searchUrl,reportDay=null}){

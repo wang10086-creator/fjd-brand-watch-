@@ -1,6 +1,6 @@
-import {chinaPlatforms} from './china.js?v=20261014-compact';
-import {expansion} from './expansion.js?v=20261014-compact';
-import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261014-compact';
+import {chinaPlatforms} from './china.js?v=20261016-review';
+import {expansion} from './expansion.js?v=20261016-review';
+import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261016-review';
 export {marketData,platforms,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt};
 export const languageNames={en:'英语',de:'德语',fr:'法语',es:'西班牙语',it:'意大利语',nl:'荷兰语',pl:'波兰语',sv:'瑞典语',tr:'土耳其语',ja:'日语',ko:'韩语',ms:'马来语',id:'印尼语',th:'泰语',vi:'越南语',pt:'葡萄牙语',ar:'阿拉伯语',cs:'捷克语',sk:'斯洛伐克语',hu:'匈牙利语',zh:'简体中文','zh-Hans':'简体中文','zh-Hant':'繁体中文',hi:'印地语',ru:'俄语',el:'希腊语',bs:'波斯尼亚语',hy:'亚美尼亚语',ka:'格鲁吉亚语',he:'希伯来语'};
 words.ru={commerce:['купить','дилер','дистрибьютор'],official:['официальный','официальный дилер'],used:['б/у','восстановленный']};
@@ -8,6 +8,7 @@ words.he={commerce:['קנייה','מפיץ','סוחר'],official:['רשמי','מ
 const regional={US:['en','es'],CA:['en','fr'],BE:['nl','fr','de'],CH:['de','fr','it'],SG:['en','zh','ms'],MY:['ms','en','zh'],HK:['zh-Hant','en'],TW:['zh-Hant'],AE:['ar','en'],SA:['ar','en'],IN:['hi','en'],ZA:['en'],PH:['en'],TH:['th','en']};
 Object.assign(regional,expansion.regionalLanguageSupplements);
 for(const m of Object.values(expansion.addedMarkets))languageNames[m.lang]=m.language;
+const localeNames=new Intl.DisplayNames(['zh-CN'],{type:'language'});for(const m of Object.values(marketData))for(const l of m.languages||[])languageNames[l]||=localeNames.of(l);
 Object.assign(languageNames,{sw:'斯瓦希里语',ha:'豪萨语'});
 export const defaults={aliases:['FJDynamics','FJ Dynamics','FJD Trion','丰疆智能'],regions:Object.keys(marketData),platforms:platforms.map(p=>p.id),intent:'commerce',models:'',exclude:'',broad:false,languageMode:'all',languageTerms:{}};
 export function supportedMarkets(p){return p.globalDomain||p.kind==='dealer'?Object.keys(marketData):Object.keys(p.markets)}
@@ -16,24 +17,32 @@ export function planLanguages(p,c,registry,mode='relevant'){
  const domain=p.markets[c]||p.globalDomain||'';
  const record=registry?.entries?.find(x=>x.platform===p.id&&x.domain===domain);
  const platformLanguages=(record?.verification?.startsWith('verified')?record.interfaceLanguages:[])||[];
- const local=regional[c]||[marketData[c].lang];
+ const local=[...new Set([...(regional[c]||[]),...(marketData[c].languages||[marketData[c].lang])])];
  const selected=platformLanguages;
- return [...new Set([...selected,...local,'en',...(record?.regionalSupplementLanguages||[])])].filter(l=>words[l]||l==='zh-Hans').map(language=>({language,platformVerified:platformLanguages.includes(language),regional:local.includes(language),sourceUrl:record?.sourceUrl||'',subset:record?.verification==='verified_observed_subset'}));
+ return [...new Set([...selected,...local,'en',...(record?.regionalSupplementLanguages||[])])].map(language=>({language,platformVerified:platformLanguages.includes(language),regional:local.includes(language),sourceUrl:record?.sourceUrl||'',subset:record?.verification==='verified_observed_subset'}));
 }
 export function buildPlans(config,registry){
  const allAliases=(config.aliases||[]).map(String).map(x=>x.trim()).filter(Boolean);if(!allAliases.length)return [];
  const groups=Array.from({length:Math.ceil(allAliases.length/5)},(_,i)=>allAliases.slice(i*5,i*5+5));
- const quote=x=>'"'+x.replaceAll('"','').slice(0,90)+'"';const unique=new Map();const emit=p=>{const key=JSON.stringify([p.domain,p.query]),old=unique.get(key);if(old){if(!old.countries.includes(p.country))old.countries.push(p.country);if(!old.languages.includes(p.language))old.languages.push(p.language);old.combinations++;}else unique.set(key,{...p,id:'q:'+encodeURIComponent(key),countries:[p.country],languages:[p.language],combinations:1});};
- for(const [groupIndex,aliases] of groups.entries())for(const country of [...new Set(config.regions||[])].filter(c=>marketData[c]))for(const p of platforms.filter(x=>(config.platforms||[]).includes(x.id)).sort((a,b)=>country==='CN'?((a.id==='nongjitong'?-1:a.markets.CN?0:1)-(b.id==='nongjitong'?-1:b.markets.CN?0:1)):0)){
-  if(!supportedMarkets(p).includes(country))continue;const domain=p.markets[country]||p.globalDomain||'';
-  for(const lang of planLanguages(p,country,registry,config.languageMode)){
-   const language=lang.language,terms=String(config.languageTerms?.[language]||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,12);
-   const localized=terms.length?terms:words[language==='zh-Hans'?'zh':language]?.[config.intent||'commerce']||words.en.commerce;
-   const models=String(config.models||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,8),excluded=String(config.exclude||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,8);
-   const query=[domain?'site:'+domain:'','('+aliases.map(a=>{const r=config.termRules?.find(r=>r.text===a);return r?.requiresContext?'('+quote(a)+' ('+r.contextTerms.slice(0,8).map(quote).join(' OR ')+'))':quote(a)}).join(' OR ')+')',config.broad?'':'('+localized.map(quote).join(' OR ')+')',models.length?'('+models.map(quote).join(' OR ')+')':'',...excluded.map(x=>'-'+quote(x))].filter(Boolean).join(' ');
-   const google='https://www.google.com/search?'+new URLSearchParams({q:query,gl:country.toLowerCase(),hl:language==='zh-Hant'?'zh-TW':language==='zh'?'zh-CN':language});
-   const bing='https://www.bing.com/search?'+new URLSearchParams({q:query,setlang:language,cc:country});
-   emit({id:[p.id,country,language,...(groupIndex?['g'+groupIndex]:[])].join(':'),country,platform:p.id,domain,language,query,models,excluded,keywords:[...aliases,...localized,...models],aliases,termRules:config.termRules||[],terms:localized,searchUrl:google,bingUrl:bing,...lang});
+ const allowed=new Set(config.platforms||[]),selectedPlatforms=platforms.filter(x=>allowed.has(x.id)),prepared=new Map();
+ for(const country of [...new Set(config.regions||[])].filter(c=>marketData[c]))prepared.set(country,selectedPlatforms.filter(p=>p.globalDomain||p.kind==='dealer'||p.markets[country]).map(p=>({p,langs:planLanguages(p,country,registry)})));
+ const quote=x=>'"'+x.replaceAll('"','').slice(0,90)+'"';
+ const models=String(config.models||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,8),excluded=String(config.exclude||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,8);
+ const suffix=[models.length?'('+models.map(quote).join(' OR ')+')':'',...excluded.map(x=>'-'+quote(x))].filter(Boolean).join(' '),unique=new Map(),termsCache=new Map();
+ for(const aliases of groups){
+  const aliasQuery='('+aliases.map(a=>{const r=config.termRules?.find(r=>r.text===a);return r?.requiresContext?'('+quote(a)+' ('+r.contextTerms.slice(0,8).map(quote).join(' OR ')+'))':quote(a)}).join(' OR ')+')';
+  for(const [country,entries] of prepared)for(const {p,langs} of entries){
+   const domain=p.markets[country]||p.globalDomain||'';
+   for(const lang of langs){
+    const language=lang.language;
+    if(!termsCache.has(language)){const terms=String(config.languageTerms?.[language]||'').split(/[,，\n]/).map(x=>x.trim()).filter(Boolean).slice(0,12);termsCache.set(language,terms.length?terms:words[language==='zh-Hans'?'zh':language]?.[config.intent||'commerce']||[]);}
+    const localized=termsCache.get(language),query=[domain?'site:'+domain:'',aliasQuery,config.broad||!localized.length?'':'('+localized.map(quote).join(' OR ')+')',suffix].filter(Boolean).join(' ');
+    const key=JSON.stringify([domain,query]),old=unique.get(key);
+    if(old){if(!old.countries.includes(country))old.countries.push(country);if(!old.languages.includes(language))old.languages.push(language);old.combinations++;continue;}
+    const google='https://www.google.com/search?'+new URLSearchParams({q:query,gl:country.toLowerCase(),hl:language==='zh-Hant'?'zh-TW':language==='zh'?'zh-CN':language});
+    const bing='https://www.bing.com/search?'+new URLSearchParams({q:query,setlang:language,cc:country});
+    unique.set(key,{id:'q:'+encodeURIComponent(key),country,platform:p.id,domain,language,query,models,excluded,keywords:[...aliases,...localized,...models],aliases,termRules:config.termRules||[],terms:localized,termTranslation:localized.length?'localized':'brand-only',searchUrl:google,bingUrl:bing,...lang,countries:[country],languages:[language],combinations:1});
+   }
   }
  }
  // Identical index requests do not gain regional coverage by being sent again.

@@ -131,7 +131,8 @@ class UserClient:
 
 
 def digest(state, webhook, secret, checkpoint, request=http, now=None, test=False):
-    day = (now or dt.datetime.now(BEIJING)).astimezone(BEIJING).date().isoformat()
+    now = now or dt.datetime.now(BEIJING)
+    day = now.astimezone(BEIJING).date().isoformat()
     if not webhook:
         state['pushStatus'] = '尚未配置群机器人'
         return
@@ -140,7 +141,17 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
         raise Failure('群机器人地址格式不正确')
     pushes = state.setdefault('testPushes' if test else 'pushes', {})
     delivery_key=day+'|card-v1' if test else day
-    if pushes.get(delivery_key, {}).get('status') in ('sent', 'sending', 'uncertain'):
+    prior = pushes.get(delivery_key, {})
+    try: age = (now - dt.datetime.fromisoformat(prior.get('at','').replace('Z','+00:00'))).total_seconds()
+    except (ValueError, TypeError): age = float('inf')
+    if prior.get('status') == 'sending' and age >= 1200:
+        prior.update(status='uncertain', error='发送进程中断，未收到最终回执；请核对群消息，避免重复发送')
+        checkpoint()
+    if prior.get('status') in ('sent', 'sending', 'uncertain'):
+        if prior.get('status') == 'uncertain':state['botError']=prior.get('error','发送回执待核实')
+        return
+    if prior.get('status') == 'failed' and (age < 900 or prior.get('attempts',1) >= 3):
+        state['botError'] = prior.get('error','推送失败，已达到本日重试上限')
         return
     today = sorted([event for event in state.get('events', []) if event['day'] == day], key=lambda e: (e.get('at',''), e.get('id','')))
     from report_state import report_overviews
@@ -152,7 +163,7 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
     if secret:
         timestamp = str(int(time.time()))
         body.update({'timestamp': timestamp, 'sign': base64.b64encode(hmac.new((timestamp + '\n' + secret).encode(), b'', hashlib.sha256).digest()).decode()})
-    pushes[delivery_key] = {'status': 'sending', 'format':'interactive-card-v1', 'at': dt.datetime.now(dt.timezone.utc).isoformat()}
+    pushes[delivery_key] = {'status': 'sending', 'format':'interactive-card-v2', 'at': now.astimezone(dt.timezone.utc).isoformat(), 'attempts':prior.get('attempts',0)+1, 'cutoff':next((e.get('at') for e in report_overviews(state) if e['day']==day),None)}
     checkpoint()  # Persist before posting; a missing response cannot cause duplicate daily push.
     try:
         result = request(webhook, 'POST', body)

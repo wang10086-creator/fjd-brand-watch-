@@ -15,13 +15,12 @@ def render(event,out):
         if v:d.rectangle((245,y+4,245+745*v/mx,y+33),fill=COLORS[color])
         t(1010,y,v)
     im.save(out/'discovery.png')
-    im,d,t=canvas(300);t(20,8,'核查优先级 · 单位：条',28);t(585,8,'复核进度 · 单位：条',28)
-    for x,rows in [(20,[('高：人工异常',p.get('high',0),'red'),('中：可疑表述',p.get('medium',0),'amber'),('低：品牌出现',p.get('routine',0),'gray')]),(585,[('已排除或授权',r.get('cleared',0),'green'),('提交法务',r.get('escalated',0),'red'),('核查中',r.get('reviewing',0),'amber'),('未开始',r.get('pending',0),'gray')])]:
-        mx=max(1,*[z[1] for z in rows])
-        for i,(name,v,color) in enumerate(rows):
-            y=57+i*55;t(x,y,name,24);d.rectangle((x+192,y+5,x+410,y+29),fill='#eff3f1')
-            if v:d.rectangle((x+192,y+5,x+192+218*v/mx,y+29),fill=COLORS[color])
-            t(x+430,y,v,24)
+    im,d,t=canvas(300);t(20,8,'人工复核进展 · 单位：条',28)
+    rows=[('待开始核查',r.get('pending',0),'gray'),('继续核查',r.get('reviewing',0),'amber'),('已排除或授权',r.get('cleared',0),'green'),('提交法务',r.get('escalated',0),'red')];mx=max(1,*[z[1] for z in rows])
+    for i,(name,v,color) in enumerate(rows):
+        y=57+i*55;t(20,y,name,24);d.rectangle((245,y+5,990,y+29),fill='#eff3f1')
+        if v:d.rectangle((245,y+5,245+745*v/mx,y+29),fill=COLORS[color])
+        t(1010,y,v,24)
     im.save(out/'review.png')
     im,d,t=canvas(290);t(20,8,'近七天新增与变化 · 单位：条',28);t(725,12,'新增',24,COLORS['green']);t(835,12,'变化',24,COLORS['amber']);t(945,12,'— 无记录',20)
     trend=c.get('trend') or [];mx=max([1]+[x.get('new',0)+x.get('changed',0) for x in trend]);d.line((35,223,1060,223),fill='#b5c3bd',width=2)
