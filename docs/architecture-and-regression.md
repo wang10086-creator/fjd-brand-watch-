@@ -79,3 +79,15 @@ These inform layout and workflow only; no proprietary implementation is copied.
   bypass is implemented. Browser search and its permission model are unchanged.
 - Added seven regression cases for HTML parsing, source fallback, domain checks,
   throttling and cancellation. All 98 Node and 24 Python tests pass.
+- After release 9c1e84c, real site retry 38887571302 completed five queries with
+  five successes, zero failures and one new page. Notion read-back showed 24
+  daily cases and 24 pending. Desktop/mobile each loaded 160 rows and five reviews;
+  an anonymous live evidence page loaded without a credential or console error.
+- Cross-platform run 38887840866 completed two queries successfully and retained
+  eight failures before the consecutive-error guard paused it; archive delivery
+  completed. This is partial source availability, not universal platform access.
+  The prior Oct 16 Feishu success receipt remains intact, so no duplicate routine
+  message was sent. New card layout and ambiguous-receipt behavior were tested
+  with fixtures; next actual scheduled delivery still depends on GitHub/Feishu.
+- The final overview chart spans the full row in web/HTML exports. Actual browser
+  layouts at 1360 px and 390 px were checked; navigation regression also passed.
