@@ -68,3 +68,7 @@ test('image queue prioritizes unchecked pages before stale refreshes and counts 
 test('cloud progress tolerates legacy timestamps and distinguishes actual image checks from backlog',async()=>{
  const {cloudProgressView}=await import('../cloud/progress-view.js');const h=cloudProgressView({automation:{enabled:true,todayScheduled:[{}],visual:{attempted:6,compared:2,unavailable:4,pending:174}},cloudService:{phase:'ready'}});assert.ok(h.includes('实际比对 2 页'));assert.ok(h.includes('队列待处理 174 页'));assert.ok(!h.includes('Invalid Date'));
 });
+
+test('image batch spreads unchecked evidence across platforms before repeated pages from one platform',async()=>{
+ const rows=Array.from({length:6},(_,i)=>({url:'https://blocked.example/'+i,platform:'blocked',lastSeen:'2026-10-18'}));rows.push({url:'https://readable.example/item',platform:'readable',lastSeen:'2026-10-17'});let seen;await enrichPictures({selectedBrandIds:manifest.references[0].brandIds,rows,monitor:initMonitor(null,[])},{limit:2,collector:async items=>{seen=items.map(i=>i.url);return items.map(i=>({...i,pictures:[]}))}});assert.deepEqual(seen,['https://blocked.example/0','https://readable.example/item']);
+});

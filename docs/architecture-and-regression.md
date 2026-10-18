@@ -148,3 +148,9 @@ These inform layout and workflow only; no proprietary implementation is copied.
   malformed legacy schedule timestamps no longer break the progress renderer.
   Browser regression fixtures now self-generate instead of requiring a downloaded
   production ledger. Final Node suite: 111 passing tests.
+- Production scan 39095597906 completed all 60 planned queries (18 successful,
+  42 scope-unverified), showing that unrelated sites continue after consecutive
+  scope errors. First six actual image reads were access-restricted (five OLX
+  403 responses and one redirect failure). To avoid concentrating a small image
+  batch on one blocked platform, sampling now spreads unchecked pages across
+  platforms before filling additional slots; regression added (112 Node tests).
