@@ -16,7 +16,7 @@ try{
  await p.locator('[data-nav=tasks]').click();await p.waitForTimeout(500);
  assert.equal(await p.locator('h1').innerText(),'监控配置');assert.equal(await p.locator('#app').getAttribute('data-render-error'),null);
  for(let i=0;i<3;i++){await p.locator('[data-nav=inbox]').click();await p.locator('#lead-table').waitFor();await p.locator('[data-nav=tasks]').click();await p.locator('#task-name').waitFor();}
- await p.locator('[data-config-tab=brands]').first().click();await p.locator('#aliases').waitFor();await p.locator('[data-config-tab=scope]').first().click();await p.locator('#task-name').waitFor();
+ await p.locator('[data-config-fold=brands]>summary').click();await p.locator('.brand-sections').waitFor();assert.equal(await p.locator('[data-config-tab]').count(),0);await p.locator('[data-config-fold=rules]>summary').click();await p.locator('#intent').waitFor();
  await p.reload();await p.locator('#task-name').waitFor();await p.locator('[data-nav=tasks]').click();await p.locator('#task-name').waitFor();assert.deepEqual(errors,[]);
- console.log(JSON.stringify({legacyCloudNullRecovered:true,repeatedNavigation:true,configurationTabs:true,reload:true,errors}));
+ console.log(JSON.stringify({legacyCloudNullRecovered:true,repeatedNavigation:true,unifiedConfiguration:true,reload:true,errors}));
 }finally{await browser.close()}

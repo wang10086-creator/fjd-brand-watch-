@@ -1,4 +1,4 @@
-import {publicCloudFile} from './cloud/client.js?v=20261016-review';
+import {publicCloudFile} from './cloud/client.js?v=20261018-config';
 // Read-only evidence can tolerate a dated public snapshot if GitHub's anonymous
 // head lookup is rate-limited. This fallback never reads private/encrypted files.
 export async function readEvidenceFeed({read=publicCloudFile,fetcher=fetch}={}){

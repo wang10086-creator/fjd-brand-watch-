@@ -1,6 +1,6 @@
-import {platforms} from './model.js?v=20261016-review';
-import {siteKey,failureKind,failureLabels} from './coverage.js?v=20261016-review';
-import {sitePlans} from './report-chain.js?v=20261016-review';
+import {platforms} from './model.js?v=20261018-config';
+import {siteKey,failureKind,failureLabels} from './coverage.js?v=20261018-config';
+import {sitePlans} from './report-chain.js?v=20261018-config';
 export const connectionGroups=[['unattempted','尚未执行'],['hit','已查 · 有线索'],['empty','已查 · 未命中'],['partial','部分成功 · 待补查'],['source-access','来源访问受限'],['source-rate-limit','来源限流'],['scope-unverified','目标站点未确认'],['source-timeout','请求超时'],['source-outage','来源服务异常'],['source-error','其他异常']];
 export function connectionGroup(site){return site.status==='未执行'?'unattempted':site.status==='成功'?(site.pendingFailed?'partial':site.retainedCount?'hit':'empty'):site.failureKind||failureKind(site);}
 export function operationSites(state,plans=[]){
@@ -14,7 +14,7 @@ export function operationSites(state,plans=[]){
  return [...sites.values()].map(s=>({...s,eligible:available.has(s.key),group:connectionGroup(s)}));
 }
 export function groupedSiteQueue(plans,completed,sites,{group='abnormal',limitPerSite=2,cursors={},failed=[]}={}){
- const chosen=sites.filter(s=>s.eligible&&(group==='all'||(group==='abnormal'?!['hit','empty'].includes(s.group):s.group===group)));
+ const chosen=sites.filter(s=>s.eligible&&(group==='all'||(group==='searched'?['hit','empty','partial'].includes(s.group):group==='abnormal'?!['hit','empty'].includes(s.group):s.group===group)));
  const queues=chosen.map(site=>{const scoped=plans.filter(p=>siteKey(p)===site.key);return sitePlans(plans,completed,site,{limit:limitPerSite,cursor:cursors[site.key]||0,failed}).map(p=>({...p,siteRetryKey:site.key,sitePosition:scoped.findIndex(x=>x.id===p.id)}));});
  const result=[];for(let i=0;i<limitPerSite;i++)for(const queue of queues)if(queue[i])result.push(queue[i]);return result;
 }

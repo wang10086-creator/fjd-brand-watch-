@@ -1,5 +1,5 @@
-import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261016-review';
-import {loadState,persist,flush} from '../storage.js?v=20261016-review';
+import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261018-config';
+import {loadState,persist,flush} from '../storage.js?v=20261018-config';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false;
 const status=text=>$('#status').textContent=text;
 function showCredentials(){const c=cloudCredentials();$('#credential-status').textContent='本会话：数据密码'+(c.password?'已填写':'未填写')+' · GitHub 同步凭据'+(c.token?'已填写':'未填写')+'。填写不等于核验通过，请以云端回执为准。'}

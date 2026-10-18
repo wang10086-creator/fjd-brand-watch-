@@ -11,9 +11,10 @@ export function reportOverviews(state){
  return [...latest.values()].sort((a,b)=>a.day.localeCompare(b.day)).map(e=>{
   const cumulative=overview(m,e.day),cohort=reportModel(m,e.day).cohort;
   const reportCases=cohort.map(r=>({key:r.key,url:r.snapshot.url,title:r.snapshot.title,platform:r.snapshot.platform,status:r.reviewStatus,outcome:r.reviewOutcome,kind:r.kind,query:r.snapshot.query,searchUrl:r.snapshot.searchUrl,evidenceUrl:evidenceUrl(r.snapshot,e.day)}));
+  const images=cohort.map(r=>r.snapshot.imageAnalysis).filter(Boolean);cumulative.visual={checked:images.filter(a=>a.checkedImages>0).length,matched:images.filter(a=>a.status==='matched').length,unavailable:images.filter(a=>a.status==='unavailable').length,pending:cohort.length-images.filter(a=>a.status!=='pending').length};
   const count=reportCases.filter(r=>['pending','reviewing'].includes(r.status)).length;
   if(count!==cumulative.pending)throw Error('日报待核查数量与完整清单不一致，停止归档');
   const digest=createHash('sha256').update(JSON.stringify({cumulative,reportCases})).digest('hex').slice(0,24);
-  return {day:e.day,at:e.at,type:e.type,cumulative,reportCases,reportVersion:e.at+'|v9-review|'+digest};
+  return {day:e.day,at:e.at,type:e.type,cumulative,reportCases,reportVersion:e.at+'|v10-visual|'+digest};
  });
 }

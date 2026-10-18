@@ -91,3 +91,48 @@ These inform layout and workflow only; no proprietary implementation is copied.
   with fixtures; next actual scheduled delivery still depends on GitHub/Feishu.
 - The final overview chart spans the full row in web/HTML exports. Actual browser
   layouts at 1360 px and 390 px were checked; navigation regression also passed.
+
+## 2026-10-18 impact analysis and compatible changes
+- Configuration uses the same persisted selectedBrandIds, market codes, platform
+  IDs, query builders and browser/cloud pipelines. Tabs are replaced by native
+  collapsible sections; their open state is stored separately from query meaning.
+  Existing custom reference files and ownership fields are retained in backups;
+  the official/custom-image upload section is removed from the visible UI.
+- Market presentation combines mainland China/Hong Kong/Taiwan/Macao and folds
+  Middle East into Asia without merging locale/domain codes. The Antarctic group
+  (five catalogue entries) is removed from selectable scope, not historical data.
+- Domestic/overseas archive expansion filters individual registration references,
+  not just families. Ambiguous region codes remain in the source catalogue and do
+  not participate in territory filters. Family IDs and previous selections remain.
+- New platformTerritory/aliasTerritories config applies territory conditions per
+  brand and country in both query builders. All is the compatible default. Unknown
+  custom terms participate only in All; unlisted does not assert absent rights.
+- Coverage legend is the disjoint site/domain partition: successful index / failed
+  without a success / unattempted. Percent denominator is daily recorded scope,
+  not product coverage. Historical reports remain snapshots. Current views show
+  actual saved progress, next cron check, budget and cooldown, including stale data.
+  Next check mirrors existing cron windows, excluding the digest-only 10:30 slot.
+- Scope-unverified answers are site/query failures and no longer stop unrelated
+  sites after eight occurrences. Provider denial/rate-limit/timeout controls remain.
+- Image work is a second-stage evidence pipeline after text discovery. Shared
+  shape descriptors normalize background/colour/crop; Python retrieves bounded
+  public page images, browser uses CORS-readable images. Cloud: at most six pages
+  per execution, four images/page, 70-second collector budget. Public targets,
+  redirects, size/type limits and no-cookie requests are checked. Image failure
+  does not change a manual verdict or turn a textual query into a failed query.
+  Actual compared/matched/unavailable counts are stored separately. Public feed
+  only includes image-evidence fields, and later image checks never rewrite past
+  event checksums or manual imageMatch. No result is called infringement.
+- This is near-shape matching, not universal reverse-image search or OCR. Logos
+  embedded in photos or highly transformed designs can be missed. Pure-image
+  reverse search remains an explicit per-reference external search entry. Browsers
+  blocked by CORS retain pending work; cloud processing requires existing sync.
+- Image tests use real pixels plus fixtures for blocked sources, latest-result
+  merges, safe public fields, and manual-review preservation. Browser fixtures
+  cover per-country platform filtering, persisted folds and selections, the new
+  combined page, coverage links, real canvas comparison and 390 px overflow.
+- Pre-release validation: 109 Node tests and 26 Python tests passed. Browser
+  navigation, prior review/save and stopped-batch recovery checks passed. Unified
+  configuration test passed persisted selections/folds, territory modes, coverage
+  navigation, actual canvas matching (88.7% fixture score), and mobile overflow;
+  no page errors. Live cloud/Notion verification follows deployment.

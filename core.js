@@ -1,8 +1,8 @@
-import {worldMarkets} from './world-markets.js?v=20261016-review';
-import {globalPlatforms} from './global-platforms.js?v=20261016-review';
-import {overseasPlatforms} from './overseas-platforms.js?v=20261016-review';
-import {chinaPlatforms} from './china.js?v=20261016-review';
-import {expansion} from './expansion.js?v=20261016-review';
+import {worldMarkets} from './world-markets.js?v=20261018-config';
+import {globalPlatforms} from './global-platforms.js?v=20261018-config';
+import {overseasPlatforms} from './overseas-platforms.js?v=20261018-config';
+import {chinaPlatforms} from './china.js?v=20261018-config';
+import {expansion} from './expansion.js?v=20261018-config';
 export const marketData = {
   IE:{name:'爱尔兰',lang:'en',language:'英语',area:'欧洲'},AT:{name:'奥地利',lang:'de',language:'德语',area:'欧洲'},CZ:{name:'捷克',lang:'cs',language:'捷克语',area:'欧洲'},SK:{name:'斯洛伐克',lang:'sk',language:'斯洛伐克语',area:'欧洲'},HU:{name:'匈牙利',lang:'hu',language:'匈牙利语',area:'欧洲'},
   KE:{name:'肯尼亚',lang:'en',language:'英语',area:'非洲'},GH:{name:'加纳',lang:'en',language:'英语',area:'非洲'},MA:{name:'摩洛哥',lang:'ar',language:'阿拉伯语',area:'非洲'},UG:{name:'乌干达',lang:'en',language:'英语',area:'非洲'},CI:{name:'科特迪瓦',lang:'fr',language:'法语',area:'非洲'},SN:{name:'塞内加尔',lang:'fr',language:'法语',area:'非洲'},
@@ -108,7 +108,7 @@ export function assess(row){
 export function mergeRows(existing,incoming){
  const map=new Map(existing.filter(x=>canonical(x.url)).map(x=>[canonical(x.url),{...x,firstSeen:x.firstSeen||x.checkedAt,lastSeen:x.lastSeen||x.checkedAt}]));
  for(const row of incoming){const url=canonical(row.url);if(!url)continue;const seen=row.lastSeen||row.checkedAt||new Date().toISOString();const previous=map.get(url);
-  if(previous){const keep={id:previous.id,reviewOutcome:previous.reviewOutcome,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,watch:previous.watch,decision:previous.decision,pageState:previous.pageState,needsRecheck:previous.needsRecheck,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
+  if(previous){const keep={...(previous.imageAnalysis&&(!row.imageAnalysis||previous.imageAnalysis.at>row.imageAnalysis.at)?{imageAnalysis:previous.imageAnalysis,imageUrl:previous.imageUrl}:{}),id:previous.id,reviewOutcome:previous.reviewOutcome,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,watch:previous.watch,decision:previous.decision,pageState:previous.pageState,needsRecheck:previous.needsRecheck,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
   else map.set(url,{id:crypto.randomUUID(),status:'pending',note:'',imageMatch:'unverified',...row,url:safeUrl(row.url),firstSeen:row.firstSeen||seen,lastSeen:seen,hitCount:1});
  }return [...map.values()];
 }
@@ -156,5 +156,8 @@ platforms.push(...chinaPlatforms);
 platforms.push(...overseasPlatforms);
 
 for(const [code,market] of Object.entries(worldMarkets))marketData[code]={...market,...marketData[code],languages:market.languages};
+// Market codes remain stable for historical evidence; Antarctica is no longer selectable.
+for(const [code,m] of Object.entries(marketData))if(code==='AQ'||m.area==='南极洲')delete marketData[code];for(const m of Object.values(marketData))if(m.area==='中东')m.area='亚洲';
+for(const code of ['CN','HK','TW','MO'])if(marketData[code])marketData[code].area='中国';
 for(const p of globalPlatforms)if(!platforms.some(x=>x.id===p.id))platforms.push(p);
 Object.assign(regions,Object.fromEntries(Object.entries(marketData).map(([k,v])=>[k,v.name])));

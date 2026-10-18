@@ -1,10 +1,10 @@
-import {canonical, safeUrl, risk} from './model.js?v=20261016-review';
+import {canonical, safeUrl, risk} from './model.js?v=20261018-config';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
 const clean=v=>String(v||'').normalize('NFKC').replace(/\s+/g,' ').trim();
 const keyOf=r=>canonical(r.url);
-export function snapshot(row){return {url:safeUrl(row.url),title:String(row.title||''),snippet:String(row.snippet||'').slice(0,1500),platform:row.platform||'dealer',country:row.country||'',language:row.language||'',query:String(row.query||''),searchUrl:safeUrl(row.searchUrl),source:String(row.source||''),verification:row.verification||'search-index',status:row.status||'pending',imageMatch:row.imageMatch||'unverified',checkedAt:row.checkedAt||null};}
+export function snapshot(row){return {url:safeUrl(row.url),title:String(row.title||''),snippet:String(row.snippet||'').slice(0,1500),platform:row.platform||'dealer',country:row.country||'',language:row.language||'',query:String(row.query||''),searchUrl:safeUrl(row.searchUrl),source:String(row.source||''),verification:row.verification||'search-index',status:row.status||'pending',imageMatch:row.imageMatch||'unverified',...(row.imageAnalysis?{imageAnalysis:structuredClone(row.imageAnalysis)}:{}),checkedAt:row.checkedAt||null};}
 export const fingerprint=r=>JSON.stringify([clean(r.title),clean(r.snippet)]);
 export function initMonitor(saved,rows,at=new Date().toISOString()){
  const m=saved?.version===1?structuredClone(saved):{version:1,startedAt:at,baselineCount:rows.length,known:{},observations:[],reviews:[],runs:[],checks:[],legacyRuns:[]};
