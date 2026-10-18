@@ -136,3 +136,7 @@ These inform layout and workflow only; no proprietary implementation is copied.
   configuration test passed persisted selections/folds, territory modes, coverage
   navigation, actual canvas matching (88.7% fixture score), and mobile overflow;
   no page errors. Live cloud/Notion verification follows deployment.
+- Published browser checks on desktop and mobile read the same 180 rows and five
+  review records, no retired Oct 12 observations, and no page errors. A visual
+  inspection caught the compact trend chart overlapping its labels; changed it
+  to intrinsic height and added a bounding-box regression assertion (passed).
