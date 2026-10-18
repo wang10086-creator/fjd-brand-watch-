@@ -144,3 +144,7 @@ These inform layout and workflow only; no proprietary implementation is copied.
   before stale refreshes, and pending totals include work beyond the per-run cap.
   This prevents frequent refreshes of recent pages from starving older unchecked
   evidence. Final local totals: 110 Node tests and 26 Python tests passed.
+- Progress additionally displays actual image-page checks and remaining backlog;
+  malformed legacy schedule timestamps no longer break the progress renderer.
+  Browser regression fixtures now self-generate instead of requiring a downloaded
+  production ledger. Final Node suite: 111 passing tests.

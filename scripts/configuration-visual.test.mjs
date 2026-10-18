@@ -64,3 +64,7 @@ test('legacy device merge retains territory mode and explicit newer selection ca
 test('image queue prioritizes unchecked pages before stale refreshes and counts the remaining backlog',async()=>{
  const state={selectedBrandIds:manifest.references[0].brandIds,rows:[{url:'https://shop.example/stale',lastSeen:'2026-10-18',imageAnalysis:{at:'2026-10-15',status:'compared'}},{url:'https://shop.example/unseen',lastSeen:'2026-10-13'},{url:'https://shop.example/pending',lastSeen:'2026-10-14',imageAnalysis:{status:'pending'}}],monitor:initMonitor(null,[])};let urls;const r=await enrichPictures(state,{limit:1,now:Date.parse('2026-10-18'),collector:async items=>{urls=items.map(i=>i.url);return items.map(i=>({...i,pictures:[],pageError:'HTTP 403'}))}});assert.deepEqual(urls,['https://shop.example/pending']);assert.equal(r.pending,2);assert.equal(r.unavailable,1);assert.equal(state.rows[0].imageAnalysis.at,'2026-10-15');
 });
+
+test('cloud progress tolerates legacy timestamps and distinguishes actual image checks from backlog',async()=>{
+ const {cloudProgressView}=await import('../cloud/progress-view.js');const h=cloudProgressView({automation:{enabled:true,todayScheduled:[{}],visual:{attempted:6,compared:2,unavailable:4,pending:174}},cloudService:{phase:'ready'}});assert.ok(h.includes('实际比对 2 页'));assert.ok(h.includes('队列待处理 174 页'));assert.ok(!h.includes('Invalid Date'));
+});

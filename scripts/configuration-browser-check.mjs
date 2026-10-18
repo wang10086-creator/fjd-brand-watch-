@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';import fs from 'node:fs';
-const base=process.env.TEST_BASE_URL||'http://127.0.0.1:4206/',feed=JSON.parse(fs.readFileSync('/workspace/outputs/oct18-public-dashboard.json')),status=JSON.parse(fs.readFileSync('/workspace/outputs/oct18-status.json'));
+import {initialState} from '../cloud/scan.mjs';import {publicFeed} from '../cloud/public-feed.js';
+fs.mkdirSync('/workspace/outputs',{recursive:true});
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:4206/',fixture=await initialState(),at=new Date().toISOString(),day=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+fixture.monitor.coverageScopes={[day]:[{platform:'amazon',domain:'amazon.com'},{platform:'ebay',domain:'ebay.com'}]};fixture.monitor.coverageScopeAt={[day]:at};
+const feed=process.env.TEST_FEED_PATH?JSON.parse(fs.readFileSync(process.env.TEST_FEED_PATH)):publicFeed(fixture,{revision:Date.now(),at});
+const status=process.env.TEST_STATUS_PATH?JSON.parse(fs.readFileSync(process.env.TEST_STATUS_PATH)):{version:3,configured:true,updatedAt:at,runtime:{phase:'ready'},automation:{enabled:true,queryBudget:720,todayScheduled:[],platformCount:273,marketCount:245,archive:{configured:true},bot:{configured:true}}};
 const manifest=JSON.parse(fs.readFileSync('assets/visual-references.json')),reference=manifest.references[0],picture=fs.readFileSync('assets/excel/'+reference.file);
 const b=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{const p=await b.newPage({viewport:{width:1360,height:950}}),errors=[];p.on('pageerror',e=>errors.push(e.message));
