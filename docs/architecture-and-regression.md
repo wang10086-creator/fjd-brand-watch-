@@ -154,3 +154,18 @@ These inform layout and workflow only; no proprietary implementation is copied.
   403 responses and one redirect failure). To avoid concentrating a small image
   batch on one blocked platform, sampling now spreads unchecked pages across
   platforms before filling additional slots; regression added (112 Node tests).
+- Production verification completed: scan 39095597906 and sync 39096205880 both
+  succeeded. Second image batch actually compared six images from two pages
+  (Alibaba and IMEXBB) against 123 references; no candidate met the threshold.
+  Three other pages were restricted, one had no usable image, and 168 remained
+  queued. Access restrictions are retained, not counted as negative matches.
+- Notion Oct 18 read-back confirmed 414 entrances: 99 queried (23.9%), 94 needing
+  retry (22.7%), 221 unattempted (53.4%); 14 pending cases matched 14 full entries.
+  Parent and daily report retained the appended event chain. Archive receipt
+  confirmed 55 updates; no archive error. Feishu daily receipt was sent once at
+  12:01 Beijing; subsequent sync did not resend it. This run was manually invoked
+  in auto mode; future cron timing still depends on GitHub queue availability.
+- Desktop and mobile published-page checks confirmed consistent 180 rows and five
+  reviews, configuration navigation and chart non-overlap; no page errors. CI
+  passed all 112 Node and 26 Python regressions. Keep source failures, transformed
+  logo recognition limitations, and browser CORS limitations visible to users.
