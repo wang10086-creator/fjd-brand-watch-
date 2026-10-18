@@ -140,3 +140,7 @@ These inform layout and workflow only; no proprietary implementation is copied.
   review records, no retired Oct 12 observations, and no page errors. A visual
   inspection caught the compact trend chart overlapping its labels; changed it
   to intrinsic height and added a bounding-box regression assertion (passed).
+- Image queue regression additionally verifies unchecked/pending pages are handled
+  before stale refreshes, and pending totals include work beyond the per-run cap.
+  This prevents frequent refreshes of recent pages from starving older unchecked
+  evidence. Final local totals: 110 Node tests and 26 Python tests passed.

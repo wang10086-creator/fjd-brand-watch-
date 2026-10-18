@@ -60,3 +60,7 @@ test('eight site-scope failures no longer stop other available platforms',async(
 test('legacy device merge retains territory mode and explicit newer selection can replace it',async()=>{
  const {mergeWorkspace}=await import('../cloud/state.js');const state=await initialState();state.config.platformTerritory='listed';const legacy=structuredClone(state);delete legacy.config.platformTerritory;assert.equal(mergeWorkspace(state,legacy).config.platformTerritory,'listed');legacy.config.platformTerritory='all';assert.equal(mergeWorkspace(state,legacy).config.platformTerritory,'all');
 });
+
+test('image queue prioritizes unchecked pages before stale refreshes and counts the remaining backlog',async()=>{
+ const state={selectedBrandIds:manifest.references[0].brandIds,rows:[{url:'https://shop.example/stale',lastSeen:'2026-10-18',imageAnalysis:{at:'2026-10-15',status:'compared'}},{url:'https://shop.example/unseen',lastSeen:'2026-10-13'},{url:'https://shop.example/pending',lastSeen:'2026-10-14',imageAnalysis:{status:'pending'}}],monitor:initMonitor(null,[])};let urls;const r=await enrichPictures(state,{limit:1,now:Date.parse('2026-10-18'),collector:async items=>{urls=items.map(i=>i.url);return items.map(i=>({...i,pictures:[],pageError:'HTTP 403'}))}});assert.deepEqual(urls,['https://shop.example/pending']);assert.equal(r.pending,2);assert.equal(r.unavailable,1);assert.equal(state.rows[0].imageAnalysis.at,'2026-10-15');
+});
