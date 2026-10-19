@@ -1,4 +1,4 @@
-import {normalizeConfig,normalizeSchedule} from './model.js?v=20261019-read';
+import {normalizeConfig,normalizeSchedule} from './model.js?v=20261019-links';
 
 // null in early cloud records meant "not configured", not an empty selection.
 // Explicit empty arrays still mean that the user cleared the selection.

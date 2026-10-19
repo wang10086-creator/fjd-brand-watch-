@@ -1,10 +1,10 @@
-import {evidenceUrl} from './lead-access.js?v=20261019-read';
-import {outcomes} from './review.js?v=20261019-read';
-import {executiveReport,executiveCSS,compactReportCSS} from './report-executive.js?v=20261019-read';
-import {chainFor,triggerNames} from './report-chain.js?v=20261019-read';
-import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261019-read';
-import {reportModel,reportPublication} from './report-model.js?v=20261019-read';
-import {safeUrl} from './model.js?v=20261019-read';
+import {evidenceUrl} from './lead-access.js?v=20261019-links';
+import {outcomes} from './review.js?v=20261019-links';
+import {executiveReport,executiveCSS,compactReportCSS} from './report-executive.js?v=20261019-links';
+import {chainFor,triggerNames} from './report-chain.js?v=20261019-links';
+import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261019-links';
+import {reportModel,reportPublication} from './report-model.js?v=20261019-links';
+import {safeUrl} from './model.js?v=20261019-links';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const names={new:'新发现线索',changed:'内容信号变化',repeat:'再次发现'};

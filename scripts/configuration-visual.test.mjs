@@ -72,3 +72,12 @@ test('cloud progress tolerates legacy timestamps and distinguishes actual image 
 test('image batch spreads unchecked evidence across platforms before repeated pages from one platform',async()=>{
  const rows=Array.from({length:6},(_,i)=>({url:'https://blocked.example/'+i,platform:'blocked',lastSeen:'2026-10-18'}));rows.push({url:'https://readable.example/item',platform:'readable',lastSeen:'2026-10-17'});let seen;await enrichPictures({selectedBrandIds:manifest.references[0].brandIds,rows,monitor:initMonitor(null,[])},{limit:2,collector:async items=>{seen=items.map(i=>i.url);return items.map(i=>({...i,pictures:[]}))}});assert.deepEqual(seen,['https://blocked.example/0','https://readable.example/item']);
 });
+
+test('scope counts describe disjoint name-market pairs while international platform sets overlap',async()=>{
+ const {territorySummary,platformScopeMarkets}=await import('../territory.js');
+ const c=normalizeConfig({aliases:['Alpha','Beta','Unknown'],regions:['US','DE'],platforms:['amazon'],aliasTerritories:{Alpha:['US'],Beta:['DE']}});
+ const a=territorySummary(c,platforms,marketData,'all'),l=territorySummary(c,platforms,marketData,'listed'),u=territorySummary(c,platforms,marketData,'unlisted');
+ assert.equal(a.pairs,6);assert.equal(l.pairs,2);assert.equal(u.pairs,2);assert.ok(l.ids.includes('amazon')&&u.ids.includes('amazon'));
+ c.aliases=['Alpha'];c.platformTerritory='listed';assert.deepEqual(platformScopeMarkets(c,platforms.find(p=>p.id==='amazon'),marketData),['US']);
+ c.platformTerritory='unlisted';assert.deepEqual(platformScopeMarkets(c,platforms.find(p=>p.id==='amazon'),marketData),['DE']);
+});

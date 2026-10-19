@@ -1,8 +1,8 @@
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js?v=20261019-read';
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261019-read';
-import {applyRecordPolicy} from '../record-policy.js?v=20261019-read';
-import {mergeOwnership} from '../brand-ownership.js?v=20261019-read';
+import {mergeMonitors} from '../monitor.js?v=20261019-links';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261019-links';
+import {applyRecordPolicy} from '../record-policy.js?v=20261019-links';
+import {mergeOwnership} from '../brand-ownership.js?v=20261019-links';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
 const visual=v=>({...pick(v,'version method at status checkedImages failedImages referenceCount message'),...(v.match?{match:pick(v.match,'score referenceFile brandIds candidateUrl')}:{})});
 const withVisual=v=>v?({...v,...(v.imageAnalysis?{imageAnalysis:visual(v.imageAnalysis)}:{})}):null;

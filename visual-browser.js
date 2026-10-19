@@ -1,4 +1,4 @@
-import {comparePictures,visualLabels} from './visual-match.js?v=20261019-read';
+import {comparePictures,visualLabels} from './visual-match.js?v=20261019-links';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let manifest;
 export function visualEvidence(row){const a=row.imageAnalysis;if(!a)return '<p class="helper">尚无自动图形比对记录；可对照下方参照图人工核查。</p>';return `<div class="notice visual-result"><b>${visualLabels[a.status]||'待核对图形记录'}</b><p class="helper">${Number(a.checkedImages)||0} 张来源图片已比对 · ${Number(a.referenceCount)||0} 张参照图${a.match?' · 图形相似度 '+(Number(a.match.score)||0)+'%':''} · ${esc(a.at?new Date(a.at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'')}</p><p class="helper">${esc(a.status==='pending'?'浏览器无法读取跨域图片；已连接同步权限时交给云端继续处理。':a.message||'基于去背景形状特征，适合近似图样，不等同语义识别或侵权认定。未发现候选不代表页面未使用商标。')}</p></div>`;}

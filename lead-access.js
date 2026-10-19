@@ -1,6 +1,6 @@
 export const siteRoot='https://wang10086-creator.github.io/fjd-brand-watch-/';
 export function safePublicUrl(value){try{const u=new URL(value);return /^https?:$/.test(u.protocol)&&!u.username&&!u.password?u.href:''}catch{return ''}}
-export function evidenceUrl(row,day=''){return siteRoot+'evidence.html?'+new URLSearchParams({url:row.url||row.key||'',...(day?{day}:{})});}
+export function evidenceUrl(row,day=''){return siteRoot+'evidence.html#'+new URLSearchParams({url:row.url||row.key||'',...(day?{day}:{})});}
 export function accessLinks(row,day=''){
  const original=safePublicUrl(row.url),host=original?new URL(original).hostname:'';
  const title=String(row.title||'').replace(/["“”]/g,'').slice(0,100),brand=(row.keywords||[]).find(s=>title.toLowerCase().includes(String(s).toLowerCase()))||'';

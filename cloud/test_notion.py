@@ -156,7 +156,7 @@ class ReconciliationTests(unittest.TestCase):
         event=copy.deepcopy(EVENT);event['cumulative'].update(new=23,pending=22)
         event['reportCases']=[{'title':'FJDynamics '+str(i),'url':'https://shop.example/'+str(i),'query':'FJDynamics','status':'pending' if i else 'cleared','outcome':'pending' if i else 'authorized','kind':'new'} for i in range(23)]
         store=Store();sink=NotionReports(store.request,'parent');sink.overview(event);page=sink.pages[event['day']]['id'];before=copy.deepcopy(store.blocks[page]);sink.overview(event)
-        self.assertEqual(before,store.blocks[page]);links=[b for b in before if 'evidence.html?' in marker_of(b)];self.assertEqual(len(links),23);self.assertIn('待完成核查 22',str(before))
+        self.assertEqual(before,store.blocks[page]);links=[b for b in before if 'evidence.html#' in marker_of(b)];self.assertEqual(len(links),23);self.assertIn('待完成核查 22',str(before))
         event['cumulative']['pending']=23
         with self.assertRaisesRegex(ValueError,'不一致'):sink.overview(event)
     def test_historical_presentation_keeps_event_marker_and_updates_old_links(self):
@@ -166,7 +166,18 @@ class ReconciliationTests(unittest.TestCase):
         toggle['toggle'].pop('children',None);store.blocks[toggle['id']]=[]
         store.request('PATCH','/blocks/'+toggle['id']+'/children',{'children':[block('paragraph','优先级：medium\n检索词：FJDynamics'),link_block('查看公开原页面','https://shop.example/p')]})
         sink.repair_history_presentation(EVENT['day']);sink.repair_history_presentation(EVENT['day'])
-        self.assertEqual(marker_of(toggle),marker);children=store.blocks[toggle['id']];self.assertNotIn('优先级：',str(children));self.assertIn('evidence.html?',str(children));self.assertEqual(sink.sync(EVENT)['status'],'synced')
+        self.assertEqual(marker_of(toggle),marker);children=store.blocks[toggle['id']];self.assertNotIn('优先级：',str(children));self.assertIn('evidence.html#',str(children));self.assertEqual(sink.sync(EVENT)['status'],'synced')
+
+    def test_previous_evidence_query_links_migrate_without_changing_event_receipts(self):
+        from notion_archive import link_block
+        store=Store();layouts={};sink=NotionReports(store.request,'parent',{},layouts);sink.sync(EVENT)
+        page=sink.pages[EVENT['day']]['id'];toggle=next(b for b in store.blocks[page] if b['type']=='toggle');marker=marker_of(toggle)
+        toggle['toggle'].pop('children',None);store.blocks[toggle['id']]=[]
+        store.request('PATCH','/blocks/'+toggle['id']+'/children',{'children':[link_block('线索证据与访问入口','https://wang10086-creator.github.io/fjd-brand-watch-/evidence.html?url=https%3A%2F%2Fshop.example%2Fp&day=2026-10-13')]})
+        layouts[page]={'historyPresentationVersion':2}
+        sink.repair_history_presentation(EVENT['day'])
+        self.assertIn('evidence.html#',str(store.blocks[toggle['id']]))
+        self.assertEqual(marker_of(toggle),marker);self.assertEqual(sink.sync(EVENT)['status'],'synced')
 
 class RenderTextTests(unittest.TestCase):
     def test_report_font_contains_every_chinese_chart_label_character(self):

@@ -210,3 +210,31 @@ These inform layout and workflow only; no proprietary implementation is copied.
   source files and need no user credentials in the browser. Notion web access speed
   itself is not guaranteed by this fix; the monitor's own daily view is the tested
   independent reading path. Future schedule timing still depends on GitHub queues.
+
+## 2026-10-19 — territory selector and report evidence entry
+
+- Impact: configuration display → per-name/per-country plan generation → saved task;
+  public report links → browser evidence view → public snapshot; Python Notion
+  presentation migration. Per-brand query semantics, selections, encrypted data,
+  manual reviews, cloud schedules and immutable event payloads remain unchanged.
+- Platform companies overlap between listed/unlisted markets (e.g. one global
+  marketplace serves both). Replace misleading dropdown platform counts with
+  explicit name × market combinations, show applied-market/platform totals and
+  scoped card markets. Unknown-territory supplemental names remain all-only.
+- Report evidence URLs now carry the original URL in a browser fragment, keeping
+  encoded external query strings out of the hosting HTTP request. Legacy query
+  URLs remain readable. Evidence first uses the same-origin public gzip snapshot,
+  then existing public fallbacks; source access is never fabricated as successful.
+- The supplied OLX title was located in the Oct 19 Notion report. Both its original
+  URL and old evidence URL returned HTTP 200 from this environment; the user's
+  CloudFront 403 was not reproduced here. New entry reduces dependence on long
+  query URLs and remote ledger reads but does not remove third-party restrictions.
+- Historical Notion link presentation migrates separately from checksums/events.
+- Validation: 122 Node tests, 27 Python tests; configuration browser checks cover
+  all/listed/unlisted change feedback and persistence, search and mobile layout.
+  Controls regression covers manual retry/pause, review save and navigation.
+  Real OLX evidence passes old query and new fragment links with GitHub API 403,
+  raw-host failure, and source restrictions; hash changes, invalid URL, deleted
+  date, and mobile rendering are covered. Same-document hash changes now re-render
+  with an async generation guard to prevent a stale evidence response overwriting
+  the newly selected record.

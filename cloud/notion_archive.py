@@ -10,7 +10,7 @@ TYPES = {'schedule': '自动检索', 'manual': '手动检索', 'refresh': '立�
 OUTCOMES={'pending':'待核查','investigate':'继续核查','authorized':'已排除 · 授权已核实','normal':'已排除 · 正常引用','irrelevant':'已排除 · 无关线索','escalate':'提交法务','legacy':'已完成 · 旧记录结论'}
 STATUSES={'pending':'待核查','reviewing':'继续核查','cleared':'已排除 / 已完成','escalated':'提交法务'}
 def evidence_url(row, day=''):
-    return 'https://wang10086-creator.github.io/fjd-brand-watch-/evidence.html?'+urllib.parse.urlencode({'url':row.get('url',''),**({'day':day} if day else {})})
+    return 'https://wang10086-creator.github.io/fjd-brand-watch-/evidence.html#'+urllib.parse.urlencode({'url':row.get('url',''),**({'day':day} if day else {})})
 
 
 
@@ -234,7 +234,7 @@ class NotionReports:
     def repair_history_presentation(self, day):
         """Change old visible labels/entry links, without touching event markers or checksums."""
         page=self.day_page(day);meta=self.layouts.setdefault(page['id'],{'blocks':{}})
-        if meta.get('historyPresentationVersion')==2:return
+        if meta.get('historyPresentationVersion')==3:return
         for entry in self.children(page['id']):
             if entry.get('type')!='toggle' or 'FJD-' not in marker_of(entry):continue
             children=entry.get('toggle',{}).get('children') or self.children(entry['id'])
@@ -248,9 +248,15 @@ class NotionReports:
                     original=marker_of(child)
                     item=link_block('线索证据与访问入口',evidence_url({'url':original},day))
                     self.request('PATCH','/blocks/'+child['id'],{'paragraph':item['paragraph']})
+                elif kind=='paragraph' and value=='线索证据与访问入口' and '/evidence.html?' in marker_of(child):
+                    old=urllib.parse.urlsplit(marker_of(child));params=urllib.parse.parse_qs(old.query)
+                    original=(params.get('url') or [''])[0]
+                    if original:
+                        item=link_block(value,evidence_url({'url':original},day))
+                        self.request('PATCH','/blocks/'+child['id'],{'paragraph':item['paragraph']})
                 elif kind=='image' and value in ('本次检索后的日报图表','日报一图读懂'):
                     self.request('PATCH','/blocks/'+child['id'],{'archived':True})
-        meta['historyPresentationVersion']=2
+        meta['historyPresentationVersion']=3
 
     def sync(self, raw_event):
         event = public_event(raw_event)
