@@ -262,5 +262,5 @@ These inform layout and workflow only; no proprietary implementation is copied.
   of fj-dynamic.com in rows or historical observations. This is absence from the
   retained records, not a finding about the external site's actual contents.
 - Regression: 125 Node and 27 Python tests pass. Browser checks cover bare-domain
-  versus homepage matching, empty results for requested domain, and clearing the
+  versus homepage matching, empty results for a reserved .invalid domain, and clearing the
   filter without losing records. Cloud/Notion writing paths are unchanged.
