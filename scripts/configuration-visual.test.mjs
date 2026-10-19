@@ -81,3 +81,11 @@ test('scope counts describe disjoint name-market pairs while international platf
  c.aliases=['Alpha'];c.platformTerritory='listed';assert.deepEqual(platformScopeMarkets(c,platforms.find(p=>p.id==='amazon'),marketData),['US']);
  c.platformTerritory='unlisted';assert.deepEqual(platformScopeMarkets(c,platforms.find(p=>p.id==='amazon'),marketData),['DE']);
 });
+
+test('configuration reuses territory scope rather than recomputing it for every platform card',async()=>{
+ const {configurationSections}=await import('../config-view.js');const ids=catalog.entries.map(e=>e.id),mapped=aliasTerritories(catalog,ids);
+ const config=normalizeConfig({aliases:Object.keys(mapped),aliasTerritories:mapped,platformTerritory:'listed'});let reads=0;
+ Object.defineProperty(config,'aliasTerritories',{get(){reads++;return mapped}});
+ const html=configurationSections({config,selectedBrandIds:ids,customAliases:[]},catalog);
+ assert.ok(html.includes('territory-applied'));assert.ok(reads<250000,'scope access must not scale with the number of platform cards: '+reads);
+});

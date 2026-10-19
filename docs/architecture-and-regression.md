@@ -238,3 +238,15 @@ These inform layout and workflow only; no proprietary implementation is copied.
   date, and mobile rendering are covered. Same-document hash changes now re-render
   with an async generation guard to prevent a stale evidence response overwriting
   the newly selected record.
+- Live deployment verified on desktop/mobile: 198 leads, 5 review events, all
+  retained Oct 13–19 dates match across fresh contexts. Three selector modes save,
+  reload, change the applied summary and fit expanded mobile layout.
+- A render benchmark found card-level scope recomputation took ~6.3 s for the
+  listed mode. Scope markets are now computed once and reused; same fixture
+  renders all three modes in ~58–61 ms. Added an access-count regression guard.
+- Final suite: 123 Node tests and 27 Python tests pass. Notion sync run
+  39190383254 completed successfully; Oct 13 and Oct 19 readback has new fragment
+  evidence links and no old query links. The reported OLX title remains present.
+  Actual live evidence tests pass with external ledger routes intentionally
+  unavailable and both old/new link formats; external-source 403 is not claimed
+  to be resolved at the third-party site.
