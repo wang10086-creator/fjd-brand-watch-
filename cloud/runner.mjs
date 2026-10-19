@@ -1,3 +1,5 @@
+import {publishWebSnapshot} from './web-snapshot.mjs';
+import {gzipSync} from 'node:zlib';
 import {enrichPictures} from './visual-enrichment.mjs';
 import {continuationInfo} from '../execution-progress.js';
 import {publicFeed} from './public-feed.js';
@@ -31,10 +33,12 @@ async function checkpoint(){
  vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
+ const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts});
  await store.write([
+  {path:'public-dashboard.json.gz',bytes:gzipSync(Buffer.from(JSON.stringify(publicSnapshot))),bytesInput:true},
   {path:'vault.json',value:cipher},
   {path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')},
-  {path:'public-dashboard.json',value:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts})},
+  {path:'public-dashboard.json',value:publicSnapshot},
   {path:'status.json',value:publicStatus()}
  ]);
 }
@@ -125,6 +129,7 @@ async function main(){
    try{await delivery(op==='auto'&&dueActions(vault).digest?'digest-only':'sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
  finally{vault.runtime={...vault.runtime,currentSite:null,lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
+ try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');}catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}
  if(uploadName&&!vault.lastError)await store.remove(uploadName);
  console.log('监控范围：'+vault.state.config.platforms.length+' 类平台 / '+vault.state.config.regions.length+' 个市场');
  console.log('归档状态：'+(vault.delivery.archiveError||('已确认 '+Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length+' 次更新')));

@@ -3,9 +3,9 @@ const base=process.env.TEST_BASE_URL||'http://127.0.0.1:4206/',browser=await chr
 try{
  const p=await browser.newPage({viewport:{width:1300,height:950}}),errors=[],queries=[];let fail=true;
  p.on('pageerror',e=>errors.push(e.message));await p.addInitScript(()=>{if(!localStorage.getItem('qa-init')){localStorage.setItem('qa-init','1');localStorage.setItem('fjd-watch-static-v2',JSON.stringify({monitorScopeVersion:'20261016-world',cloudMode:true,schedule:{enabled:false},selectedBrandIds:[],customAliases:['FJDynamics'],config:{regions:['US','MX'],platforms:['amazon']},chinaScopeVersion:1,queueVersion:2}));}});
- await p.route('https://api.github.com/**',r=>r.fulfill({status:404,json:{}}));
+ await p.route('**/public-snapshot.json.gz*',r=>r.fulfill({status:404,body:''}));await p.route('https://api.github.com/**',r=>r.fulfill({status:404,json:{}}));
  await p.route('https://api.tavily.com/search',async r=>{const q=r.request().postDataJSON();queries.push(q);await new Promise(resolve=>setTimeout(resolve,200));if(fail){await r.fulfill({status:403,json:{error:'fixture denial'}});return;}const domain=q.include_domains?.[0]||'shop.example';await r.fulfill({json:{results:[{url:'https://'+domain+'/dp/B00TEST',title:'FJDynamics fixture tractor',content:'FJDynamics equipment'}]}});});
- const saved=()=>p.evaluate(async()=>{const {loadState,flush}=await import('./storage.js?v=20261018-config');await flush();return loadState()});
+ const saved=()=>p.evaluate(async()=>{const {loadState,flush}=await import('./storage.js?v=20261019-read');await flush();return loadState()});
  await p.goto(base+'#data');await p.locator('[data-site-group=unattempted]').click();await p.locator('[data-site-group-retry=unattempted]').click();await p.waitForFunction(()=>document.querySelector('[data-action=resume-site-retry]')&&!document.querySelector('[data-action=resume-site-retry]').disabled);
  let s=await saved();assert.equal(s.history[0].attempted,1);assert.equal(s.history[0].failed,1);assert.equal(s.browserRetryQueue.plans.length,3);assert.equal(await p.locator('#detail[open]').count(),0);
  fail=false;await p.locator('[data-site-group=all]').click();await p.locator('[data-action=resume-site-retry]').click();await p.waitForFunction(()=>document.querySelector('.site-active'));assert.ok((await p.locator('[data-platform-card]').allInnerTexts()).some(t=>t.includes('等待当前任务')));

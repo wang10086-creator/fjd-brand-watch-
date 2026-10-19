@@ -169,3 +169,30 @@ These inform layout and workflow only; no proprietary implementation is copied.
   reviews, configuration navigation and chart non-overlap; no page errors. CI
   passed all 112 Node and 26 Python regressions. Keep source failures, transformed
   logo recognition limitations, and browser CORS limitations visible to users.
+
+## 2026-10-19 data visibility and runtime incident
+- Verified cloud ledger still held 198 rows and Oct 13–19 observations. Four
+  genuine scheduled batches ran at 02:27, 05:02, 07:09, 09:13 Beijing (240 queries).
+  The public JSON had grown to 16 MB; the website required a successful GitHub
+  ref lookup before reading it and Promise.all hid both status and data if either
+  read failed. A blank date was shown as four zeros, obscuring read failures.
+- Added anonymous raw/Contents fallback, gzip transport (~660 KB), independent
+  runtime/feed reads, same-revision missing-record repair, and explicit unread
+  state. Same-origin gzip snapshot bootstraps history without GitHub/Notion hosts.
+  Existing encrypted state, reviews, immutable events and retired dates retained.
+- Runner publishes the same whitelisted public feed in gzip atomically alongside
+  old JSON, then mirrors public feed/status to main and explicitly requests Pages
+  rebuild with pages:write. No password, encrypted vault, private notes or token
+  is placed in the public mirror. Mirror failure does not erase the source ledger.
+- Incident run 39187536318 hit status.json conflict protection after five queries.
+  No concurrent monitoring job existed. Added cache-busting ref reads and bounded
+  retries for previously superseded heads, reproducing a lagging own-write read.
+  Actual competing writers remain protected; no forced branch updates introduced.
+- Added transport, permission denial, partial read, missing local record, compressed
+  bootstrap, unread dashboard and stale-ref regressions. A browser failure test
+  blocks both GitHub hosts and checks last-three-day metrics from the site snapshot.
+- Before release: all 120 Node and 26 Python tests passed. Browser fault injection
+  blocked both GitHub hosts and recovered Oct 17–19 metrics from the same-origin
+  snapshot in 4.4 seconds. Manual stop/resume and review save passed; navigation
+  now checks durable IndexedDB (a >5 MB ledger legitimately exceeds localStorage).
+  Isolated interaction fixtures exclude the production bootstrap snapshot.

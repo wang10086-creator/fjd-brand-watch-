@@ -1,8 +1,8 @@
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js?v=20261018-config';
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261018-config';
-import {applyRecordPolicy} from '../record-policy.js?v=20261018-config';
-import {mergeOwnership} from '../brand-ownership.js?v=20261018-config';
+import {mergeMonitors} from '../monitor.js?v=20261019-read';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261019-read';
+import {applyRecordPolicy} from '../record-policy.js?v=20261019-read';
+import {mergeOwnership} from '../brand-ownership.js?v=20261019-read';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
 const visual=v=>({...pick(v,'version method at status checkedImages failedImages referenceCount message'),...(v.match?{match:pick(v.match,'score referenceFile brandIds candidateUrl')}:{})});
 const withVisual=v=>v?({...v,...(v.imageAnalysis?{imageAnalysis:visual(v.imageAnalysis)}:{})}):null;
@@ -23,7 +23,9 @@ export function publicFeed(state,{revision,at=new Date().toISOString(),receipts=
 }
 export function applyPublicFeed(state,feed){
  if(feed?.version!==1||!Array.isArray(feed.rows)||feed.monitor?.version!==1)throw Error('云端公开日报格式无效');
- if((state.publicRevision||0)>=(feed.revision||0))return false;
+ if((state.publicRevision||0)>(feed.revision||0))return false;
+ if(state.publicRevision===feed.revision){const rowKeys=new Set((state.rows||[]).map(r=>canonical(r.url))),removed=new Set(state.removedRecordKeys||[]);const missingRows=feed.rows.some(r=>!rowKeys.has(canonical(r.url))&&!removed.has(canonical(r.url)));const missingHistory=['observations','reviews','runs','updateChain'].some(field=>{const ids=new Set((state.monitor?.[field]||[]).map(e=>e.id));return (feed.monitor[field]||[]).some(e=>!ids.has(e.id))});if(!missingRows&&!missingHistory)return false;}
+ state.rows||=[];
  const locals=new Map(state.rows.filter(r=>!r.publicOnly).map(r=>[canonical(r.url),r])),remote=new Map(feed.rows.map(r=>[canonical(r.url),r]));
  state.rows=mergeRows(state.rows,feed.rows).map(r=>{const local=locals.get(canonical(r.url)),incoming=remote.get(canonical(r.url));
   if(local?.reviewedAt&&local.reviewedAt>=(incoming?.reviewedAt||''))return enrichLead({...r,...pick(local,'status reviewOutcome reviewedAt note evidence decision confirmedIssue imageMatch needsRecheck watch pageState'),publicOnly:false});

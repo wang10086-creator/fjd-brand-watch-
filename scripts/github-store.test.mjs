@@ -79,3 +79,9 @@ test('binary report images and deletion use the same guarded commit path',async(
  await store.putBytes('reports/chart.png',bytes);await store.remove('inbox/done.json');
  assert.equal(repo.value('inbox/done.json'),undefined);assert.ok(repo.calls.some(c=>c.path==='/git/blobs'&&c.body?.content===bytes.toString('base64')));
 });
+
+test('a lagging ref read after our own commit is retried without a false competing-writer error',async()=>{
+ const repo=repository({'status.json':'{"phase":"old"}'}),store=storeFor(repo),old=repo.head;await store.putJSON('status.json',{phase:'running'});let once=true;
+ repo.intercept=({path,method,response})=>{if(path==='/git/ref/heads/data-cloud'&&method==='GET'&&once){once=false;return response(200,{object:{sha:old}})}};
+ await store.write([{path:'status.json',value:{phase:'ready'}},{path:'public-dashboard.json',value:{revision:4}}]);assert.equal(JSON.parse(repo.value('status.json')).phase,'ready');assert.equal(JSON.parse(repo.value('public-dashboard.json')).revision,4);
+});

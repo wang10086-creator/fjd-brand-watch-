@@ -8,7 +8,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // preserving unrelated browser uploads; never force-update a ref or replace
 // a checkpoint that another writer changed while this process was running.
 export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{}}){
- const root='https://api.github.com/repos/'+repository,observed=new Map();
+ const root='https://api.github.com/repos/'+repository,observed=new Map(),retiredHeads=new Set();
  let queue=Promise.resolve(),cachedSnapshot=null;
  async function request(path,method='GET',body){
   let response;
@@ -29,10 +29,17 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
  }
  async function backoff(error,attempt,stage){onRetry({stage,status:error.status,attempt:attempt+1});await wait(Math.min(8000,500*2**attempt)+Math.floor(Math.random()*200));}
  async function snapshot(){
-  const ref=await read('/git/ref/heads/'+branch);
+  let ref;
+  for(let attempt=0;;attempt++){
+   ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());
+   if(!cachedSnapshot||ref.object.sha===cachedSnapshot.sha||!retiredHeads.has(ref.object.sha))break;
+   const error=Error('GitHub 返回了已过期的云端版本，保留当前台账并重试');error.status=409;
+   if(attempt>=retries)throw error;await backoff(error,attempt,'读取最新版本');
+  }
   if(cachedSnapshot?.sha===ref.object.sha)return cachedSnapshot;
   const commit=await read('/git/commits/'+ref.object.sha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');
   if(tree.truncated)throw Error('GitHub 云端目录清单不完整，停止写入以保护原记录');
+  if(cachedSnapshot)retiredHeads.add(cachedSnapshot.sha);
   return cachedSnapshot={sha:ref.object.sha,tree:commit.tree.sha,files:new Map(tree.tree.filter(f=>f.type==='blob').map(f=>[f.path,f.sha]))};
  }
  async function readJSON(name){
@@ -69,14 +76,14 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     const next=await request('/git/commits','POST',{message,tree:nextTree.sha,parents:[current.sha]});
     await request('/git/refs/heads/'+branch,'PATCH',{sha:next.sha,force:false});
     const files=new Map(current.files);for(const e of changes){if(e.remove)files.delete(e.path);else files.set(e.path,e.sha);}
-    cachedSnapshot={sha:next.sha,tree:nextTree.sha,files};
+    retiredHeads.add(current.sha);cachedSnapshot={sha:next.sha,tree:nextTree.sha,files};
     for(const e of changes)observed.set(e.path,e.sha);
     return {sha:next.sha,recovered:attempt>0};
    }catch(error){
     // GitHub uses 422 for a non-fast-forward ref update, but also for invalid
     // requests. Only retry 422 when the branch really moved in the meantime.
     let retry=transient(error);
-    if(error.status===422&&current){const ref=await read('/git/ref/heads/'+branch);retry=ref.object.sha!==current.sha;}
+    if(error.status===422&&current){const ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());retry=ref.object.sha!==current.sha;}
     if(!retry||attempt>=retries)throw error;
     await backoff(error,attempt,'保存快照');
    }

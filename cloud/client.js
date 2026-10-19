@@ -1,20 +1,27 @@
-import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261018-config';
-import {notionPublicUrl} from '../archive-config.js?v=20261018-config';
-import {seal,unseal,migrationState} from './crypto.js?v=20261018-config';
-import {mergeWorkspace} from './state.js?v=20261018-config';
+import {readPublicFile} from './public-reader.js?v=20261019-read';
+import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261019-read';
+import {notionPublicUrl} from '../archive-config.js?v=20261019-read';
+import {seal,unseal,migrationState} from './crypto.js?v=20261019-read';
+import {mergeWorkspace} from './state.js?v=20261019-read';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
-let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;
-export function refreshCloudSnapshot(){headFetchedAt=0;}
+let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;const publicCache=new Map();
+export function refreshCloudSnapshot(){headFetchedAt=0;publicCache.clear();}
 async function currentHead(){
  if(head&&Date.now()-headFetchedAt<headMaxAge)return head;
  if(headRequest)return headRequest;
- headRequest=(async()=>{const {token}=cloudCredentials(),r=await fetch('https://api.github.com/repos/'+REPO+'/git/ref/heads/'+BRANCH+'?t='+Date.now(),{headers:{Accept:'application/vnd.github+json',...(token?{Authorization:'Bearer '+token}:{})},cache:'no-store',signal:AbortSignal.timeout(20000)});if(r.status===404)return null;if(!r.ok)throw Error(r.status===403||r.status===429?'GitHub 状态读取受限，请稍后刷新或配置本会话的执行权限':'云端版本检查 HTTP '+r.status);const value=(await r.json()).object?.sha;if(!/^[a-f0-9]{40}$/.test(value||''))throw Error('云端版本校验失败');head=value;headFetchedAt=Date.now();headMaxAge=token?15000:120000;return head;})();
+ headRequest=(async()=>{const {token}=cloudCredentials(),r=await fetch('https://api.github.com/repos/'+REPO+'/git/ref/heads/'+BRANCH+'?t='+Date.now(),{headers:{Accept:'application/vnd.github+json',...(token?{Authorization:'Bearer '+token}:{})},cache:'no-store',signal:AbortSignal.timeout(8000)});if(r.status===404)return null;if(!r.ok)throw Error(r.status===403||r.status===429?'GitHub 状态读取受限，请稍后刷新或配置本会话的执行权限':'云端版本检查 HTTP '+r.status);const value=(await r.json()).object?.sha;if(!/^[a-f0-9]{40}$/.test(value||''))throw Error('云端版本校验失败');head=value;headFetchedAt=Date.now();headMaxAge=token?15000:120000;return head;})();
  try{return await headRequest}finally{headRequest=null}
 }
 export function cloudCredentials(){return {password:sessionStorage.getItem('fjd-cloud-password')||'',token:sessionStorage.getItem('fjd-cloud-github')||''}}
 export function setCloudCredentials(password,token=''){if(password.length<12)throw Error('云端密码至少 12 个字符');sessionStorage.setItem('fjd-cloud-password',password);if(token)sessionStorage.setItem('fjd-cloud-github',token)}
-export async function publicCloudFile(name){if(!['status.json','dashboard.json','public-dashboard.json'].includes(name))throw Error('不允许的云端文件');const revision=await currentHead();if(!revision)return null;const r=await fetch('https://raw.githubusercontent.com/'+REPO+'/'+revision+'/'+name,{cache:'no-store',signal:AbortSignal.timeout(20000)});if(r.status===404)return null;if(!r.ok)throw Error('云端状态 HTTP '+r.status);const value=await r.json();if(name==='status.json'&&['authorizing','running'].includes(value.runtime?.phase))headMaxAge=cloudCredentials().token?15000:60000;return value;}
+export async function publicCloudFile(name){
+ if(!['status.json','dashboard.json','public-dashboard.json'].includes(name))throw Error('不允许的云端文件');
+ const isPublic=name!=='dashboard.json';let revision;
+ try{revision=await currentHead()}catch(error){if(!isPublic)throw error;revision=null;}
+ if(isPublic){const cached=publicCache.get(name);if(revision&&cached?.revision===revision)return cached.value;const value=await readPublicFile(name,{revision});publicCache.set(name,{revision,value});if(name==='status.json'&&value.runtime?.phase==='running')headMaxAge=cloudCredentials().token?15000:60000;return value;}
+ if(!revision)return null;const r=await fetch('https://raw.githubusercontent.com/'+REPO+'/'+revision+'/'+name,{cache:'no-store',signal:AbortSignal.timeout(30000)});if(r.status===404)return null;if(!r.ok)throw Error('云端台账 HTTP '+r.status);return r.json();
+}
 export async function readDashboard(){const {password}=cloudCredentials();if(!password)throw Error('请在云端设置页输入数据密码');const cipher=await publicCloudFile('dashboard.json');if(!cipher)throw Error('云端尚无数据，请先配置数据密码并检查云端连接');return unseal(cipher,password,'dashboard');}
 export async function makePayload(data,{large=false}={}){const {password}=cloudCredentials();const text=JSON.stringify(await seal(data,password,'payload'));if(new TextEncoder().encode(text).length>60000&&!large)throw Error('本次内容超过云端单次传输上限，请使用完整台账迁移；未发送任何明文');return text;}
 export function uploadPointer(){return {uploadId:crypto.randomUUID()}}
@@ -38,12 +45,13 @@ export async function runCloud(state,{site=null,watch=false}={}){
  try{const payload=!cloudCredentials().password&&!state.cloudTaskDirty?JSON.stringify({publicRequest:{...(site?{site}:{}),...(watch?{watchOnly:true}:{})}}):await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
 }
 export async function refreshRuntime(state){
- const [info,feed]=await Promise.all([publicCloudFile('status.json'),publicCloudFile('public-dashboard.json')]);
- if(feed)applyPublicFeed(state,feed);
+ const [statusResult,feedResult]=await Promise.allSettled([publicCloudFile('status.json'),publicCloudFile('public-dashboard.json')]);
+ const errors=[];let feed=feedResult.status==='fulfilled'?feedResult.value:null,info=statusResult.status==='fulfilled'?statusResult.value:null;
+ if(feed){try{applyPublicFeed(state,feed);state.publicFeedError='';}catch(e){state.publicFeedError=e.message;errors.push(e.message);}}else{state.publicFeedError=feedResult.reason?.message||'云端日报尚未读取';errors.push(state.publicFeedError);}
  state.publicFeedLoading=false;
- if(!info?.runtime)return;state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;state.cloudStatusError='';
- const old=state.cloudService||{},newer=Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt||old.startedAt||'1970-01-01');
- if(newer)state.cloudService={...old,...info.runtime};
+ if(info?.runtime){state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;const old=state.cloudService||{},newer=Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt||old.startedAt||'1970-01-01');if(newer||!old.phase)state.cloudService={...old,...info.runtime};}
+ else errors.push(statusResult.reason?.message||'云端执行状态尚未读取');
+ state.cloudStatusError=errors.join(' ');return {feed:!!feed,status:!!info?.runtime};
 }
 export async function refreshCloud(state,{switchMode=true}={}){
  const dashboard=await readDashboard();if(!dashboard.ready)throw Error('云端配置尚未升级，请在设置页运行连接检查');if(!dashboard.state?.rows||!dashboard.state.monitor)throw Error('云端尚无可读取的监控台账');

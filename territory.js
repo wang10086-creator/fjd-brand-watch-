@@ -1,4 +1,4 @@
-import {brandGroups} from './brand-groups.js?v=20261018-config';
+import {brandGroups} from './brand-groups.js?v=20261019-read';
 export const domesticMarkets=new Set(['CN','HK','TW','MO']);
 export const territoryModes={all:'全部平台',listed:'商标清单所列地域平台',unlisted:'商标清单未列地域平台'};
 export function scopeReferences(refs,scope){return (refs||[]).filter(r=>r.markets?.some(c=>scope==='domestic'?domesticMarkets.has(c):!domesticMarkets.has(c)));}

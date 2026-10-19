@@ -1,30 +1,32 @@
-import {enrichBrowserPictures,visualEvidence} from './visual-browser.js?v=20261018-config';
-import {configurationSections,foldSection} from './config-view.js?v=20261018-config';
-import {aliasTerritories,platformChoices} from './territory.js?v=20261018-config';
-import {brandGroups,registrationMatch} from './brand-groups.js?v=20261018-config';
-import {operationSites,groupedSiteQueue} from './platform-status.js?v=20261018-config';
-import {accessLinks,evidenceUrl} from './lead-access.js?v=20261018-config';
-import {brandOwner,rowBrands,ownershipMatch,ownershipSummary,ownershipLabels} from './brand-ownership.js?v=20261018-config';
-import {reviewSummary,reviewMatch,reviewed} from './review-summary.js?v=20261018-config';
-import {normalizeWorkspaceConfig} from './workspace-config.js?v=20261018-config';
-import {applyRecordPolicy,deletedReportDays} from './record-policy.js?v=20261018-config';
-import {executiveCSS} from './report-executive.js?v=20261018-config';
+import {readLocalSnapshot} from './cloud/local-snapshot.js?v=20261019-read';
+import {applyPublicFeed} from './cloud/public-feed.js?v=20261019-read';
+import {enrichBrowserPictures,visualEvidence} from './visual-browser.js?v=20261019-read';
+import {configurationSections,foldSection} from './config-view.js?v=20261019-read';
+import {aliasTerritories,platformChoices} from './territory.js?v=20261019-read';
+import {brandGroups,registrationMatch} from './brand-groups.js?v=20261019-read';
+import {operationSites,groupedSiteQueue} from './platform-status.js?v=20261019-read';
+import {accessLinks,evidenceUrl} from './lead-access.js?v=20261019-read';
+import {brandOwner,rowBrands,ownershipMatch,ownershipSummary,ownershipLabels} from './brand-ownership.js?v=20261019-read';
+import {reviewSummary,reviewMatch,reviewed} from './review-summary.js?v=20261019-read';
+import {normalizeWorkspaceConfig} from './workspace-config.js?v=20261019-read';
+import {applyRecordPolicy,deletedReportDays} from './record-policy.js?v=20261019-read';
+import {executiveCSS} from './report-executive.js?v=20261019-read';
 const reportStyle=document.createElement('style');reportStyle.textContent=executiveCSS;document.head.append(reportStyle);
-import {cloudProgressView} from './cloud/progress-view.js?v=20261018-config';
-import {upgradeGlobalScope} from './monitor-policy.js?v=20261018-config';
-import {notionPublicUrl} from './archive-config.js?v=20261018-config';
-import {pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261018-config';
-import {finalizeReport,reportPublication} from './report-model.js?v=20261018-config';
-import {chainView,eventChart} from './feishu-client.js?v=20261018-config';
-import {appendRun,appendReview,migrateChain,chainFor,sitePlans,reviewKeys} from './report-chain.js?v=20261018-config';
-import {searchPlan,pacedWait} from './search-engine.js?v=20261018-config';
-import {outcomes,outcomeOf,reviewValues} from './review.js?v=20261018-config';
-import {chinaPlatforms,chineseEntrances} from './china.js?v=20261018-config';
-import {loadState,persist,flush} from './storage.js?v=20261018-config';
-import {brandCatalogView,operationsView} from './feature-views.js?v=20261018-config';
-import {dayOf,shiftDay,initMonitor,observe,recordReview,recordRun,recordCheck,dayReport,mergeMonitors,evidencePackage} from './monitor.js?v=20261018-config';
-import {dailyView,dailyHTML} from './daily-view.js?v=20261018-config';
-import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js?v=20261018-config';
+import {cloudProgressView} from './cloud/progress-view.js?v=20261019-read';
+import {upgradeGlobalScope} from './monitor-policy.js?v=20261019-read';
+import {notionPublicUrl} from './archive-config.js?v=20261019-read';
+import {refreshCloudSnapshot,pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261019-read';
+import {finalizeReport,reportPublication} from './report-model.js?v=20261019-read';
+import {chainView,eventChart} from './feishu-client.js?v=20261019-read';
+import {appendRun,appendReview,migrateChain,chainFor,sitePlans,reviewKeys} from './report-chain.js?v=20261019-read';
+import {searchPlan,pacedWait} from './search-engine.js?v=20261019-read';
+import {outcomes,outcomeOf,reviewValues} from './review.js?v=20261019-read';
+import {chinaPlatforms,chineseEntrances} from './china.js?v=20261019-read';
+import {loadState,persist,flush} from './storage.js?v=20261019-read';
+import {brandCatalogView,operationsView} from './feature-views.js?v=20261019-read';
+import {dayOf,shiftDay,initMonitor,observe,recordReview,recordRun,recordCheck,dayReport,mergeMonitors,evidencePackage} from './monitor.js?v=20261019-read';
+import {dailyView,dailyHTML} from './daily-view.js?v=20261019-read';
+import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js?v=20261019-read';
 const $=s=>document.querySelector(s), esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const pname=id=>platforms.find(p=>p.id===id)?.name||id||'独立网页', cname=id=>marketData[id]?.name||id||'未核实';
@@ -200,8 +202,8 @@ function importPublicScan(){
  for(const item of publicScan.items){const rows=publicScan.rows.filter(r=>r.platform===item.platform);const before=state.rows.length;const changes=observe(state.monitor,rows,state.rows,{at:item.at,runId:h.id,query:item.plan.query,searchUrl:item.searchUrl});for(const c of changes)h.delta.push({key:c.key,kind:c.isNew?'new':c.changed?'changed':'repeat'});state.rows=mergeRows(state.rows,rows).map(enrichLead);const added=state.rows.length-before;h.added+=added;h[item.status==='成功'?'success':'failed']++;h.items.push({...item,added});}
  state.history.unshift(h);recordRun(state.monitor,h);state.importedPublicScans=[...(state.importedPublicScans||[]),publicScan.id];return true;
 }
-async function init(){try{const [raw,language,manifest,brands,scan]=await Promise.all(['leads.json','platform-languages.json','assets/manifest.json','brand-catalog.json','public-scan.json'].map(async p=>{const r=await fetch('./'+p+'?v=20261018-config',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('数据加载失败 '+r.status);return r.json()}));seeds=raw;registry=language;catalog=brands;publicScan=scan;assets=[...manifest.assets,...catalog.assets.map(a=>({id:'excel-'+a.file,excelFile:a.file,filename:'excel/'+a.file,name:catalog.entries.find(g=>g.assetFiles.includes(a.file))?.canonicalName||a.file,kind:'symbol'}))];let saved=await loadState();
- state={...saved,config:normalizeConfig(saved.config),rows:mergeRows((saved.rows||saved.leads||[]).filter(r=>safeUrl(r.url)).map(enrichLead),seeds.filter(r=>!(saved.rows||saved.leads||[]).some(old=>canonical(old.url)===canonical(r.url)))).map(enrichLead),schedule:normalizeSchedule(saved.schedule||{enabled:true,hour:9,timezone:'Asia/Shanghai'}),batchSize:[20,60,120,300].includes(saved.batchSize)?saved.batchSize:60,assetIds:saved.assetIds||['fjdynamics-shield','fjdynamics-wordmark'],customAssets:saved.customAssets||[],history:saved.history||[],cursor:saved.cursor||0,completed:saved.completed||[],cycle:saved.cycle||1,lastSuccess:saved.lastSuccess||null,lastAttempt:saved.lastAttempt||null,includeWatch:saved.includeWatch!==false,watchCursor:saved.watchCursor||0};state.selectedBrandIds=Array.isArray(saved.selectedBrandIds)?saved.selectedBrandIds:catalog.entries.map(g=>g.id);state.customAliases=saved.customAliases||saved.config?.aliases||defaults.aliases;state.catalogVersion=1;if(!saved.chinaScopeVersion){state.config.regions=[...new Set(['CN',...state.config.regions])];state.config.platforms=[...new Set([...chinaPlatforms.map(p=>p.id),...state.config.platforms])];state.cursor=0;state.completed=[];}state.chinaScopeVersion=1;upgradeGlobalScope(state);state.taskName=saved.taskName||'中国与海外品牌日常监控';state.deviceId=saved.deviceId||crypto.randomUUID();applyBrands();state.monitor=initMonitor(saved.monitor,state.rows);if(!saved.monitor)state.monitor.legacyRuns=structuredClone(state.history);state.history.forEach(h=>{if(h.running){h.running=false;h.cancelled=true;recordRun(state.monitor,h)}});assets.push(...state.customAssets);state.nextDue=saved.nextDue||nextScheduleAt(state.schedule);const imported=importPublicScan();migrateChain(state.monitor);state.archive||={receipts:{}};state.archive.receipts||={};state.siteCursors||={};state.cloudMode=true;state.publicFeedLoading=true;rebuild();if(saved.queueVersion!==2){state.cursor=0;state.completed=[];state.queueVersion=2;save()}state.cursor=plans.length?state.cursor%plans.length:0;storageStatus=saved.savedAt?'已恢复上次保存 · '+fmt(saved.savedAt):'新任务，尚无执行记录';if(imported||!saved.catalogVersion||!saved.chinaScopeVersion)save();save();render();scheduleSync();setInterval(scheduleSync,30000);
+async function init(){try{const initialSnapshot=readLocalSnapshot();const [raw,language,manifest,brands,scan]=await Promise.all(['leads.json','platform-languages.json','assets/manifest.json','brand-catalog.json','public-scan.json'].map(async p=>{const r=await fetch('./'+p+'?v=20261019-read',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('数据加载失败 '+r.status);return r.json()}));seeds=raw;registry=language;catalog=brands;publicScan=scan;assets=[...manifest.assets,...catalog.assets.map(a=>({id:'excel-'+a.file,excelFile:a.file,filename:'excel/'+a.file,name:catalog.entries.find(g=>g.assetFiles.includes(a.file))?.canonicalName||a.file,kind:'symbol'}))];let saved=await loadState();
+ state={...saved,config:normalizeConfig(saved.config),rows:mergeRows((saved.rows||saved.leads||[]).filter(r=>safeUrl(r.url)).map(enrichLead),seeds.filter(r=>!(saved.rows||saved.leads||[]).some(old=>canonical(old.url)===canonical(r.url)))).map(enrichLead),schedule:normalizeSchedule(saved.schedule||{enabled:true,hour:9,timezone:'Asia/Shanghai'}),batchSize:[20,60,120,300].includes(saved.batchSize)?saved.batchSize:60,assetIds:saved.assetIds||['fjdynamics-shield','fjdynamics-wordmark'],customAssets:saved.customAssets||[],history:saved.history||[],cursor:saved.cursor||0,completed:saved.completed||[],cycle:saved.cycle||1,lastSuccess:saved.lastSuccess||null,lastAttempt:saved.lastAttempt||null,includeWatch:saved.includeWatch!==false,watchCursor:saved.watchCursor||0};state.selectedBrandIds=Array.isArray(saved.selectedBrandIds)?saved.selectedBrandIds:catalog.entries.map(g=>g.id);state.customAliases=saved.customAliases||saved.config?.aliases||defaults.aliases;state.catalogVersion=1;if(!saved.chinaScopeVersion){state.config.regions=[...new Set(['CN',...state.config.regions])];state.config.platforms=[...new Set([...chinaPlatforms.map(p=>p.id),...state.config.platforms])];state.cursor=0;state.completed=[];}state.chinaScopeVersion=1;upgradeGlobalScope(state);state.taskName=saved.taskName||'中国与海外品牌日常监控';state.deviceId=saved.deviceId||crypto.randomUUID();applyBrands();state.monitor=initMonitor(saved.monitor,state.rows);if(!saved.monitor)state.monitor.legacyRuns=structuredClone(state.history);state.history.forEach(h=>{if(h.running){h.running=false;h.cancelled=true;recordRun(state.monitor,h)}});assets.push(...state.customAssets);state.nextDue=saved.nextDue||nextScheduleAt(state.schedule);const imported=importPublicScan();migrateChain(state.monitor);state.archive||={receipts:{}};state.archive.receipts||={};state.siteCursors||={};state.cloudMode=true;state.publicFeedLoading=true;rebuild();if(saved.queueVersion!==2){state.cursor=0;state.completed=[];state.queueVersion=2;save()}state.cursor=plans.length?state.cursor%plans.length:0;const snapshot=await initialSnapshot;if(snapshot){applyPublicFeed(state,snapshot.feed);if((Date.parse(snapshot.status.updatedAt)||0)>=(Date.parse(state.cloudStatusAt)||0)){state.automation=snapshot.status.automation||state.automation;if(!state.cloudService?.queuedAt||Date.parse(snapshot.status.runtime.startedAt)>=Date.parse(state.cloudService.queuedAt))state.cloudService=snapshot.status.runtime;state.cloudStatusAt=snapshot.status.updatedAt;}state.publicFeedLoading=false;}storageStatus=saved.savedAt?'已恢复上次保存 · '+fmt(saved.savedAt):'新任务，尚无执行记录';if(imported||!saved.catalogVersion||!saved.chinaScopeVersion)save();save();render();scheduleSync();setInterval(scheduleSync,30000);
  }catch(e){$('#app').innerHTML=`<div class="panel"><h1>页面数据未能加载</h1><p>${esc(e.message)}</p><p>请刷新重试，或打开 <a href="./connectivity/">访问诊断页</a>。</p></div>`}}
 init();
 
@@ -209,7 +211,7 @@ function operationBusy(){return busy;}
 function dataSyncView(){
  const pending=pendingLocalEvents(state).length,c=cloudCredentials();
  const message=state.publicFeedLoading?'正在读取各设备共用的云端日报…':state.publicUpdatedAt?'云端公开数据已读取 · '+fmt(state.publicUpdatedAt):'云端公开数据尚未读取；当前显示本机已有记录';
- return `<div class="notice" id="data-sync-status" role="status">${esc(message)}${state.cloudStatusError?'<br>'+esc(state.cloudStatusError):''}${pending?`<br>本机待同步 ${pending} 次更新 · ${c.password&&c.token?'已连接同步权限，等待云端接收及 Notion 回执':'需连接本浏览器的同步权限，其他设备暂不可见'} <a href="./cloud/portal.html#browser-connection">连接同步权限</a>`:''}<small style="display:block">手动检索在网页执行；云端公开日报自动跨设备读取，内部备注需解锁加密台账。</small></div>`;
+ return `<div class="notice ${state.cloudStatusError?'warning':''}" id="data-sync-status" role="status">${esc(message)}${state.cloudStatusError?'<br>'+esc(state.cloudStatusError)+' <button class="site-action" data-action="cloud-read">重新读取日报</button> <a href="'+notionPublicUrl+'" target="_blank" rel="noopener">查看 Notion 归档 ↗</a>':''}${pending?`<br>本机待同步 ${pending} 次更新 · ${c.password&&c.token?'已连接同步权限，等待云端接收及 Notion 回执':'需连接本浏览器的同步权限，其他设备暂不可见'} <a href="./cloud/portal.html#browser-connection">连接同步权限</a>`:''}<small style="display:block">手动检索在网页执行；云端公开日报自动跨设备读取，内部备注需解锁加密台账。</small></div>`;
 }
 function redrawSyncedData(){if(route==='tasks'){const status=$('#data-sync-status');if(status)status.outerHTML=dataSyncView();drawRun();}else render();}
 function scheduleSync(force=false){if(!state||busy||syncBusy||stale)return;if(!cloudCredentials().password){syncBusy=true;refreshRuntime(state).then(()=>{save();redrawSyncedData()}).catch(e=>{state.publicFeedLoading=false;state.cloudStatusError=e.message;redrawSyncedData()}).finally(()=>syncBusy=false);return;}cloudRefreshAndSync(force).catch(async e=>{state.archive.lastError=e.message;try{await refreshRuntime(state)}catch{}state.publicFeedLoading=false;save();redrawSyncedData()});}
@@ -229,5 +231,5 @@ async function handleDeliveryClick(b){
  return false;
 }
 
-async function handleCloudClick(b){if(b.dataset.action==='cloud-read'){if(!cloudCredentials().password){await refreshRuntime(state);save();render();notify('已读取云端公开日报与线索；内部核查依据需解锁加密台账。');return true}await refreshCloud(state);save();render();notify('已读取云端最新台账，当前浏览器已切换云端执行');return true}if(b.dataset.action==='cloud-local'){state.cloudMode=false;save();render();notify('当前浏览器已切回页面内执行；云端计划仍保留，可在 GitHub 暂停工作流');return true}return false;}
+async function handleCloudClick(b){if(b.dataset.action==='cloud-read'){refreshCloudSnapshot();if(!cloudCredentials().password){await refreshRuntime(state);save();render();notify(state.cloudStatusError||'已读取云端公开日报与线索；内部核查依据需解锁加密台账。');return true}await refreshCloud(state);save();render();notify('已读取云端最新台账，当前浏览器已切换云端执行');return true}if(b.dataset.action==='cloud-local'){state.cloudMode=false;save();render();notify('当前浏览器已切回页面内执行；云端计划仍保留，可在 GitHub 暂停工作流');return true}return false;}
 async function cloudRefreshAndSync(force=false){if(syncBusy||!cloudCredentials().password)return;syncBusy=true;try{await syncArchive(state,{force});state.publicFeedLoading=false;save();redrawSyncedData()}finally{syncBusy=false}}

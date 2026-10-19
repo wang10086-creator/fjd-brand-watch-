@@ -1,6 +1,6 @@
-import {siteCoverage} from './coverage.js?v=20261018-config';
-import {outcomeOf} from './review.js?v=20261018-config';
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261018-config';
+import {siteCoverage} from './coverage.js?v=20261019-read';
+import {outcomeOf} from './review.js?v=20261019-read';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261019-read';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){

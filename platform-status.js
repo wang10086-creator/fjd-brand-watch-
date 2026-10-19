@@ -1,6 +1,6 @@
-import {platforms} from './model.js?v=20261018-config';
-import {siteKey,failureKind,failureLabels} from './coverage.js?v=20261018-config';
-import {sitePlans} from './report-chain.js?v=20261018-config';
+import {platforms} from './model.js?v=20261019-read';
+import {siteKey,failureKind,failureLabels} from './coverage.js?v=20261019-read';
+import {sitePlans} from './report-chain.js?v=20261019-read';
 export const connectionGroups=[['unattempted','尚未执行'],['hit','已查 · 有线索'],['empty','已查 · 未命中'],['partial','部分成功 · 待补查'],['source-access','来源访问受限'],['source-rate-limit','来源限流'],['scope-unverified','目标站点未确认'],['source-timeout','请求超时'],['source-outage','来源服务异常'],['source-error','其他异常']];
 export function connectionGroup(site){return site.status==='未执行'?'unattempted':site.status==='成功'?(site.pendingFailed?'partial':site.retainedCount?'hit':'empty'):site.failureKind||failureKind(site);}
 export function operationSites(state,plans=[]){

@@ -1,10 +1,10 @@
-import {evidenceUrl} from './lead-access.js?v=20261018-config';
-import {outcomes} from './review.js?v=20261018-config';
-import {executiveReport,executiveCSS,compactReportCSS} from './report-executive.js?v=20261018-config';
-import {chainFor,triggerNames} from './report-chain.js?v=20261018-config';
-import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261018-config';
-import {reportModel,reportPublication} from './report-model.js?v=20261018-config';
-import {safeUrl} from './model.js?v=20261018-config';
+import {evidenceUrl} from './lead-access.js?v=20261019-read';
+import {outcomes} from './review.js?v=20261019-read';
+import {executiveReport,executiveCSS,compactReportCSS} from './report-executive.js?v=20261019-read';
+import {chainFor,triggerNames} from './report-chain.js?v=20261019-read';
+import {dayOf,shiftDay,reportDates} from './monitor.js?v=20261019-read';
+import {reportModel,reportPublication} from './report-model.js?v=20261019-read';
+import {safeUrl} from './model.js?v=20261019-read';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const names={new:'新发现线索',changed:'内容信号变化',repeat:'再次发现'};
@@ -31,7 +31,7 @@ export function dailyView(m,day,{pname=x=>x,cname=x=>x,mode='delta',evidenceOpen
  const pages=(mode==='all'?d.observations:mode==='changed'?d.changed:mode==='repeat'?d.repeat:mode==='new'?d.fresh:[...d.fresh,...d.changed]).map(e=>({...e,...d.cohort.find(c=>c.key===e.key)}));
  return `<div class="page-head"><div><div class="eyebrow">DAILY INTELLIGENCE</div><h1>监控日报</h1><p>每天一份累计日报，先看发现与处置，再看证据明细。</p></div><button class="primary" data-action="report-share">${icon('review')}日报归档与导出</button></div>
  <section class="day-toolbar panel"><div class="actions"><button data-action="day-prev" aria-label="前一天">←</button><label class="date-label">报告日期 <input type="date" id="report-day" value="${day}" max="${today}"></label><button data-action="day-next" aria-label="后一天" ${day>=today?'disabled':''}>→</button><button data-action="day-today">今天</button><select id="recorded-day" aria-label="有记录的日期"><option value="">有记录的日期</option>${reportDates(m).map(date=>`<option value="${date}">${date}</option>`).join('')}</select></div><span class="badge ${dirty?'medium':'green'}">${saved?`本机导出 v${saved.version}${dirty?' · 有新记录追加':' · 与当前累计一致'}`:'当日累计 · 保留更新链'}</span></section>
- ${visualSummary(d,{pname,interactive:true,state})}
+ ${!d.hasActivity&&(state?.publicFeedLoading||state?.publicFeedError)?'<section class="panel notice warning"><h2>该日期的云端日报尚未读到</h2><p>正在加载或连接受限，暂不能判断当天是否有监控记录；这不表示记录已删除。可使用顶部的重新读取或 Notion 归档入口。</p></section>':visualSummary(d,{pname,interactive:true,state})}
  <details class="panel report-policy"><summary>当日主报告与后续更新如何衔接</summary><ol><li>自动检索开始的北京时间日期决定本次报告归属，跨午夜完成仍记在开始日期。</li><li>手动检索、站点补查和复核追加新记录；同日只建立一份 Notion 日报，之前的内容保留。</li><li>手动检索先于自动检索时，先按当天日期建立记录；自动检索完成后再追加主记录。</li><li>上方显示当日累计，下面更新链记录每次进展。部分复核仍保留待核查数量，次日复核不改写昨天。</li></ol><p class="helper">配置云端连接后，检索结果自动同步 Notion；失败保留待同步队列，回执确认后才显示已追加。飞书简报目标时间为每天北京时间 10:30，使用届时已保存数据，不等待全部检索结束。GitHub 可能排队延迟；当天成功发送一次后不再重复推送，后续进展只更新同一日报。明确发送失败会补发，回执不确定时显示待核实。</p></details>
  <details class="panel" id="report-evidence" ${evidenceOpen?'open':''}><summary>证据明细 · 新增与变化 ${d.cohort.length} 条 / 重复附录 ${d.repeat.length} 条</summary><div class="panel-head space"><h2>查看明细</h2><div class="segmented">${[['delta','新增＋变化'],['new','新增'],['changed','变化'],['repeat','重复附录'],['review','复核记录'],['all','全部命中']].map(([k,t])=>`<button data-report-mode="${k}" class="${mode===k?'selected':''}">${t}</button>`).join('')}</div></div>${mode==='review'?reviewTable(d.reviews):observationTable(pages,{pname,cname})}</details>
  ${d.pendingFailures.length?`<details class="panel"><summary>未完成查询与补查依据 · ${d.pendingFailures.length} 项</summary>${d.pendingFailures.map(i=>`<p>${esc(pname(i.platform))} · ${esc(i.message)}<br>${link(i.searchUrl,i.query)}</p>`).join('')}<a href="#data">在运行中心查看执行过程 →</a></details>`:''}

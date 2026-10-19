@@ -21,6 +21,7 @@ on:
         type: string
 permissions:
   contents: write
+  pages: write
 concurrency:
   group: fjd-cloud-monitor
   cancel-in-progress: false

@@ -1,10 +1,10 @@
-import {hydratePublicRecords} from './public-feed.js?v=20261018-config';
-import {normalizeWorkspaceConfig} from '../workspace-config.js?v=20261018-config';
-import {applyRecordPolicy} from '../record-policy.js?v=20261018-config';
-import {mergeOwnership} from '../brand-ownership.js?v=20261018-config';
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261018-config';
-import {mergeMonitors} from '../monitor.js?v=20261018-config';
-import {migrateChain} from '../report-chain.js?v=20261018-config';
+import {hydratePublicRecords} from './public-feed.js?v=20261019-read';
+import {normalizeWorkspaceConfig} from '../workspace-config.js?v=20261019-read';
+import {applyRecordPolicy} from '../record-policy.js?v=20261019-read';
+import {mergeOwnership} from '../brand-ownership.js?v=20261019-read';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261019-read';
+import {mergeMonitors} from '../monitor.js?v=20261019-read';
+import {migrateChain} from '../report-chain.js?v=20261019-read';
 const fields=['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'];
 export function mergeWorkspace(local,remote){
  local=hydratePublicRecords(local,remote);

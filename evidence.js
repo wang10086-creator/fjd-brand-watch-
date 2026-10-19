@@ -1,9 +1,9 @@
-import {visualEvidence} from './visual-browser.js?v=20261018-config';
-import {readEvidenceFeed} from './evidence-data.js?v=20261018-config';
-import {canonical} from './model.js?v=20261018-config';
-import {accessLinks,safePublicUrl} from './lead-access.js?v=20261018-config';
-import {outcomes,outcomeOf} from './review.js?v=20261018-config';
-import {deletedReportDays} from './record-policy.js?v=20261018-config';
+import {visualEvidence} from './visual-browser.js?v=20261019-read';
+import {readEvidenceFeed} from './evidence-data.js?v=20261019-read';
+import {canonical} from './model.js?v=20261019-read';
+import {accessLinks,safePublicUrl} from './lead-access.js?v=20261019-read';
+import {outcomes,outcomeOf} from './review.js?v=20261019-read';
+import {deletedReportDays} from './record-policy.js?v=20261019-read';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const root=document.querySelector('#evidence'),params=new URLSearchParams(location.search),url=safePublicUrl(params.get('url')),day=/^\d{4}-\d{2}-\d{2}$/.test(params.get('day')||'')?params.get('day'):'';
 const time=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未记录';
