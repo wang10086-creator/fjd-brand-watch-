@@ -250,3 +250,17 @@ These inform layout and workflow only; no proprietary implementation is copied.
   Actual live evidence tests pass with external ledger routes intentionally
   unavailable and both old/new link formats; external-source 403 is not claimed
   to be resolved at the third-party site.
+
+## 2026-10-19 — search existing leads by website address
+
+- The existing list filter already included raw URLs but a pasted HTTPS homepage
+  failed to match HTTP/www/subpage variants. Added a pure list-only matcher with
+  protocol/www normalization, bounded hostname/subdomain matching and decoded path
+  support. Plain merchant/title/keyword/note search remains intact. Filters and
+  exports share viewRows; no scan, ledger migration or archival mutation occurs.
+- Latest public ledger at 2026-10-19T02:35:35.232Z contains 198 leads: no occurrence
+  of fj-dynamic.com in rows or historical observations. This is absence from the
+  retained records, not a finding about the external site's actual contents.
+- Regression: 125 Node and 27 Python tests pass. Browser checks cover bare-domain
+  versus homepage matching, empty results for requested domain, and clearing the
+  filter without losing records. Cloud/Notion writing paths are unchanged.
