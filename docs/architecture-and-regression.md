@@ -196,3 +196,17 @@ These inform layout and workflow only; no proprietary implementation is copied.
   snapshot in 4.4 seconds. Manual stop/resume and review save passed; navigation
   now checks durable IndexedDB (a >5 MB ledger legitimately exceeds localStorage).
   Isolated interaction fixtures exclude the production bootstrap snapshot.
+- Production release e7a1aaa verified with both GitHub read hosts blocked: same-origin
+  bootstrap restored Oct 17–19 reports in 5.9 seconds, with no page errors. Desktop
+  and mobile both recovered 198 rows, five reviews and all seven retained dates.
+  Actual live raw-gzip read also succeeded; no JSON-only fixture assumption.
+- Cloud runs 39188304314 and 39188429009 succeeded. The latter completed all 60
+  queries (2 successful, 58 scope-unverified, no new rows), image checks and archive
+  delivery; no persistence conflict recurred. Notion read-back at 10:15 Beijing
+  confirmed today's nine new / one changed / ten pending cases, with 64 archived
+  update receipts. Failed source queries remain pending and are not called empty.
+- Each run automatically committed its whitelisted same-origin snapshot and Pages
+  deployment completed (latest 39189135057). Main mirror updates preserve unrelated
+  source files and need no user credentials in the browser. Notion web access speed
+  itself is not guaranteed by this fix; the monitor's own daily view is the tested
+  independent reading path. Future schedule timing still depends on GitHub queues.
