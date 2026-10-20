@@ -1,4 +1,4 @@
-import {eventPackage,chainFor,triggerNames} from './report-chain.js?v=20261019-links';
+import {eventPackage,chainFor,triggerNames} from './report-chain.js?v=20261020-review';
 const KEY='fjd-feishu-connection-v1';
 export function bridgeConnection(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch{return {}}}
 export function saveConnection(endpoint,key){const u=new URL(endpoint);if(u.username||u.password||u.search||u.hash||!(u.protocol==='https:'||u.protocol==='http:'&&['127.0.0.1','localhost','[::1]'].includes(u.hostname)))throw Error('同步服务须使用 HTTPS，或本机 localhost 地址');const v={endpoint:u.href.replace(/\/$/,''),key:String(key||'').trim()};if(v.key.length<20)throw Error('请填写同步助手提供的连接码');localStorage.setItem(KEY,JSON.stringify(v));return v;}
@@ -28,6 +28,6 @@ export function eventChart(event){
  const text=(t,x,y,size=22,color='#153e36')=>{g.fillStyle=color;g.font=`${size}px sans-serif`;g.fillText(t,x,y)};
  g.fillStyle='#123e36';g.fillRect(0,0,1200,126);text('丰疆品牌监控日报 · '+event.day,38,55,32,'#fff');text((triggerNames[event.type]||event.type)+'之后的当日累计 · '+new Date(event.at).toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}),38,96,21,'#d2e7df');
  [['首次发现',d.new],['旧线索新变化',d.changed],['待完成核查',d.pending],['成功查询网站',d.sites]].forEach(([k,v],i)=>{const x=38+i*290;text(k,x,181,21);text(String(v),x,239,42)});
- text('当日增量复核进展',38,302,24);const categories=[['已排除 / 授权核实',d.review.cleared,'#156e5c'],['核查中',d.review.reviewing,'#d79335'],['提交法务',d.review.escalated,'#b14d50'],['待核查',d.review.pending,'#869b98']],total=d.new+d.changed;let x=38;g.fillStyle='#dde5e0';g.fillRect(x,330,1124,26);categories.forEach(([k,v,color],i)=>{const width=total?1124*v/total:0;g.fillStyle=color;g.fillRect(x,330,width,26);x+=width;text(k+' '+v,38+i*290,396,20,color)});
+ text('当日增量复核进展',38,302,24);const categories=d.statsVersion===2?[['已结案',d.review.cleared,'#156e5c'],['待IP部门复核',d.review.reviewing,'#d79335'],['待后续处置',d.review.escalated,'#b14d50'],['待IP对接人初核',d.review.pending,'#869b98']]:[['已排除 / 授权核实',d.review.cleared,'#156e5c'],['核查中',d.review.reviewing,'#d79335'],['提交法务',d.review.escalated,'#b14d50'],['待核查',d.review.pending,'#869b98']],total=d.new+d.changed;let x=38;g.fillStyle='#dde5e0';g.fillRect(x,330,1124,26);categories.forEach(([k,v,color],i)=>{const width=total?1124*v/total:0;g.fillStyle=color;g.fillRect(x,330,width,26);x+=width;text(k+' '+v,38+i*290,396,20,color)});
  text('本次更新',38,463,24);text(`新增 ${event.summary.new} · 变化 ${event.summary.changed} · 重复 ${event.summary.repeat}（已去重）`,38,509,25);text(`当日查询成功 ${d.success} · 未解决失败 ${d.failed} · 尚有失败的网站 ${d.failedSites}`,38,555,21);text('品牌命中不代表侵权；待核查与已复核分开呈现。旧内容保留，本记录只追加。',38,607,19,'#64796f');return c.toDataURL('image/png').split(',')[1];
 }

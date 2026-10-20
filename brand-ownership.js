@@ -1,5 +1,5 @@
-import {brandGroups} from './brand-groups.js?v=20261019-links';
-import {matchedAliases} from './model.js?v=20261019-links';
+import {brandGroups} from './brand-groups.js?v=20261020-review';
+import {matchedAliases} from './model.js?v=20261020-review';
 export const ownershipLabels={domestic:'国内类',overseas:'海外类',unknown:'未归入清单'};
 const matchCache=new WeakMap();
 export function mergeOwnership(left={},right={}){const result={...left};for(const [id,value] of Object.entries(right))if(!result[id]||String(value.updatedAt||'')>=String(result[id].updatedAt||''))result[id]={company:String(value.company||'').slice(0,120),scope:ownershipLabels[value.scope]?value.scope:'unknown',updatedAt:value.updatedAt||''};return result;}

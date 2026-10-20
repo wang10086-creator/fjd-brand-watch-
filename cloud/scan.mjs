@@ -1,3 +1,4 @@
+import {assertWorkflowTransition,workflowOf,mergeReviewWorkflows} from '../review.js';
 import {aliasTerritories} from '../territory.js';
 import {coverageQueue,siteCoverage} from '../coverage.js';
 import {cloudSearch} from './search.mjs';
@@ -22,7 +23,8 @@ export function applyReviews(state,events){
   const r=state.rows.find(r=>canonical(r.url)===event.entries[0].key);if(!r)throw Error('云端未找到该线索，请先迁移完整台账');
   const review=event.reviewRecord;if(!review||review.id!==event.id.slice(7)||review.key!==canonical(r.url))throw Error('复核变更缺少完整依据');
   if(r.reviewedAt&&r.reviewedAt>review.at)throw Error('云端已有较新的复核，请先读取最新数据');
-  Object.assign(r,review.after,{reviewedAt:review.at});state.monitor.reviews.push(structuredClone(review));state.monitor.updateChain.push(structuredClone(event));
+  if(review.after.reviewWorkflow){const current=workflowOf(r),base=workflowOf(review.before);if(current.stage!==base.stage||current.round!==base.round||r.reviewWorkflow&&current.updatedAt!==base.updatedAt)throw Error('云端处理阶段已变化，请先读取最新线索再操作');if(Object.hasOwn(review.before,'reviewedAt')&&(r.reviewedAt||null)!==review.before.reviewedAt)throw Error('云端已有不同的核查记录，请读取后重试');assertWorkflowTransition(r,review.after)}
+  const mergedWorkflow=mergeReviewWorkflows(r.reviewWorkflow,review.after.reviewWorkflow);Object.assign(r,review.after,{reviewedAt:review.at},...(mergedWorkflow?[{reviewWorkflow:mergedWorkflow}]:[]));state.monitor.reviews.push(structuredClone(review));state.monitor.updateChain.push(structuredClone(event));
  }
 }
 export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},onSite=()=>{},budget:queryBudget=null,maxDurationMs=10*60000,siteUrl='' }={}){

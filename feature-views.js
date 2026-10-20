@@ -1,8 +1,8 @@
-export {brandCatalogView} from './config-view.js?v=20261019-links';
-import {brandGroups} from './brand-groups.js?v=20261019-links';
-import {brandOwner,ownershipLabels} from './brand-ownership.js?v=20261019-links';
-import {operationSites,connectionGroups} from './platform-status.js?v=20261019-links';
-import {platforms,marketData} from './model.js?v=20261019-links';
+export {brandCatalogView} from './config-view.js?v=20261020-review';
+import {brandGroups} from './brand-groups.js?v=20261020-review';
+import {brandOwner,ownershipLabels} from './brand-ownership.js?v=20261020-review';
+import {operationSites,connectionGroups} from './platform-status.js?v=20261020-review';
+import {platforms,marketData} from './model.js?v=20261020-review';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function siteActivity(site,{busy=false,activeSite=null,phase='running',eligible=true}={}){
  const active=busy&&activeSite?.platform===site.platform&&(activeSite.domain||'')===(site.domain||'');

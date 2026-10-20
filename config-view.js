@@ -1,6 +1,6 @@
-import {marketData,platforms,supportedMarkets} from './model.js?v=20261019-links';
-import {brandGroups} from './brand-groups.js?v=20261019-links';
-import {scopedBrandGroups,territoryModes,platformChoices,territorySummary} from './territory.js?v=20261019-links';
+import {marketData,platforms,supportedMarkets} from './model.js?v=20261020-review';
+import {brandGroups} from './brand-groups.js?v=20261020-review';
+import {scopedBrandGroups,territoryModes,platformChoices,territorySummary} from './territory.js?v=20261020-review';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const cname=c=>marketData[c]?.name||c;
 const root='https://wang10086-creator.github.io/fjd-brand-watch-/';

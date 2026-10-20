@@ -16,7 +16,7 @@ def render(event,out):
         t(1010,y,v)
     im.save(out/'discovery.png')
     im,d,t=canvas(300);t(20,8,'人工复核进展 · 单位：条',28)
-    rows=[('待开始核查',r.get('pending',0),'gray'),('继续核查',r.get('reviewing',0),'amber'),('已排除或授权',r.get('cleared',0),'green'),('提交法务',r.get('escalated',0),'red')];mx=max(1,*[z[1] for z in rows])
+    rows=([('待IP对接人初核',r.get('pending',0),'gray'),('待IP部门复核',r.get('reviewing',0),'amber'),('待后续处置',r.get('escalated',0),'red'),('已结案',r.get('cleared',0),'green')] if c.get('statsVersion')==2 else [('待开始核查',r.get('pending',0),'gray'),('继续核查',r.get('reviewing',0),'amber'),('已排除或授权',r.get('cleared',0),'green'),('提交法务',r.get('escalated',0),'red')]);mx=max(1,*[z[1] for z in rows])
     for i,(name,v,color) in enumerate(rows):
         y=57+i*55;t(20,y,name,24);d.rectangle((245,y+5,990,y+29),fill='#eff3f1')
         if v:d.rectangle((245,y+5,245+745*v/mx,y+29),fill=COLORS[color])

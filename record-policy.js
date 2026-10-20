@@ -1,4 +1,4 @@
-import {canonical} from './model.js?v=20261019-links';
+import {canonical} from './model.js?v=20261020-review';
 
 // User-requested removals are applied on every read, merge and publication.
 // This also prevents an older device or backup from restoring removed dates.

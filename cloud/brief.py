@@ -1,3 +1,4 @@
+from review_metrics import closed_count, pending_case, stage_label
 """Compact Feishu notification card. No chat receiver is implied by a webhook."""
 from urllib.parse import urlparse
 
@@ -15,7 +16,7 @@ def brief_card(state, day, latest, today, test=False):
     base=state.get('publicUrl') or state['baseUrl'];origin=urlparse(base)
     report=p.get('publicUrl') or (origin.scheme+'://'+origin.netloc+'/'+p['id'].replace('-','') if p.get('id') and origin.hostname and origin.hostname.endswith('notion.site') else base)
     header=('【格式验证】' if test else '')+'丰疆品牌监控日报 · '+day
-    fields=[('新增线索',c.get('new',0)),('内容变化',c.get('changed',0)),('待完成核查',c.get('pending',0)),('已完成处置',(c.get('review') or {}).get('cleared',0)+(c.get('review') or {}).get('escalated',0))]
+    fields=[('新增线索',c.get('new',0)),('内容变化',c.get('changed',0)),('待完成核查',c.get('pending',0)),('已结案' if c.get('statsVersion')==2 else '已完成处置',closed_count(c))]
     body=[{'tag':'div','text':{'tag':'lark_md','content':('联调测试：用于核实卡片投递，不替代当日正式简报。\n' if test else '')+('**监控摘要**\n公开线索按页面去重，全部交由人工核查。' if latest else '**数据状态**\n尚无可用累计，不代表没有风险。')}},
           {'tag':'div','fields':[{'is_short':True,'text':{'tag':'lark_md','content':'**'+title+'**\n'+str(value)}} for title,value in fields]},
           {'tag':'hr'},

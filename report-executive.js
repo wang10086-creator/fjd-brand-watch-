@@ -1,4 +1,4 @@
-import {continuationInfo} from './execution-progress.js?v=20261019-links';
+import {continuationInfo} from './execution-progress.js?v=20261020-review';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function executiveReport(d,{state}={}){
  const c=d.coverage,total=d.cohort.length,today=new Date(Date.now()+8*3600000).toISOString().slice(0,10),live=state&&d.day===today;

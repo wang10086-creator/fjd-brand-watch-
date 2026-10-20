@@ -1,13 +1,15 @@
-import {siteCoverage} from './coverage.js?v=20261019-links';
-import {outcomeOf} from './review.js?v=20261019-links';
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261019-links';
+import {siteCoverage} from './coverage.js?v=20261020-review';
+import {outcomeOf,workflowOf} from './review.js?v=20261020-review';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261020-review';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){
+ const statsVersion=day>='2026-10-20'||m.reviews.some(r=>r.day===day&&r.after.reviewWorkflow)?2:1;
  const d=dayReport(m,day),cutoff=day+'T23:59:59.999+08:00';
  const cohort=[...d.fresh,...d.changed].map(e=>{
   const lastChange=e.changedAt||e.at;
-  const review=m.reviews.filter(r=>r.key===e.key&&Date.parse(r.at)<=Date.parse(cutoff)&&Date.parse(r.at)>=Date.parse(lastChange)).sort((a,b)=>b.at.localeCompare(a.at))[0];
+  const review=m.reviews.filter(r=>r.key===e.key&&Date.parse(r.at)<=Date.parse(cutoff)&&(statsVersion===2||Date.parse(r.at)>=Date.parse(lastChange))).sort((a,b)=>b.at.localeCompare(a.at))[0];
+  if(statsVersion===2){const assessment=review?.after||e.snapshot,w=workflowOf(assessment);return {...e,reviewStage:w.stage,reviewWorkflow:w,reviewStatus:{initial:'pending',ip:'reviewing',handling:'escalated',closed:'cleared'}[w.stage],reviewOutcome:outcomeOf(assessment),reviewNote:review?.after.note||''}}
   return {...e,reviewStatus:review?.after.status||'pending',reviewOutcome:outcomeOf(review?.after||{status:'pending'}),reviewNote:review?.after.note||''};
  });
  const review={pending:0,reviewing:0,cleared:0,escalated:0};
@@ -15,9 +17,11 @@ export function reportModel(m,day){
  const sourceBars=[...sources.values()].sort((a,b)=>(b.new+b.changed)-(a.new+a.changed));
  if(sourceBars.length>6){const rest=sourceBars.splice(6);sourceBars.push({id:'others',new:rest.reduce((n,s)=>n+s.new,0),changed:rest.reduce((n,s)=>n+s.changed,0)});}
  const trend=Array.from({length:7},(_,i)=>{const r=dayReport(m,shiftDay(day,i-6));return {day:r.day,new:r.fresh.length,changed:r.changed.length,known:r.hasActivity}});
- const touched=cohort.length-review.pending,closed=review.cleared+review.escalated;
+ const touched=statsVersion===2?cohort.filter(e=>e.reviewWorkflow.opinion!=='pending').length:cohort.length-review.pending,closed=review.cleared+(statsVersion===2?0:review.escalated);
+ const stages={initial:0,ip:0,handling:0,closed:0,business:0,legal:0};let excluded=0,completed=0;
+ if(statsVersion===2)for(const e of cohort){const w=e.reviewWorkflow;stages[w.stage]++;if(w.stage==='handling'&&['business','legal'].includes(w.node))stages[w.node]++;if(w.stage==='closed'&&w.closure?.type==='excluded')excluded++;if(w.stage==='closed'&&w.closure?.type==='completed')completed++;}
  const unknown=d.legacyOnly||(day<dayOf(m.startedAt)&&!d.hasActivity);
- const scope=m.coverageScopes?.[day];const coverage=scope?siteCoverage(scope,m,day):null;const report={...d,coverage,cohort,review,sourceBars,trend,touched,closed,pending:review.pending+review.reviewing,unknown};
+ const scope=m.coverageScopes?.[day];const coverage=scope?siteCoverage(scope,m,day):null;const report={...d,coverage,cohort,review,sourceBars,trend,touched,closed,pending:review.pending+review.reviewing+(statsVersion===2?review.escalated:0),unknown,...(statsVersion===2?{statsVersion,stages,excluded,completed}:{})};
  return report;
 }
 export function reportFingerprint(report){

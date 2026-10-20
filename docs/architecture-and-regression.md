@@ -301,3 +301,46 @@ These inform layout and workflow only; no proprietary implementation is copied.
 - Added a guard for HTTP-200 login/robot/access-denied titles; these are restricted
   responses, not successful product archives. Python suite now has 33 passing
   tests; source failure cannot manufacture a saved body.
+
+## Four-stage review workflow — impact and compatibility design
+
+- Before changes: backup/review-four-stage-before points to 85d3f303; protected
+  /workspace/backups/fjd-review-four-stage contains the code head, public gzip
+  snapshot and original encrypted vault. Baseline: 215 rows, 5 reviews, 192
+  observations, 72 immutable update events. No decrypted credential backup.
+- Data flow: review.js → dynamic detail form → recordReview/appendReview → local
+  database → encrypted workspace/review sync → cloud state → public projection →
+  reportModel/overviews → Notion sections/Feishu summaries. Search merges and
+  imports must retain workflows, full rounds and manual evidence.
+- Extend rows with reviewWorkflow v1 (stage, opinion, node, closure, round,
+  immutable per-round events and legacy baseline). Derive legacy views without
+  writing to old records. New human actions keep a legacy-compatible projection
+  while saving all original manual fields in the first round. No automated stage
+  movement; closed→reopen always starts initial in a fresh numbered round.
+- Keep old outcomes/reviewValues interface for older clients. New four-stage
+  selectors use independent stage keys. Private basis/reopen explanations stay
+  encrypted; public projections contain stage/outcome metadata, not private notes.
+- Version 2 daily statistics apply from 2026-10-20 or recorded workflow events.
+  Previous daily snapshots/events keep their original fields and meanings. For
+  version 2 only closed is complete; IP review/business/legal remain pending.
+  Historical Notion event checksums must not be rewritten.
+- UI semantics: four exclusive stage cards exclude the active stage filter from
+  their denominator while retaining all market/company/platform/text/date filters.
+  A stage dropdown and a secondary return-to-all control keep list navigation.
+  Closure progress is closed/total; merely recording facts is not a verdict.
+- The new workflow retains legacy confirmedIssue and note signals on reopen, so
+  reopening itself cannot change the existing automatic priority calculation.
+  New-round input starts blank while the prior note remains in history.
+- Private workflow bases, explanations, reopened reasons and legacy originals are
+  excluded from anonymous public feeds. Credentialed cloud state keeps full rounds.
+  Same-time merges retain longer event histories; stale human-stage submissions
+  are rejected rather than silently replacing a newer decision.
+- Validation: 152 Node tests / 37 Python tests; old test assertions retained and
+  browser selectors updated to the new stage form. New tests exercise all stage
+  transitions, both closure types, multiselect/other explanations, actual-complete
+  confirmation, reopen round isolation, stale cloud submissions, encrypted full
+  roundtrip, public redaction, older-device merges and production snapshot purity.
+- Browser passes two full review rounds, CSV, mobile detail, impossible-storage
+  rollback, original 403 retry/resume, repeated navigation, configuration/market/
+  image comparison, and blocked-host cross-device reading. Old data remains at
+  215 rows / 5 reviews / 192 observations / 72 events, byte-identical to backup.

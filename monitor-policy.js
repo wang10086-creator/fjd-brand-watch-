@@ -1,4 +1,4 @@
-import {marketData,platforms} from './model.js?v=20261019-links';
+import {marketData,platforms} from './model.js?v=20261020-review';
 export const scopeVersion='20261016-world';
 export function upgradeGlobalScope(state){
  if(state.monitorScopeVersion===scopeVersion)return false;

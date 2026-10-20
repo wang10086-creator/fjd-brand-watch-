@@ -1,3 +1,4 @@
+from review_metrics import closed_count, pending_case, stage_label
 """Daily Notion pages with resumable, append-only public update records."""
 import hashlib
 import json
@@ -37,7 +38,7 @@ def marker_of(value):
 def public_event(event):
     """Public reports exclude internal review notes and authorization evidence."""
     return {k: event.get(k) for k in ('id', 'day', 'at', 'type', 'historical', 'summary', 'cumulative', 'chartUrl')} | {
-        'entries': [{k: row.get(k) for k in ('kind', 'title', 'url', 'query', 'searchUrl', 'platform', 'snippet', 'priority', 'status')} for row in event.get('entries', [])],
+        'entries': [{k: row.get(k) for k in ('kind', 'title', 'url', 'query', 'searchUrl', 'platform', 'snippet', 'priority', 'status')} | ({'reviewWorkflow': {k:row['reviewWorkflow'].get(k) for k in ('stage','node','round','opinion')} | {'closure': {k:(row['reviewWorkflow'].get('closure') or {}).get(k) for k in ('type','reason','measures')}}} if row.get('reviewWorkflow') else {}) for row in event.get('entries', [])],
         'queries': [{k: row.get(k) for k in ('query', 'searchUrl', 'status', 'platform', 'domain', 'at')} | {'failure': '公开索引请求失败，详见工作台执行记录' if row.get('status') == '失败' else ''} for row in event.get('queries', [])]}
 
 
@@ -55,7 +56,7 @@ def event_blocks(event):
         result.insert(0, {'object':'block','type':'image','image':{'type':'external','external':{'url':event['chartUrl']},'caption':text('本次检索后的日报图表')}})
     for row in event.get('entries', []):
         result.append(block('heading_3', row.get('title') or row.get('url') or '线索复核更新'))
-        result.append(block('paragraph', f"处理状态：{STATUSES.get(row.get('status'),'待核查')}\n检索词：{row.get('query') or '本次为复核更新'}"))
+        result.append(block('paragraph', f"处理状态：{(stage_label(row) or STATUSES.get(row.get('status'),'待核查'))}\n检索词：{row.get('query') or '本次为复核更新'}"))
         for label, url in [('线索证据与访问入口', evidence_url(row,event['day']))]:
             item = link_block(label, url)
             if item: result.append(item)
@@ -71,7 +72,7 @@ def summary_text(event):
     c = event.get('cumulative') or {}
     total = c.get('new', 0) + c.get('changed', 0)
     review = c.get('review') or {}
-    finished = review.get('cleared', 0) + review.get('escalated', 0)
+    finished = closed_count(c)
     units = min(10, round(10 * finished / total)) if total else 0
     return (f"📊 自动累计概览\n新增 {c.get('new',0)}  ｜  变化 {c.get('changed',0)}  ｜  待核查 {c.get('pending',0)}\n"
             f"成功查询网站 {c.get('sites',0)}  ｜  尚有失败的网站 {c.get('failedSites',0)}\n"
@@ -178,7 +179,8 @@ class NotionReports:
         meta=self.layouts.setdefault(page['id'],{'blocks':{}})
         if meta.get('at','')>event['at']:return
         charts=event.get('reportCharts') or {};c=event['cumulative'];cv=c.get('coverage');p=c.get('priority') or {}
-        headline=f"新增 {c.get('new',0)} · 变化 {c.get('changed',0)} · 待完成核查 {c.get('pending',0)} · 已完成处置 {(c.get('review') or {}).get('cleared',0)+(c.get('review') or {}).get('escalated',0)}"
+        finished_label='已结案' if c.get('statsVersion')==2 else '已完成处置'
+        headline=f"新增 {c.get('new',0)} · 变化 {c.get('changed',0)} · 待完成核查 {c.get('pending',0)} · {finished_label} {closed_count(c)}"
         specs=[('title',block('heading_3','监控概览｜截至 '+beijing(event['at']))),('executive',block('paragraph',headline))]
         for key,title,copy in sections(event):
             specs.append((key+'-title',block('heading_3',title)))
@@ -186,11 +188,11 @@ class NotionReports:
             if url.startswith('https://raw.githubusercontent.com/wang10086-creator/fjd-brand-watch-/data-cloud/reports/'):
                 specs.append((key+'-chart',{'object':'block','type':'image','image':{'type':'external','external':{'url':url},'caption':[]}}))
             specs.append((key+'-copy',block('paragraph',copy)))
-        specs.append(('method',block('paragraph','统计口径：按公开页面去重，全部线索由人工复核；索引命中不构成侵权认定。检索范围与证据完整性以执行记录为准。')))
+        specs.append(('method',block('paragraph','统计口径：按公开页面去重，全部线索由人工复核；索引命中不构成侵权认定。检索范围与证据完整性以执行记录为准。'+(' 本日新增与变化线索采用四阶段口径，业务或法务处理中不计结案；存量线索的其他核查变更见更新链。' if c.get('statsVersion')==2 else ''))))
         specs.append(('details',block('heading_2','线索与执行附录')))
         cases=event.get('reportCases')
         if cases is not None:
-            pending=sum(row.get('status') in ('pending','reviewing') for row in cases)
+            pending=sum(pending_case(row,c) for row in cases)
             if pending!=c.get('pending',0) or len(cases)!=c.get('new',0)+c.get('changed',0):
                 raise ValueError('日报完整线索清单与统计数量不一致，已停止发布')
             specs.append(('case-heading',block('heading_3',f'完整线索清单｜{len(cases)} 条，其中待完成核查 {pending} 条')))
@@ -199,7 +201,7 @@ class NotionReports:
                 label=f"{i+1:02d}  {row.get('title') or row.get('url')}"
                 item=link_block(label,evidence_url(row,event['day']))
                 if item:
-                    item['paragraph']['rich_text'].extend(text('\n'+OUTCOMES.get(row.get('outcome'),STATUSES.get(row.get('status'),'待核查'))+'  ·  '+('新增' if row.get('kind')=='new' else '内容变化')+'  ·  '+(row.get('platform') or '独立网页')+'\n检索词：'+str(row.get('query') or '见线索证据页')[:400]))
+                    item['paragraph']['rich_text'].extend(text('\n'+(stage_label(row) or OUTCOMES.get(row.get('outcome'),STATUSES.get(row.get('status'),'待核查')))+'  ·  '+('新增' if row.get('kind')=='new' else '内容变化')+'  ·  '+(row.get('platform') or '独立网页')+'\n检索词：'+str(row.get('query') or '见线索证据页')[:400]))
                     specs.append(('case-'+str(i),item))
         elif event.get('reportBrief'):
             specs.append(('case-heading',block('heading_3','历史摘录 · 完整记录见更新链')))

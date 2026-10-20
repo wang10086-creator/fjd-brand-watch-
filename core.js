@@ -1,8 +1,9 @@
-import {worldMarkets} from './world-markets.js?v=20261019-links';
-import {globalPlatforms} from './global-platforms.js?v=20261019-links';
-import {overseasPlatforms} from './overseas-platforms.js?v=20261019-links';
-import {chinaPlatforms} from './china.js?v=20261019-links';
-import {expansion} from './expansion.js?v=20261019-links';
+import {mergeReviewWorkflows,manualReviewFields} from './review.js?v=20261020-review';
+import {worldMarkets} from './world-markets.js?v=20261020-review';
+import {globalPlatforms} from './global-platforms.js?v=20261020-review';
+import {overseasPlatforms} from './overseas-platforms.js?v=20261020-review';
+import {chinaPlatforms} from './china.js?v=20261020-review';
+import {expansion} from './expansion.js?v=20261020-review';
 export const marketData = {
   IE:{name:'爱尔兰',lang:'en',language:'英语',area:'欧洲'},AT:{name:'奥地利',lang:'de',language:'德语',area:'欧洲'},CZ:{name:'捷克',lang:'cs',language:'捷克语',area:'欧洲'},SK:{name:'斯洛伐克',lang:'sk',language:'斯洛伐克语',area:'欧洲'},HU:{name:'匈牙利',lang:'hu',language:'匈牙利语',area:'欧洲'},
   KE:{name:'肯尼亚',lang:'en',language:'英语',area:'非洲'},GH:{name:'加纳',lang:'en',language:'英语',area:'非洲'},MA:{name:'摩洛哥',lang:'ar',language:'阿拉伯语',area:'非洲'},UG:{name:'乌干达',lang:'en',language:'英语',area:'非洲'},CI:{name:'科特迪瓦',lang:'fr',language:'法语',area:'非洲'},SN:{name:'塞内加尔',lang:'fr',language:'法语',area:'非洲'},
@@ -108,7 +109,7 @@ export function assess(row){
 export function mergeRows(existing,incoming){
  const map=new Map(existing.filter(x=>canonical(x.url)).map(x=>[canonical(x.url),{...x,firstSeen:x.firstSeen||x.checkedAt,lastSeen:x.lastSeen||x.checkedAt}]));
  for(const row of incoming){const url=canonical(row.url);if(!url)continue;const seen=row.lastSeen||row.checkedAt||new Date().toISOString();const previous=map.get(url);
-  if(previous){const keep={...(previous.imageAnalysis&&(!row.imageAnalysis||previous.imageAnalysis.at>row.imageAnalysis.at)?{imageAnalysis:previous.imageAnalysis,imageUrl:previous.imageUrl}:{}),id:previous.id,reviewOutcome:previous.reviewOutcome,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,watch:previous.watch,decision:previous.decision,pageState:previous.pageState,needsRecheck:previous.needsRecheck,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
+  if(previous){const keep={...(previous.imageAnalysis&&(!row.imageAnalysis||previous.imageAnalysis.at>row.imageAnalysis.at)?{imageAnalysis:previous.imageAnalysis,imageUrl:previous.imageUrl}:{}),...(previous.reviewWorkflow||row.reviewWorkflow?{reviewWorkflow:mergeReviewWorkflows(previous.reviewWorkflow,row.reviewWorkflow)}:{}),id:previous.id,reviewOutcome:previous.reviewOutcome,status:previous.status,note:previous.note,imageMatch:previous.imageMatch,confirmedIssue:previous.confirmedIssue,evidence:previous.evidence,reviewedAt:previous.reviewedAt,watch:previous.watch,decision:previous.decision,pageState:previous.pageState,needsRecheck:previous.needsRecheck,firstSeen:previous.firstSeen||seen};map.set(url,{...previous,...row,...keep,lastSeen:seen>(previous.lastSeen||'')?seen:previous.lastSeen,hitCount:Math.max(row.hitCount||1,(previous.hitCount||1)+(seen>(previous.lastSeen||'')?1:0)),keywords:[...new Set([...(previous.keywords||[]),...(row.keywords||[])])]});}
   else map.set(url,{id:crypto.randomUUID(),status:'pending',note:'',imageMatch:'unverified',...row,url:safeUrl(row.url),firstSeen:row.firstSeen||seen,lastSeen:seen,hitCount:1});
  }return [...map.values()];
 }
@@ -118,7 +119,7 @@ export function mergeBackup(existing,incoming){
  return mergeRows(existing,incoming).map(row=>{
   const old=prior.get(canonical(row.url)),saved=imported.get(canonical(row.url));
   const reviewed=old&&(old.reviewedAt||old.note||old.evidence||old.confirmedIssue||(old.status&&old.status!=='pending')||(old.imageMatch&&old.imageMatch!=='unverified'));
-  if(!saved||reviewed)return row;
+  if(!saved)return row;if(saved.reviewWorkflow){const next={...row,reviewWorkflow:mergeReviewWorkflows(old?.reviewWorkflow,saved.reviewWorkflow)};if((saved.reviewWorkflow.updatedAt||'')>(old?.reviewWorkflow?.updatedAt||''))for(const key of [...manualReviewFields,'reviewedAt'])if(saved[key]!==undefined)next[key]=key==='reviewWorkflow'?mergeReviewWorkflows(old?.reviewWorkflow,saved.reviewWorkflow):saved[key];return next}if(reviewed)return row;
   const next={...row};for(const key of ['reviewOutcome','status','note','imageMatch','confirmedIssue','evidence','reviewedAt','watch','decision','pageState','needsRecheck'])if(saved[key]!==undefined)next[key]=saved[key];return next;
  });
 }

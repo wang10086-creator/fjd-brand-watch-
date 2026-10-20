@@ -1,5 +1,5 @@
-import {archiveKey,archiveUrl,archivePath,archiveLabels,sameArchiveSite} from './archive-model.js?v=20261020-archive';
-import {safePublicUrl,evidenceUrl,accessLinks} from './lead-access.js?v=20261019-links';
+import {archiveKey,archiveUrl,archivePath,archiveLabels,sameArchiveSite} from './archive-model.js?v=20261020-review';
+import {safePublicUrl,evidenceUrl,accessLinks} from './lead-access.js?v=20261020-review';
 const root=document.querySelector('#archive'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'尚未执行';
 let generation=0;

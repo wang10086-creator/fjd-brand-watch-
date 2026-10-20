@@ -1,3 +1,4 @@
+from review_metrics import closed_count, pending_case, stage_label
 """One-page executive PNG using public aggregates only; no lead/private-note inputs."""
 import json
 import pathlib
@@ -15,7 +16,7 @@ def render(event, output):
     d.rectangle((0,0,1200,128),fill=INK)
     txt(36,22,'丰疆品牌监控日报',34,'white');txt(36,76,event['day']+'  北京时间 · 当日累计',22,'#dcebe5')
     txt(810,35,'发现线索 ≠ 确认侵权',23,'white')
-    cards=[('新发现线索',c.get('new',0),GREEN),('旧线索有变化',c.get('changed',0),AMBER),('已完成处置',review.get('cleared',0)+review.get('escalated',0),GREEN),('仍待核查',c.get('pending',0),INK)]
+    cards=[('新发现线索',c.get('new',0),GREEN),('旧线索有变化',c.get('changed',0),AMBER),('已结案' if c.get('statsVersion')==2 else '已完成处置',closed_count(c),GREEN),('仍待核查',c.get('pending',0),INK)]
     for i,(label,value,color) in enumerate(cards):
         x=36+i*291;box(x,150,274,133);txt(x+18,165,label,22);txt(x+18,207,value,44,color)
     box(36,303,553,244);box(610,303,554,244)
@@ -31,7 +32,7 @@ def render(event, output):
         for i,(v,label,color) in enumerate(zip(values,labels,colors)):
             xx=x+(i%2)*253;yy=y+112+(i//2)*39
             d.ellipse((xx,yy+8,xx+10,yy+18),fill=color);txt(xx+18,yy,label+' '+str(v),20)
-    stack(56,321,'复核进度',[review.get(k,0) for k in ('cleared','escalated','reviewing','pending')],['已排除或授权','提交法务','核查中','未开始'],[GREEN,RED,AMBER,GRAY])
+    stack(56,321,'复核进度',[review.get(k,0) for k in ('cleared','escalated','reviewing','pending')],(['已结案','待后续处置','待IP部门复核','待IP对接人初核'] if c.get('statsVersion')==2 else ['已排除或授权','提交法务','核查中','未开始']),[GREEN,RED,AMBER,GRAY])
     stack(630,321,'当日线索构成',[c.get('new',0),c.get('changed',0)],['首次发现','内容变化'],[GREEN,AMBER])
     box(36,565,1128,236);txt(56,580,'近七天新发现与变化',26)
     trend=c.get('trend') or [];maxv=max([1]+[r.get('new',0)+r.get('changed',0) for r in trend])
