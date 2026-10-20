@@ -11,10 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: 'check 配置检查；verify 检索归档及群测试；scan 立即检索；sync 归档；digest 每日简报'
+        description: 'check 配置检查；verify 检索归档及群测试；scan 立即检索；sync 归档；archive 页面存档；digest 每日简报'
         type: choice
         default: scan
-        options: [auto, check, verify, scan, site-retry, sync, digest, test-digest, migrate, review]
+        options: [auto, check, verify, archive, scan, site-retry, sync, digest, test-digest, migrate, review]
       payload:
         description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
         required: false
@@ -28,7 +28,7 @@ concurrency:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 23
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +37,7 @@ jobs:
       - name: 准备日报图表
         run: python3 -m pip install --quiet Pillow==11.3.0
       - name: 云端检索、Notion 归档与飞书简报
+        if: inputs.operation != 'archive'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
@@ -48,3 +49,9 @@ jobs:
           FJD_PAYLOAD: ${{ inputs.payload }}
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
+      - name: 公开页面存档（独立于检索统计）
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && github.event.schedule != '30 2 * * *' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node cloud/archive-runner.mjs

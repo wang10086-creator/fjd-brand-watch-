@@ -1,0 +1,13 @@
+import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';import {execFileSync} from 'node:child_process';import {createHash} from 'node:crypto';
+const pins=readdirSync('/usr/local/share/ca-certificates').filter(f=>f.endsWith('.crt')).map(f=>createHash('sha256').update(execFileSync('openssl',['pkey','-pubin','-outform','DER'],{input:execFileSync('openssl',['x509','-in','/usr/local/share/ca-certificates/'+f,'-pubkey','-noout'])})).digest('base64'));
+const base=process.env.TEST_BASE_URL||'http://127.0.0.1:4207/',origin=new URL(base).origin,b=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--ignore-certificate-errors-spki-list='+pins.join(',')]});
+try{const p=await b.newPage({viewport:{width:1280,height:900}}),errors=[],external=[];p.on('pageerror',e=>errors.push(e.message));await p.route('**/*',r=>{const u=r.request().url();if(u.startsWith('http')&&new URL(u).origin!==origin){external.push(u);return r.fulfill({status:403,body:'blocked fixture'})}return r.continue()});
+ await p.goto(base+'archive.html#url=https%3A%2F%2Ffj-dynamics.co.uk%2F');await p.locator('.archive-copy').waitFor({timeout:45000});assert.match(await p.locator('.archive-copy').innerText(),/FJ Dynamics/i);assert.ok(await p.locator('.archive-images img').count()>0);assert.equal(await p.locator('form,iframe').count(),0);
+ const index=JSON.parse(readFileSync('archives/index.json'));const captured=Object.values(index.pages).find(r=>r.depth>0&&r.path);assert.ok(captured,'real child capture needed');
+ const href='./archive.html#'+new URLSearchParams({url:captured.url});await p.locator('a').filter({hasText:captured.title||'no-match'}).count();
+ await p.goto(base+href.slice(2));await p.locator('.archive-copy').waitFor();assert.ok((await p.locator('.archive-copy').innerText()).length>80);
+ await p.goto(base+'archive.html#url=https%3A%2F%2Ffj-dynamics.co.uk%2Fnot-captured');await p.locator('.archive-status').waitFor();assert.match(await p.locator('.archive-status').innerText(),/尚未收录/);assert.equal(await p.locator('.archive-copy').count(),0);
+ await p.goto(base+'archive.html#url=https%3A%2F%2Ffj-dynamics.co.uk%2F');await p.locator('.archive-copy').waitFor();await p.setViewportSize({width:390,height:844});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));await p.screenshot({path:'/workspace/outputs/oct20-archive-mobile.png',fullPage:true});
+ assert.deepEqual(errors,[]);assert.deepEqual(external,[]);console.log(JSON.stringify({rootAndChildReadable:true,noSourceRequests:true,savedImages:true,missingPageTruthful:true,mobile:true,errors}));
+}finally{await b.close()}

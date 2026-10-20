@@ -264,3 +264,31 @@ These inform layout and workflow only; no proprietary implementation is copied.
 - Regression: 125 Node and 27 Python tests pass. Browser checks cover bare-domain
   versus homepage matching, empty results for a reserved .invalid domain, and clearing the
   filter without losing records. Cloud/Notion writing paths are unchanged.
+
+## 2026-10-20 — read-only page archives for source access failures
+
+- Impact mapping: public ledger → bounded archive collector → independent static
+  archive files and index → same-origin reader; evidence/detail views link to it.
+  Archive requests do not add leads, observations, review events, daily counts,
+  Notion events or Feishu messages. No private vault is read by the archive worker.
+- Publicly accessible HTML is extracted into inert text plus saved JPEG previews.
+  Scripts, forms, iframes, login flows and original third-party requests are absent
+  from the reader. CSP allows only same-origin data and inline JPEG previews.
+- Each cloud batch adds up to six captures; discovered links stay on the same
+  site, exclude session/query/action routes, and are bounded to depth two and 40
+  candidates/site (2,000 catalog cap). Public access/robots rules are checked.
+  HTTP 403/challenge/failed retrieval is explicitly reported; no response is
+  fabricated as a full mirror. Failed refresh retains the last good capture.
+- Each page has capture time, source URL, response SHA-256 and truncation flags.
+  Page archives are latest readable copies, not backdated daily-report evidence.
+  Retired lead roots are removed from the published archive catalog/files.
+- Captures use existing Actions identity and Pages hosting. Independent optional
+  archive step cannot fail an otherwise successful monitor/digest job. Archive-only
+  workflow option is for maintenance; normal scheduled runs continue capture.
+- Validation before publication: 133 Node tests and 32 Python tests pass. Real UK
+  independent-site captures include six HTTP 200 pages, stored images and 33 known
+  page candidates. Browser test blocks every external origin and still reads the
+  root and a child with stored images; mobile width, unknown-page state, legacy
+  evidence links, manual retries and review saving pass. Test captures total about
+  180 KB. Existing local preview port failed and was replaced with port 4208; this
+  was not a deployed application failure.
