@@ -298,3 +298,6 @@ These inform layout and workflow only; no proprietary implementation is copied.
   site pages). Pages deployment 39361446659 succeeded. The deployed reader passes
   external-origin blocking, actual child-link navigation, saved-image rendering,
   missing-page state, restricted refresh with retained old copy, and mobile checks.
+- Added a guard for HTTP-200 login/robot/access-denied titles; these are restricted
+  responses, not successful product archives. Python suite now has 33 passing
+  tests; source failure cannot manufacture a saved body.

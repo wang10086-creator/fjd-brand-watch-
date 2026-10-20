@@ -85,6 +85,8 @@ def capture(url,deadline):
         if any(x in html.lower() for x in ('cf-chl-','verify you are human','challenge-form','anomaly-modal','captcha-delivery.com','request could not be satisfied')):
             return {**result,'status':'restricted','httpStatus':200,'message':'原站返回验证或拦截页面'}
         parser=Content(final);parser.feed(html);page=parser.result()
+        if re.match(r'^(?:access denied|403(?: forbidden| error)?|robot check|just a moment|attention required|security check|sign in|log in|登录|请登录|访问受限|访问被拒绝|error 403)(?:\b|[ .！!：:])',page['title'],re.I):
+            return {**result,'status':'restricted','httpStatus':200,'message':'原站返回登录、验证或拒绝访问页面'}
         if len(page['text'])<80:return {**result,'message':'可提取正文不足，可能需要动态加载或登录'}
         result.update(page,status='captured',httpStatus=200,finalUrl=final,sourceHash=hashlib.sha256(raw).hexdigest())
         pictures=source.Pictures(final);pictures.feed(html)

@@ -18,3 +18,9 @@ class ArchiveTests(unittest.TestCase):
         with patch.object(m.source.socket,'getaddrinfo',return_value=[(0,0,0,'',('127.0.0.1',443))]):
             with self.assertRaises(ValueError):m.source.public_url('https://private.test')
         with self.assertRaises(ValueError):m.source.public_url('https://user:pass@example.com')
+    def test_http_200_robot_or_login_title_is_not_saved_as_product_evidence(self):
+        for title in ('Robot Check','Access Denied','Sign in','403 ERROR'):
+            html=('<title>'+title+'</title><p>'+('Please verify access. '*12)+'</p>').encode()
+            with patch.object(m.source,'public_url'),patch.object(m,'permitted',return_value=True),patch.object(m.source,'download',return_value=(html,'text/html','https://site.example')):
+                result=m.capture('https://site.example',time.monotonic()+5)
+                self.assertEqual(result['status'],'restricted');self.assertNotIn('text',result)
