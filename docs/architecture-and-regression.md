@@ -292,3 +292,9 @@ These inform layout and workflow only; no proprietary implementation is copied.
   evidence links, manual retries and review saving pass. Test captures total about
   180 KB. Existing local preview port failed and was replaced with port 4208; this
   was not a deployed application failure.
+- Live validation: archive-only Actions run 39361360942 completed; the monitoring,
+  Notion and Feishu step was skipped as intended. Archive step itself succeeded:
+  six attempted/six captured, bringing the catalog to 12 readable pages (nine UK
+  site pages). Pages deployment 39361446659 succeeded. The deployed reader passes
+  external-origin blocking, actual child-link navigation, saved-image rendering,
+  missing-page state, restricted refresh with retained old copy, and mobile checks.
