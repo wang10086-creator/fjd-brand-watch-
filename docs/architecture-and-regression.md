@@ -434,3 +434,8 @@ These inform layout and workflow only; no proprietary implementation is copied.
   preserves the prior V2.0 evaluation rather than overwriting its evidence.
 - Large adjustment batches reuse encrypted upload pointers; all pending IDs stay
   visible even when a batch is bounded. Final gates: 184 Node / 41 Python pass.
+- A rebased production snapshot now already contains V2 automatic grades. The
+  initial-evaluation regression is extended to validate both pre-V2 and already
+  graded input: every non-priority field and monitor event remains exact, current
+  manual history stays exact, and an old automatic assessment is retained in
+  history on a rules-version update. No preexisting assertion was skipped.
