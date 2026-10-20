@@ -42,6 +42,7 @@ jobs:
           key: image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-${{ github.run_id }}
           restore-keys: |
             image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-
+            image-evidence-v2-${{ runner.os }}-
       - name: 云端检索、Notion 归档与飞书简报
         if: inputs.operation != 'archive'
         env:

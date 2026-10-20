@@ -14,7 +14,7 @@ test('independent list badges: trademark only, product only, both on different o
 test('100 requires file equality or complete decoded pixel equality, never phash or a scalar score',()=>{
  const m=exactMatch('product',product,'https://candidate.test/a');assert.ok(confirmedImageMatch(m));
  assert.ok(!confirmedImageMatch({...m,candidateSha256:'f'.repeat(64)}));assert.ok(!confirmedImageMatch({...m,method:'phash-candidate-only'}));assert.ok(!confirmedImageMatch({...m,method:'aligned-pixels-ssim'}));
- const p={...m,method:'decoded-pixels',candidateSha256:'f'.repeat(64)};assert.ok(confirmedImageMatch(p));assert.ok(!confirmedImageMatch({...p,candidateHeight:p.candidateHeight-1}));
+ const p={...m,method:'decoded-pixels',candidateSha256:'f'.repeat(64)};assert.ok(confirmedImageMatch(p));assert.ok(!confirmedImageMatch({...p,candidateHeight:p.candidateHeight-1}));assert.ok(!confirmedImageMatch({...p,pixelEncoding:'RGB-white'}));
 });
 test('geometric and aligned methods require actual corroborating metrics, with stricter product coverage',()=>{
  const base={...exactMatch('product',product,'https://candidate.test/a'),exact:false,similarity:96,method:'sift-ransac-verified-region',region:[[0,0],[1,0],[1,1],[0,1]],metrics:{inliers:20,inlierRatio:.9,referenceCoverage:.5,ssim:.95,spatialCells:6}};

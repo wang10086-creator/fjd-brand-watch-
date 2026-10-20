@@ -1,7 +1,7 @@
 {
   "version": 1,
   "date": "2026-10-20",
-  "algorithmVersion": "dual-images-2.0",
+  "algorithmVersion": "dual-images-2.1",
   "referenceCounts": {
     "trademark": 126,
     "officialProduct": 21,
@@ -15,7 +15,7 @@
       "skipped": 0
     },
     "python": {
-      "passed": 74,
+      "passed": 78,
       "failed": 0,
       "skipped": 0
     },
@@ -36,8 +36,8 @@
     ]
   },
   "calibration": {
-    "samples": 25,
-    "positiveCases": 11,
+    "samples": 26,
+    "positiveCases": 12,
     "negativeCases": 14,
     "falsePositives": 0,
     "falseNegatives": 0,
@@ -57,5 +57,29 @@
     "runId": 39449552723,
     "result": "GitHub tree write HTTP 422, no ref update",
     "fix": "verified blobs for large JSON; atomic tree and existing conflict guards retained"
-  }
+  },
+  "cloudCheckpointVerification": {
+    "runId": 39450919444,
+    "conclusion": "success",
+    "attempted": 12,
+    "images": 84,
+    "trademarkConfirmed": 0,
+    "productConfirmed": 0,
+    "partialPages": 5,
+    "notFoundInComparedImagesPages": 7,
+    "leads": 215,
+    "monitorUnchanged": true,
+    "protectedFieldsUnchanged": [
+      "id",
+      "imageUrl",
+      "imageAnalysis",
+      "priorityV2",
+      "status",
+      "reviewWorkflow",
+      "reviewedAt",
+      "imageMatch"
+    ],
+    "systemErrors": 0
+  },
+  "ruleVersion": "dual-images-2.1"
 }

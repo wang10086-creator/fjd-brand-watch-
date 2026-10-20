@@ -131,7 +131,7 @@ def collect(max_pages=12,per_page=4,deadline_seconds=240,force=False,root=ROOT):
         library['pages'][url]=page
     library.update({'updatedAt':at,'algorithmVersion':VERSION,'officialDomains':allowed,'discoveredPages':len(ordered),'lastBatch':{'at':at,'checkedPages':checked,'newImages':added,'errors':errors}})
     # Stable library identity only changes when actual reference material changes.
-    library['libraryVersion']=hashlib.sha256('|'.join(sorted(known)).encode()).hexdigest()[:16]
+    library['libraryVersion']=hashlib.sha256((VERSION+'|'+'|'.join(sorted(r['sha256']+r['pixelSha256'] for r in library['references']))).encode()).hexdigest()[:16]
     for ref in library['references']:
         if not ref.get('previewFile'):
             import base64

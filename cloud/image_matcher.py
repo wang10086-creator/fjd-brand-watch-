@@ -5,42 +5,59 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
-VERSION='dual-images-2.0'
+VERSION='dual-images-2.1'
+PIXEL_ENCODING='rgba-exif-v1'
 Image.MAX_IMAGE_PIXELS=16_000_000
 cv2.setNumThreads(1)
 
 
-def decoded(data):
-    im=Image.open(io.BytesIO(data)); im.load()
+def rgba_image(data):
+    im=Image.open(io.BytesIO(data))
+    if im.width*im.height>16_000_000:raise ValueError('图片像素超过采集上限')
+    im.load()
     fmt=im.format or 'unknown'
     im=ImageOps.exif_transpose(im).convert('RGBA')
     if min(im.size)<8: raise ValueError('图片尺寸不足')
-    # Canonical decoded RGB on white, with dimensions included in the digest.
+    return im,fmt
+
+def decoded(data):
+    im,fmt=rgba_image(data)
     bg=Image.new('RGBA',im.size,'white');bg.alpha_composite(im);im=bg.convert('RGB')
     return im,fmt
 
+def rendered(data):
+    im,fmt=rgba_image(data);a=np.asarray(im)
+    opaque=a[:,:,3]>128
+    light=bool(opaque.any() and float(np.mean(np.min(a[:,:,:3][opaque],axis=1)>235))>.98 and a[:,:,3].min()<128)
+    bg=Image.new('RGBA',im.size,'black' if light else 'white');bg.alpha_composite(im)
+    return bg.convert('RGB'),fmt
+
 
 def hashes(data):
-    im,fmt=decoded(data)
-    rgb=np.asarray(im)
+    im,fmt=rgba_image(data);raw=np.array(im)
+    raw[raw[:,:,3]==0,:3]=0 # invisible RGB is normalized; alpha/visible pixels are retained.
+    view,_=rendered(data);rgb=np.asarray(view)
     gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
     small=cv2.resize(gray,(32,32),interpolation=cv2.INTER_AREA).astype(np.float32)
     dct=cv2.dct(small)[:8,:8].flatten(); bits=dct>np.median(dct[1:])
     phash=''.join(f'{sum(int(v)<<i for i,v in enumerate(bits[j:j+4])):x}' for j in range(0,64,4))
-    pixel=hashlib.sha256(f'{im.width}x{im.height}:RGB-white:'.encode()+im.tobytes()).hexdigest()
-    return {'sha256':hashlib.sha256(data).hexdigest(),'pixelSha256':pixel,'width':im.width,'height':im.height,'format':fmt,'phash':phash}
+    pixel=hashlib.sha256(f'{im.width}x{im.height}:{PIXEL_ENCODING}:'.encode()+raw.tobytes()).hexdigest()
+    return {'sha256':hashlib.sha256(data).hexdigest(),'pixelSha256':pixel,'pixelEncoding':PIXEL_ENCODING,'width':im.width,'height':im.height,'format':fmt,'phash':phash}
 
 
 def thumbnail(data):
-    im,_=decoded(data);im.thumbnail((240,240))
+    im,_=rendered(data);im.thumbnail((240,240))
     out=io.BytesIO();im.save(out,'JPEG',quality=60,optimize=True)
     if out.tell()>12000:im.thumbnail((160,160));out=io.BytesIO();im.save(out,'JPEG',quality=50)
     return 'data:image/jpeg;base64,'+base64.b64encode(out.getvalue()).decode()
 
 
 def features(data):
-    im,_=decoded(data);im.thumbnail((1000,1000))
+    im,_=rendered(data);im.thumbnail((1000,1000))
     rgb=np.asarray(im); gray=cv2.cvtColor(rgb,cv2.COLOR_RGB2GRAY)
+    corners=[gray[0,0],gray[0,-1],gray[-1,0],gray[-1,-1]]
+    background=float(np.median(corners))
+    if background<96 and float(np.mean(np.abs(gray.astype(float)-background)<6))>.55:gray=255-gray
     # SIFT is Apache-2.0 in maintained OpenCV, no external model/API.
     kp,des=cv2.SIFT_create(nfeatures=1000,contrastThreshold=.025).detectAndCompute(gray,None)
     return {'rgb':rgb,'gray':gray,'points':np.float32([k.pt for k in kp]),'des':des,'hashes':hashes(data)}
@@ -99,7 +116,7 @@ def local_features(candidate,reference,category):
     if not np.isfinite(poly).all() or not cv2.isContourConvex(poly.astype(np.float32)):return None
     if (poly[:,0]<-cw*.1).any() or (poly[:,0]>cw*1.1).any() or (poly[:,1]<-ch*.1).any() or (poly[:,1]>ch*1.1).any():return None
     size=float(abs(cv2.contourArea(poly)))
-    if size<900 or size>cw*ch*1.2:return None
+    if size<900 or size>cw*ch*(1.6 if category=='product' else 1.2):return None
     warped=cv2.warpPerspective(candidate['gray'],np.linalg.inv(h),(rw,rh),borderValue=255)
     overlap=cv2.warpPerspective(np.ones((ch,cw),np.uint8),np.linalg.inv(h),(rw,rh))
     cropa=warped[y0:y1,x0:x1];cropb=reference['gray'][y0:y1,x0:x1]

@@ -1,5 +1,5 @@
 // Independent automatic evidence only. Never read or write manual imageMatch/reviewWorkflow.
-export const imageEvidenceVersion='dual-images-2.0';
+export const imageEvidenceVersion='dual-images-2.1';
 export const imageCategories=['trademarkImageMatch','productImageMatch'];
 export const imageStatusLabels={confirmed:'确认匹配',suspected:'疑似匹配 · 待核实',not_found:'已比对，未发现确认匹配',unavailable:'无法判断 · 采集受限',no_images:'无法判断 · 未取得图片',no_reference:'无法判断 · 参照库为空',pending:'待云端比对'};
 export function robotsAllowImages(text,target){
@@ -19,8 +19,8 @@ export function confirmedImageMatch(m){
   if(!['www.fjdynamics.com','www.fjdtrion.com','agriculture.fjdynamics.com','landscaping.fjdynamics.com','store.fjdtrion.com','shop.fjdynamics.com','store.fjdynamics.com'].includes(host)||m.referenceId!=='product-'+m.referenceSha256.slice(0,24))return false;
  }
  if(m.method==='sha256')return m.exact===true&&m.similarity===100&&m.candidateSha256===m.referenceSha256;
- if(m.method==='decoded-pixels')return m.exact===true&&m.similarity===100&&sha(m.candidatePixelSha256)&&m.candidatePixelSha256===m.referencePixelSha256&&m.candidateWidth===m.referenceWidth&&m.candidateHeight===m.referenceHeight;
- if(m.exact||!(m.similarity<100)||m.suspected||m.algorithmVersion!==imageEvidenceVersion)return false;
+ if(m.method==='decoded-pixels')return m.pixelEncoding==='rgba-exif-v1'&&m.exact===true&&m.similarity===100&&sha(m.candidatePixelSha256)&&m.candidatePixelSha256===m.referencePixelSha256&&m.candidateWidth===m.referenceWidth&&m.candidateHeight===m.referenceHeight;
+ if(m.exact||!(m.similarity<100)||m.suspected||!['dual-images-2.0',imageEvidenceVersion].includes(m.algorithmVersion))return false;
  const v=m.metrics||{};
  if(m.method==='aligned-pixels-ssim')return v.ssim>=.955&&v.mae<=10&&v.edgeCorrelation>=.85;
  if(m.method==='multiscale-edge-mask')return m.category==='trademark'&&v.edgeNcc>=.965&&v.maskIou>=.91&&m.region?.length===4;
@@ -52,7 +52,7 @@ const publicURL=u=>{try{const v=new URL(u);return ['http:','https:'].includes(v.
 export function publicImageResult(value){
  if(!value)return undefined;
  return {...pick(value,'version algorithmVersion at status latestAttemptStatus checkedImages failedImages referenceCount libraryVersion nextRetryAt error complete'),matches:(value.matches||[]).map(m=>({
-  ...pick(m,'category at referenceId referenceFile referencePreviewFile brandIds brand productName method similarity exact suspected algorithmVersion candidateSha256 referenceSha256 candidatePixelSha256 referencePixelSha256 candidateWidth candidateHeight referenceWidth referenceHeight'),
+  ...pick(m,'category at referenceId referenceFile referencePreviewFile brandIds brand productName method similarity exact suspected algorithmVersion pixelEncoding candidateSha256 referenceSha256 candidatePixelSha256 referencePixelSha256 candidateWidth candidateHeight referenceWidth referenceHeight'),
   ...(!m.referenceFile&&!m.referenceUrl&&m.category==='trademark'?{brand:'自定义商标参照'}:{}),
   ...(Array.isArray(m.region)&&m.region.length===4&&m.region.every(p=>p.length===2&&p.every(Number.isFinite))?{region:structuredClone(m.region)}:{}),
   metrics:Object.fromEntries(Object.entries(pick(m.metrics,'ssim mae edgeCorrelation inliers inlierRatio referenceCoverage spatialCells edgeNcc maskIou phashDistance')).filter(([,v])=>Number.isFinite(v))),
@@ -61,5 +61,5 @@ export function publicImageResult(value){
 }
 export function publicImageEvidence(value){
  if(!value)return undefined;
- return {...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated cloudPending requestedBy systemFailure'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
+ return {...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated cloudPending requestedBy systemFailure'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 pixelEncoding width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
 }

@@ -19,7 +19,7 @@ def build(root=ROOT):
         # Saved official logos are trademark references, never product references.
         ids=[b['id'] for b in catalog['entries'] if b['canonicalName'].lower().replace(' ','') in r['name'].lower().replace(' ','')]
         out.append({'id':r['id'],'file':'assets/'+r['filename'],'brandIds':ids,'brand':r['name'],'sourcePage':r.get('sourcePage',''),'source':'saved-brand-reference',**hashes(path.read_bytes())})
-    version=hashlib.sha256('|'.join(sorted(r['sha256']+r['id'] for r in out)).encode()).hexdigest()[:16]
+    version=hashlib.sha256((VERSION+'|'+'|'.join(sorted(r['sha256']+r['pixelSha256']+r['id'] for r in out))).encode()).hexdigest()[:16]
     result={'version':2,'algorithmVersion':VERSION,'libraryVersion':version,'references':out}
     (root/'assets/trademark-image-references.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
     return result

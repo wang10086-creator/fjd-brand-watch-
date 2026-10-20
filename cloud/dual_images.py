@@ -17,7 +17,7 @@ def official_reference(ref,domains):
     return any(s.get('pageUrl')==ref['sourcePage'] and s.get('imageUrl')==ref.get('imageUrl') and re.fullmatch(r'[a-f0-9]{64}',s.get('pageSha256','')) for s in ref.get('sources',[]))
 
 def cached_features(data,sha):
-    path=ROOT/'.cache/fjd-images'/('features-'+sha+'.npz')
+    path=ROOT/'.cache/fjd-images'/('features-rgba-v2-'+sha+'.npz')
     if path.exists():
         try:
             with np.load(path,allow_pickle=False) as f:
@@ -64,8 +64,27 @@ def page_candidates(text,base):
     title=' '.join(doc.xpath('//title/text()')).strip()
     if re.match(r'^(?:sign in|log in|登录|请登录|403|access denied|just a moment)\b',title,re.I):raise PermissionError('页面要求登录或访问受限')
     candidates=[]
+    # Structured product images are public source evidence, not executable scripts.
+    for script in doc.xpath('//script[@type="application/ld+json"]'):
+        raw=script.text or ''
+        if len(raw)>500000:continue
+        try:queue=[json.loads(raw)]
+        except (ValueError,RecursionError):continue
+        visited=0
+        while queue and visited<100:
+            value=queue.pop(0);visited+=1
+            if isinstance(value,list):queue.extend(value[:40])
+            elif isinstance(value,dict):
+                for key,v in value.items():
+                    if key in ('image','images','logo'):
+                        for image in (v if isinstance(v,list) else [v])[:20]:
+                            src=image.get('url') or image.get('contentUrl') if isinstance(image,dict) else image
+                            if isinstance(src,str):
+                                url=urllib.parse.urljoin(base,src)
+                                if url.startswith(('http://','https://')):candidates.append((3 if key=='logo' else 4,url))
+                    elif isinstance(v,(dict,list)):queue.append(v)
     for node in doc.xpath('//img|//meta[@property="og:image"]|//meta[@name="twitter:image"]|//*[@style]'):
-        vals=[node.get('data-src'),node.get('data-original'),node.get('src'),node.get('content')]
+        vals=[node.get('data-src'),node.get('data-original'),node.get('data-lazy-src'),node.get('src'),node.get('content')]
         vals+=re.findall(r'url\([\"\']?([^\)\"\']+)',node.get('style',''))
         if node.get('srcset'):vals+=[node.get('srcset').split(',')[0].split()[0]]
         score=3 if re.search(r'logo|brand|fjd|svea',str(node.attrib),re.I) else 2 if node.tag=='meta' else 1
@@ -86,7 +105,7 @@ def compare_picture(picture,libraries,at):
             result=compare(f,ref['features'],category,allow_template=rank>=40 or category=='trademark' and min(d,64-d)<=8)
             if not result:continue
             r=ref['meta'];ch=f['hashes'];rh=ref['features']['hashes']
-            found.append({**result,'algorithmVersion':VERSION,'category':category,'at':at,'referenceId':r['id'],'referenceFile':r.get('file',''),
+            found.append({**result,'algorithmVersion':VERSION,'pixelEncoding':ch['pixelEncoding'],'category':category,'at':at,'referenceId':r['id'],'referenceFile':r.get('file',''),
                 'brandIds':r.get('brandIds',[]),'brand':r.get('brand',''),'productName':r.get('productName',''),
                 'referenceUrl':r.get('imageUrl',''),'referencePreviewFile':r.get('previewFile',''),'sourcePage':r.get('sourcePage',''),
                 'referenceSha256':rh['sha256'],'referencePixelSha256':rh['pixelSha256'],'referenceWidth':rh['width'],'referenceHeight':rh['height'],

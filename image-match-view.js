@@ -1,4 +1,4 @@
-import {imageMatches,imageStatusLabels} from './image-evidence.js?v=20261020-images';
+import {imageMatches,imageStatusLabels} from './image-evidence.js?v=20261020-images-r2';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url=v=>{try{const u=new URL(v);return /^https?:$/.test(u.protocol)&&!u.username&&!u.password?u.href:''}catch{return ''}};
 const file=v=>/^assets\/(?:excel\/|products\/)?[a-zA-Z0-9_.-]+\.(?:png|jpg|jpeg|webp)$/.test(v||'')?'./'+v:'';

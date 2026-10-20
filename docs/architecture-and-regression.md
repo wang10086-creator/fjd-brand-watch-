@@ -554,3 +554,13 @@ No conflict guard or historic data changes. Added a large-JSON regression.
 Cold reference initialization is included in the image-worker deadline, with an
 outer exit/serialization grace; interrupted system attempts are retryable and
 remain distinct from source HTTP/robots failures. Added a cold-start budget test.
+
+V2.1: exact pixel identity now retains RGBA/EXIF-normalized pixels and zeros only
+invisible RGB. Added a transparent-white negative case, avoiding an RGB-white
+compositing collision. Existing SHA evidence remains valid; legacy decoded pixel
+results without RGBA provenance stay stored and require revalidation for a 100%
+badge. Product/trademark IDs and original hashes are unchanged; derived reference
+versions and feature caches advance. Flat-background polarity normalization does
+not invert arbitrary photos. A verified light crop retains the same inlier/SSIM
+thresholds and allows the expected slightly larger projected frame. Added JSON-LD
+public image discovery, without script execution or authentication changes.

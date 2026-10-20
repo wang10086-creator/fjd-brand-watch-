@@ -27,13 +27,29 @@ class DualImages(unittest.TestCase):
 
     def test_exact_file_and_decoded_pixels_are_the_only_100_percent(self):
         self.assertEqual(compare(self.product,self.product,'product')['method'],'sha256')
-        copied=features(encode(self.im))
+        out=io.BytesIO();Image.open(io.BytesIO(self.raw)).convert('RGBA').save(out,'PNG',compress_level=0)
+        copied=features(out.getvalue())
         self.assertNotEqual(copied['hashes']['sha256'],self.product['hashes']['sha256'])
         result=compare(copied,self.product,'product');self.assertEqual(result['method'],'decoded-pixels');self.assertEqual(result['similarity'],100)
+
+    def test_different_transparent_white_marks_cannot_collapse_to_same_pixel_hash(self):
+        a=Image.new('RGBA',(160,100),(0,0,0,0));b=a.copy();ImageDraw.Draw(a).rectangle((10,10,45,70),fill='white');ImageDraw.Draw(b).ellipse((50,20,130,90),fill='white')
+        ah,bh=hashes(encode(a)),hashes(encode(b));self.assertNotEqual(ah['pixelSha256'],bh['pixelSha256']);self.assertEqual(ah['pixelEncoding'],'rgba-exif-v1')
+        self.assertTrue(features(encode(a))['gray'].std()>0)
+
+    def test_oversized_image_metadata_is_rejected_before_decoding(self):
+        with patch('image_matcher.Image.open') as opener:
+            opener.return_value.width=5000;opener.return_value.height=4000
+            with self.assertRaisesRegex(ValueError,'像素超过'):hashes(b'metadata fixture')
+            opener.return_value.load.assert_not_called()
 
     def test_resized_recompressed_real_material_is_not_falsely_100(self):
         copied=features(encode(self.im.resize((600,600)),'JPEG',82));r=compare(copied,self.product,'product')
         self.assertIsNotNone(r);self.assertFalse(r.get('suspected'));self.assertFalse(r['exact']);self.assertLess(r['similarity'],100)
+
+    def test_small_product_crop_needs_geometric_and_content_verification(self):
+        cropped=self.im.crop((150,150,1850,1850)).resize((600,600));r=compare(features(encode(cropped,'JPEG',85)),self.product,'product')
+        self.assertIsNotNone(r);self.assertFalse(r.get('suspected'));self.assertFalse(r['exact']);self.assertLess(r['similarity'],100);self.assertEqual(len(r['region']),4)
 
     def test_same_model_different_official_photo_is_not_confirmed(self):
         # Same V4e Go product, independently photographed in a different context.
@@ -144,6 +160,11 @@ class DualImages(unittest.TestCase):
         with patch('dual_images.time.monotonic',side_effect=[0,181]),patch('dual_images.load_references',return_value=({'trademark':[],'product':[]},{})),patch('dual_images.collect') as collector:
             self.assertEqual(run({'rows':[{'url':'https://example.com'}],'seconds':180}),[])
             collector.assert_not_called()
+
+    def test_public_jsonld_product_images_are_collected_without_executing_scripts(self):
+        text='<img src="/site-logo.png"><script type="application/ld+json">{"@graph":[{"@type":"Product","image":["/hero.jpg",{"contentUrl":"/side.jpg"}]}]}</script><script>location.href="https://bad.example"</script>'
+        urls=page_candidates(text,'https://example.com/product')
+        self.assertEqual(urls[:2],['https://example.com/hero.jpg','https://example.com/side.jpg']);self.assertFalse(any('bad.example' in u for u in urls))
 
 
 if __name__=='__main__':unittest.main()

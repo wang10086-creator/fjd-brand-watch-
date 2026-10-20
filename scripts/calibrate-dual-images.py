@@ -12,9 +12,11 @@ def record(name,expected,result,**meta):cases.append({'name':name,'expectedConfi
 for idx in [0,6]:
  data=(ROOT/refs[idx]['file']).read_bytes();ref=features(data);im,_=decoded(data)
  record(f'original-file-{idx}',True,compare(ref,ref,'product'),referenceId=refs[idx]['id'])
- record(f'reencoded-identical-pixels-{idx}',True,compare(features(encode(im,'PNG')),ref,'product'),referenceId=refs[idx]['id'])
+ record(f'reencoded-identical-pixels-{idx}',True,compare(features(encode(Image.open(io.BytesIO(data)).convert('RGBA'),'PNG')),ref,'product'),referenceId=refs[idx]['id'])
  for size in [400,640,900]:
   transformed=im.resize((size,size));record(f'resize-jpeg-{idx}-{size}',True,compare(features(encode(transformed,quality=80)),ref,'product'),referenceId=refs[idx]['id'])
+data=(ROOT/refs[0]['file']).read_bytes();im,_=decoded(data)
+record('small-crop-plus-jpeg',True,compare(features(encode(im.crop((150,150,1850,1850)).resize((600,600)))),features(data),'product'),referenceId=refs[0]['id'])
 for a,b in [(0,1),(0,2),(0,3),(4,5),(6,7),(8,9),(0,6),(0,8),(0,13),(6,8),(6,13),(8,13)]:
  record(f'independent-photo-or-product-{a}-{b}',False,compare(features((ROOT/refs[a]['file']).read_bytes()),features((ROOT/refs[b]['file']).read_bytes()),'product'),candidateId=refs[a]['id'],referenceId=refs[b]['id'])
 scene,_=decoded((ROOT/refs[1]['file']).read_bytes());scene=scene.resize((800,800));mark=Image.open(ROOT/'assets/excel/image10.jpeg');mark.thumbnail((260,85));scene.paste(mark,(60,540));data=encode(scene,quality=90);(out/'calibration-local-trademark.jpg').write_bytes(data)

@@ -1,5 +1,5 @@
-import {canonical} from '../core.js';
-import {imageCategories,mergeImageEvidence,mergeImageResult,publicImageEvidence,publicImageResult} from '../image-evidence.js';
+import {canonical} from '../core.js?v=20261020-images-r2';
+import {imageCategories,mergeImageEvidence,mergeImageResult,publicImageEvidence,publicImageResult} from '../image-evidence.js?v=20261020-images-r2';
 const time=v=>Date.parse(v||'')||0;
 export function pendingImageUpdates(local,remote){
  const rows=new Map((remote.rows||[]).map(r=>[canonical(r.url),r]));
