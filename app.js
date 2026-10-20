@@ -1,4 +1,4 @@
-import {imageMatchBadges,imageMatchEvidence,imageMatchCSS} from './image-match-view.js?v=20261020-images-r3';
+import {imageMatchBadges,imageMatchEvidence,imageMatchCSS} from './image-match-view.js?v=20261020-images-r4';
 import {matchesImageFilter,queueImageCheck} from './image-evidence.js?v=20261020-images-r3';
 import {changeBadge,pageChangesView,bindPageChanges,changeCSS} from './change-view.js?v=20261020-changes';
 import {bindMirrorLinks} from './mirror-local.js?v=20261020-mirrors';

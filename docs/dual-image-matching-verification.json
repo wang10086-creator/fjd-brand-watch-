@@ -52,27 +52,46 @@
     "archiveIndexUnmodified": true
   },
   "productionVerification": {
-    "codeCommit": "51bfa717",
-    "ciRunId": 39454331792,
-    "pagesRunId": 39454330642,
-    "imageRunId": 39454614978,
+    "codeCommit": "e1590035",
+    "ciRunId": 39457356368,
+    "pagesRunId": 39457355489,
+    "imageRunId": 39457425743,
     "result": "success",
     "ruleVersion": "dual-images-2.1",
     "rows": 215,
-    "rowsWithCollectedEvidence": 21,
-    "imagesRetained": 141,
-    "latestRuleRows": 10,
-    "trademarkConfirmed": 0,
-    "productConfirmed": 0,
-    "notFoundInComparedImagesRows": 14,
-    "partialRows": 7,
-    "firstTimeBacklogRows": 194,
-    "latestRuleBacklogRows": 205,
+    "rowsWithCollectedEvidence": 33,
+    "imageRecords": 198,
+    "uniqueImageFiles": 191,
+    "latestRuleRows": 22,
+    "trademarkStatuses": {
+      "not_found": 19,
+      "pending": 9,
+      "unavailable": 3,
+      "confirmed": 1,
+      "suspected": 1
+    },
+    "productStatuses": {
+      "not_found": 20,
+      "pending": 10,
+      "unavailable": 3
+    },
+    "firstTimeBacklogRows": 182,
+    "latestRuleBacklogRows": 193,
     "monitorUnchanged": true,
     "receiptsUnchanged": true,
     "allOriginalPublicRowFieldsUnchanged": true,
+    "systemErrors": 0,
     "externalDeliveryWrites": false,
-    "liveDesktopAndMobile": "passed; two fresh browser contexts; real official material hash checks and temporary independent dual exact-file self-check; no production row writes"
+    "liveDesktopAnd390pxMobileViewport": "passed; new Chromium sessions read real cloud fields, gallery previews accessible with third-party requests blocked; original official material hashes verified; temporary dual exact-file self-check did not write production rows",
+    "realConfirmedTrademarkExample": {
+      "url": "https://www.eder-landtechnik.de/news/eder-landtechnik-ist-exklusiver-haendler-von-fjdynamics-in-deutschland-oesterreich-und-schweiz",
+      "referenceFile": "assets/excel/image65.jpeg",
+      "method": "sift-ransac-verified-region",
+      "similarity": 89.1,
+      "inliers": 26,
+      "not100": true,
+      "liveBrowserVerification": "passed desktop and 390px viewport: source/ref images loaded, ROI visible, no overflow, 89.1% not 100%"
+    }
   },
   "externalDeliveryWrites": false,
   "initialCloudAttempt": {
@@ -103,5 +122,29 @@
     ],
     "systemErrors": 0
   },
-  "ruleVersion": "dual-images-2.1"
+  "ruleVersion": "dual-images-2.1",
+  "previousProductionVerification": {
+    "codeCommit": "51bfa717",
+    "ciRunId": 39454331792,
+    "pagesRunId": 39454330642,
+    "imageRunId": 39454614978,
+    "result": "success",
+    "ruleVersion": "dual-images-2.1",
+    "rows": 215,
+    "rowsWithCollectedEvidence": 21,
+    "imagesRetained": 141,
+    "latestRuleRows": 10,
+    "trademarkConfirmed": 0,
+    "productConfirmed": 0,
+    "notFoundInComparedImagesRows": 14,
+    "partialRows": 7,
+    "firstTimeBacklogRows": 194,
+    "latestRuleBacklogRows": 205,
+    "monitorUnchanged": true,
+    "receiptsUnchanged": true,
+    "allOriginalPublicRowFieldsUnchanged": true,
+    "externalDeliveryWrites": false,
+    "liveDesktopAndMobile": "passed; two fresh browser contexts; real official material hash checks and temporary independent dual exact-file self-check; no production row writes"
+  },
+  "uiVersion": "20261020-images-r4"
 }
