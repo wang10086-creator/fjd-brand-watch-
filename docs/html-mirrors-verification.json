@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-20",
+  "timezone": "Asia/Shanghai",
+  "scopeSince": "2026-10-20",
+  "fullLedgerLeads": 215,
+  "eligibleUniqueURLs": 7,
+  "copies": {"original": 0, "content": 0, "search": 7, "basic": 0, "inaccessible": 0},
+  "sourceLimitations": {"http403": 6, "robotsOrCaptureRules": 1},
+  "preserved": {"oldArchiveIndexEntries": 322, "legacyPDFsHashUnchanged": 6, "immutableReportEvents": 73, "existingReviewRecords": 5},
+  "tests": {"nodePassed": 209, "pythonPassed": 56, "skipped": 0, "liveDesktopPagesPassed": 7, "liveMobilePagesPassed": 7, "actualPublicOriginalMirrorEmbeddedImages": 17},
+  "githubRuns": {"archive": 39424215299, "ci": 39425049941, "pages": 39425049028},
+  "externalWrites": {"notion": "not invoked", "feishu": "not invoked"},
+  "historyBackfill": false,
+  "newPDFGeneration": false
+}
