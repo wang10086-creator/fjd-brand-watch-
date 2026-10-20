@@ -502,3 +502,9 @@ These inform layout and workflow only; no proprietary implementation is copied.
   tombstones, summary provenance/false-claim prevention, PDF existence/content,
   403/history-first fallback, SSRF/redirect/XSS limits, original workflow/priority
   independence, anonymous cross-device reading and desktop/mobile navigation.
+
+## 2026-10-20 独立 HTML 证据副本（停止新增 PDF）
+
+范围：用户后续明确仅从北京时间 2026-10-20 起命中/重新命中的有效 URL 生成副本，不做历史全量补齐。公开台账 → archive-runner → 安全公开采集 → 单页打包、净化 → 分层 HTML/索引 → Pages/详情入口。保留旧 JSON、PDF、元数据、历史子页与删除政策；不修改台账、人工处理、优先级、日报事件及校验值。PDF 模块退役，不再被任务、浏览器或测试调用生成。依赖 Playwright 仍用于正常公开页面渲染。
+
+先保存代码分支 backup/html-mirrors-before-20261020；索引、公开快照及历史 PDF 哈希存于 /workspace/backups/fjd-html-mirrors。第三方 DOM 必须经过白名单净化、禁用外部资源/CSP 及无权限 sandbox；不能执行原站脚本或规避登录、robots、noarchive/403。索引添加 mirror 字段，不覆盖旧 path/pdf 字段。原始镜像、正文重建、搜索重建、基础记录四类独立标记；失败不降级已有高质量版本。日常队列限批、冷却、断点继续；低层副本先发布，正常可采集页面逐批升级。浏览器未同步记录仅提供明确标记的临时页面，不宣称已发布。

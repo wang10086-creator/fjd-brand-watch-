@@ -1,31 +1,33 @@
 import {createHash} from 'node:crypto';import {gzipSync} from 'node:zlib';import {spawn} from 'node:child_process';
-import {archiveKey,sameArchiveSite,archivePath,archivePDFPath} from '../archive-model.js';
+import {archiveKey,sameArchiveSite,archivePath} from '../archive-model.js';
+import {mirrorEligible,mirrorDocument,mirrorPath,reconstructionType,mirrorSince,mirrorVersion} from '../mirror-model.js';
 import {leadSummary} from '../lead-summary.js';
 const hash=v=>createHash('sha256').update(v).digest('hex');
 const liveRoots=feed=>{const removed=new Set((feed.removedRecordKeys||[]).map(archiveKey));return new Map((feed.rows||[]).map(r=>[archiveKey(r.url),r]).filter(([k])=>k&&!removed.has(k)))};
 export function archiveBatch(feed,index,{now=Date.now(),limit=6}={}){
- const roots=liveRoots(feed),age=(r,field='at')=>now-(Date.parse(r?.[field])||0);
+ const roots=liveRoots(feed),age=r=>now-(Date.parse(r?.at)||0);
  const due=r=>!r?.at||age(r)>(r.status==='captured'?7:1)*86400000;
- const ordered=[...roots].filter(([key])=>{const r=index.pages?.[key];return due(r)||!!archivePath(r?.path)&&!archivePDFPath(r?.pdf?.path)&&age(r,'pdfAttemptAt')>86400000}).sort(([a,ra],[b,rb])=>Number(!!index.pages?.[a]?.at)-Number(!!index.pages?.[b]?.at)||Number(rb.platform==='dealer')-Number(ra.platform==='dealer')||String(index.pages?.[a]?.at||'').localeCompare(String(index.pages?.[b]?.at||'')));
- const history=ordered.filter(([key])=>archivePath(index.pages?.[key]?.path)&&!due(index.pages[key]));
- const initial=[...history.slice(0,1)];
- for(const pair of [...ordered.filter(([,r])=>r.platform==='dealer').slice(0,1),...ordered.filter(([,r])=>r.platform!=='dealer').slice(0,2)])if(!initial.includes(pair))initial.push(pair);
- for(const pair of ordered)if(!initial.includes(pair)&&initial.length<limit)initial.push(pair);
- return initial.slice(0,limit).map(([key,r])=>({url:r.url,root:key,depth:0,...(archivePath(index.pages?.[key]?.path)&&!due(index.pages[key])?{mode:'history'}:{})}));
+ const ordered=[...roots].filter(([key,row])=>mirrorEligible(row)&&due(index.pages?.[key])).sort(([a,ra],[b,rb])=>Number(!!index.pages?.[a]?.at)-Number(!!index.pages?.[b]?.at)||String(index.pages?.[a]?.at||'').localeCompare(String(index.pages?.[b]?.at||'')));
+ const initial=[];
+ for(const pair of [...ordered.filter(([,r])=>r.platform==='dealer').slice(0,1),...ordered.filter(([,r])=>r.platform!=='dealer').slice(0,2),...ordered])if(!initial.includes(pair)&&initial.length<limit)initial.push(pair);
+ return initial.map(([key,r])=>({url:r.url,root:key,depth:0}));
 }
-function worker(script,input,{timeout=85000,maxOutput=2500000}={}){return new Promise((resolve,reject)=>{
+
+function worker(script,input,{timeout=180000,maxOutput=25000000}={}){return new Promise((resolve,reject)=>{
  const p=spawn('python3',[new URL(script,import.meta.url).pathname],{stdio:['pipe','pipe','pipe'],detached:true});let data='',done=false;
  const fail=()=>{if(done)return;done=true;clearTimeout(timer);try{process.kill(-p.pid,'SIGKILL')}catch{}reject(Error('页面存档本批未完成，已有副本保留，下批继续'))};const timer=setTimeout(fail,timeout);
  p.stdout.on('data',b=>{data+=b;if(data.length>maxOutput)fail()});p.stderr.on('data',()=>{});p.on('error',fail);p.on('close',code=>{if(done)return;done=true;clearTimeout(timer);try{if(code!==0)throw Error();resolve(JSON.parse(data))}catch{reject(Error('页面存档采集结果无效'))}});p.stdin.on('error',fail);p.stdin.end(JSON.stringify(input));
 });}
 export const collectArchivePages=batch=>worker('./page-archive.py',batch.filter(t=>t.mode!=='history'));
-export const renderArchivePDFs=tasks=>worker('./archive-pdf.py',tasks,{timeout:85000,maxOutput:13000000});
+// Retired compatibility API: never launches a browser or generates a file.
+export const renderArchivePDFs=async()=>[];
 export function applyArchiveBatch(feed,prior,batch,results,{now=new Date().toISOString(),savedPages={}}={}){
- const index=structuredClone(prior||{version:1,pages:{}}),changes=[],pdfTasks=[],roots=liveRoots(feed),removed=new Set((feed.removedRecordKeys||[]).map(archiveKey));index.version=1;index.pages||={};
+ const index=structuredClone(prior||{version:1,pages:{}}),changes=[],roots=liveRoots(feed),removed=new Set((feed.removedRecordKeys||[]).map(archiveKey));index.version=1;index.pages||={};
  for(const [key,r] of Object.entries(index.pages)){
   if(roots.has(key)){r.root=key;r.depth=0;continue}
   if(roots.has(r.root)&&!removed.has(key))continue; // retain non-retired historical children
-  for(const path of new Set([archivePath(r.path),archivePDFPath(r.pdf?.path),...['page','summary'].map(kind=>'archives/pdfs/'+hash(key).slice(0,24)+'-'+kind+'.pdf')]))if(path)changes.push({path,remove:true});delete index.pages[key];
+  // Existing deletion policy applies to retired records; PDF retirement itself deletes nothing.
+  for(const path of new Set([archivePath(r.path),mirrorPath(r.mirror?.path),mirrorPath(r.mirror?.versionPath),...(r.mirror?.history||[]).map(v=>mirrorPath(v.path))]))if(path)changes.push({path,remove:true});delete index.pages[key];
  }
  for(const task of batch){const key=archiveKey(task.url),row=roots.get(key);if(!row)continue;
   const result=results.find(x=>archiveKey(x.url)===key),old=index.pages[key]||{};if(!result&&task.mode!=='history')continue;
@@ -44,22 +46,32 @@ export function applyArchiveBatch(feed,prior,batch,results,{now=new Date().toISO
   // A failed history read must not downgrade the stored full-page summary/PDF.
   meta.summary=page?leadSummary(row,page):meta.path&&old.summary?.source==='page'?old.summary:leadSummary(row);
   if(page)meta.finalUrl=page.finalUrl||page.url;
-  const kind=page?'page':'summary',enough=page||!meta.path&&meta.summary.source==='index'&&String(row.snippet||'').trim().length>=40;
-  if(enough){const input={key,url:task.url,finalUrl:page?.finalUrl||task.url,title:page?.title||row.title||'',kind,summary:meta.summary,text:page?.text||String(row.snippet||'').slice(0,1500),images:page?.images||[],productFacts:page?.productFacts||[],capturedAt:page?.capturedAt||row.checkedAt||row.lastSeen||null,sourceHash:page?.sourceHash||null,textTruncated:!!page?.textTruncated},inputHash=hash(JSON.stringify(input));
-   if(meta.pdf?.inputHash!==inputHash||!archivePDFPath(meta.pdf?.path))pdfTasks.push({...input,inputHash});
-  }
   index.pages[key]=meta;
  }
  index.updatedAt=now;index.lastBatch={attempted:results.length,captured:results.filter(r=>r.status==='captured').length,restricted:results.filter(r=>r.status==='restricted').length,reused:batch.filter(t=>t.mode==='history').length};
- index.policy={pagesPerBatch:6,target:'exact-lead-url',recursive:false,maxDepth:0,refreshDays:7,retryHours:24,pdfMaxBytes:1500000};
- return {index,changes,pdfTasks};
+ index.policy={pagesPerBatch:6,target:'exact-lead-url',recursive:false,maxDepth:0,refreshDays:7,retryHours:24,mirrorSince,format:'html',pdfGeneration:false};
+ return {index,changes,pdfTasks:[]};
 }
-export function applyArchivePDFs(index,changes,tasks,results,{now=new Date().toISOString()}={}){
- for(const task of tasks){const meta=index.pages[task.key];if(!meta)continue;const r=results.find(r=>r.key===task.key&&r.inputHash===task.inputHash);meta.pdfAttemptAt=now;
-  const data=r?.data&&/^[A-Za-z0-9+/=]+$/.test(r.data)?Buffer.from(r.data,'base64'):null;
-  if(!data||data.length<1000||data.length>1500000||!data.subarray(0,5).equals(Buffer.from('%PDF-'))||!data.subarray(-1024).includes(Buffer.from('%%EOF'))){meta.pdfError='本批 PDF 未生成；已有网页副本及历史 PDF 保留，后续批次重试';continue}
-  const path='archives/pdfs/'+hash(task.key).slice(0,24)+'-'+task.kind+'.pdf';changes.push({path,bytes:data,bytesInput:true});
-  meta.pdf={path,kind:task.kind,at:now,contentAt:task.capturedAt,inputHash:task.inputHash,sha256:hash(data),size:data.length};delete meta.pdfError;
+// Legacy callers can finalize their index; PDF tasks/results are intentionally ignored.
+export function applyArchivePDFs(index,changes){changes.push({path:'archives/index.json',value:index});return {index,changes}}
+const rank={basic:0,search:1,content:2,original:3};
+export function applyMirrors(feed,index,changes,results,{now=new Date().toISOString(),savedPages={}}={}){
+ const eligible=[...liveRoots(feed)].filter(([,row])=>mirrorEligible(row)),counts={original:0,content:0,search:0,basic:0,missing:0};
+ for(const [key,row] of eligible){
+  const meta=index.pages[key]||{url:row.url,root:key,depth:0,status:'pending'},r=results.find(r=>archiveKey(r.url)===key),captured=r?.status==='captured'&&r.text?.length>=80;
+  const saved=savedPages[key],page=captured?{...r,capturedAt:r.at||now}:saved?.version===1&&archiveKey(saved.url)===key&&typeof saved.text==='string'&&saved.text.length>=80?saved:null;
+  const originalHTML=captured&&r.mirrorHTML||'',type=originalHTML?'original':reconstructionType(row,page),old=meta.mirror;
+  const inputHash=hash(JSON.stringify({mirrorVersion,url:key,title:page?.title||row.title,text:page?.text||row.snippet||'',sourceHash:page?.sourceHash,images:page?.images||[],html:originalHTML,type}));
+  // Never replace a higher-fidelity saved copy with a transient failure or weaker index.
+  if(!old||rank[type]>rank[old.type]||rank[type]===rank[old.type]&&old.inputHash!==inputHash){
+   const content=mirrorDocument(row,page,{type,originalHTML,generatedAt:now,access:{...meta,mirrorDetails:r?.mirrorDetails}}),sha256=hash(content),id=hash(key).slice(0,24),path='archives/mirrors/'+id+'.html',versionPath='archives/mirrors/'+id+'-'+sha256.slice(0,16)+'.html';
+   changes.push({path,bytes:Buffer.from(content),bytesInput:true},{path:versionPath,bytes:Buffer.from(content),bytesInput:true});
+   const history=[...(old?.history||[])];if(old?.versionPath&&!history.some(x=>x.path===old.versionPath))history.push({path:old.versionPath,type:old.type,at:old.at,contentAt:old.contentAt,sha256:old.sha256});
+   meta.mirror={version:1,path,versionPath,type,at:now,contentAt:page?.capturedAt||row.checkedAt||row.lastSeen||row.firstSeen||null,sourceHash:page?.sourceHash||null,sha256,size:Buffer.byteLength(content),inputHash,history,...(type==='original'?{capture:r.mirrorDetails||{}}:{})};
+  }
+  meta.title||=row.title;meta.summary||=leadSummary(row,page);index.pages[key]=meta;
+  counts[meta.mirror?.type||'missing']++;
  }
+ index.mirrorProgress={since:mirrorSince,eligible:eligible.length,...counts,updatedAt:now,sourcePending:eligible.filter(([key])=>!index.pages[key]?.at).length,policy:'今天起命中的有效线索；不批量补齐此前历史'};
  changes.push({path:'archives/index.json',value:index});return {index,changes};
 }

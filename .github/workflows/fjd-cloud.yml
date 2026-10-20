@@ -49,7 +49,7 @@ jobs:
           FJD_PAYLOAD: ${{ inputs.payload }}
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
-      - name: 准备可选网页渲染与 PDF 组件
+      - name: 准备单页 HTML 镜像组件
         if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && github.event.schedule != '30 2 * * *' }}
         continue-on-error: true
         run: bash cloud/prepare-archive.sh

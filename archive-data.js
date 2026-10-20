@@ -1,4 +1,5 @@
-import {archiveKey,archivePath,archivePDFPath} from './archive-model.js?v=20261020-evidence';
+import {archiveKey,archivePath} from './archive-model.js?v=20261020-mirrors';
+import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261020-mirrors';
 let cache;
 async function boundedJSON(response,gzip=false){
  if(!response.ok)throw Error('存档读取 HTTP '+response.status);
@@ -16,12 +17,21 @@ export async function readArchivePage(record,url,{fetcher=fetch}={}){
  const r=await fetcher(new URL('./'+path+'?v='+encodeURIComponent(record.contentAt||''),import.meta.url),{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(8000)}),p=await boundedJSON(r,true);
  if(p.version!==1||archiveKey(p.url)!==archiveKey(url)||typeof p.text!=='string'||p.text.length<80)throw Error('存档正文或地址校验未通过');return p;
 }
-export async function verifiedPDF(record,{fetcher=fetch}={}){
- const path=archivePDFPath(record?.pdf?.path);if(!path)return null;
- try{const url=new URL('./'+path,import.meta.url);url.searchParams.set('v',record.pdf.sha256||record.pdf.contentAt||'current');const r=await fetcher(url,{method:'HEAD',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(6000)});if(!r.ok||!/(?:application\/pdf|octet-stream)/i.test(r.headers.get('Content-Type')||'')||Number(r.headers.get('Content-Length'))>1500000)return null;return {...record.pdf,url:url.href}}catch{return null}
+// Retired public API retained for old import compatibility; performs no PDF requests.
+export async function verifiedPDF(){return null}
+export async function verifiedMirror(record,url,{fetcher=fetch}={}){
+ const path=mirrorPath(record?.mirror?.versionPath)||mirrorPath(record?.mirror?.path);if(!path)return null;
+ try{const target=new URL('./'+path,import.meta.url);target.searchParams.set('v',record.mirror.sha256||'current');const r=await fetcher(target,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(10000)});
+  if(!r.ok)throw Error();const reader=r.body.getReader(),chunks=[];let size=0;
+  for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>8000000){await reader.cancel();throw Error()}chunks.push(value)}
+  const bytes=new Uint8Array(size);let offset=0;for(const x of chunks){bytes.set(x,offset);offset+=x.length}const html=new TextDecoder().decode(bytes);
+  if(!html.includes('name="fjd-mirror-key" content="'+escapeHTML(archiveKey(url))+'"')||!html.includes('name="fjd-mirror-type" content="'+record.mirror.type+'"'))throw Error();
+  if(record.mirror.sha256){const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');if(digest!==record.mirror.sha256)throw Error()}
+  return {...record.mirror,url:target.href};
+ }catch{return null}
 }
 export async function readArchiveEvidence(row,options={}){
- try{const index=await readArchiveIndex(options),record=index.pages[archiveKey(row.url)];if(!record)return {record:null,page:null,pdf:null};
-  const [pageResult,pdf]=await Promise.all([readArchivePage(record,row.url,options).then(page=>({page})).catch(e=>({page:null,error:e.message})),verifiedPDF(record,options)]);return {record,...pageResult,pdf};
- }catch{return {record:null,page:null,pdf:null,error:'存档暂未读到，以下仍展示已保存的检索信息'}}
+ try{const index=await readArchiveIndex(options),record=index.pages[archiveKey(row.url)];if(!record)return {record:null,page:null,mirror:null};
+  const [pageResult,mirror]=await Promise.all([readArchivePage(record,row.url,options).then(page=>({page})).catch(e=>({page:null,error:e.message})),verifiedMirror(record,row.url,options)]);return {record,...pageResult,mirror};
+ }catch{return {record:null,page:null,mirror:null,error:'存档暂未读到，以下仍展示已保存的检索信息'}}
 }

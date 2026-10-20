@@ -43,7 +43,7 @@ class Content(HTMLParser):
     def handle_starttag(self,tag,attrs):
         a=dict(attrs)
         if tag=='button' and all(x=='form' for x in self.skip) and 'hidden' not in a:self.button=[]
-        if tag=='meta' and a.get('name','').lower() in ('robots','fjd-brand-monitor') and 'noarchive' in a.get('content','').lower():self.noarchive=True
+        if tag=='meta' and a.get('name') and re.search(r'\bnoarchive\b',a.get('content',''),re.I):self.noarchive=True
         if tag in ('script','style','form','noscript','iframe','template','svg','canvas','nav','footer'):self.skip.append(tag)
         if self.skip:return
         if tag=='title':self.in_title=True
@@ -161,11 +161,18 @@ def capture(url,deadline):
             if len(page['text'])<80:return {**result,'message':'公开正文不足；正常渲染亦未取得足够内容，保留索引摘要'}
         result.update(page,status='captured',captureMethod=method,httpStatus=200,finalUrl=final,sourceHash=hashlib.sha256(raw).hexdigest())
         if method=='public-browser':result['renderedHash']=hashlib.sha256(html.encode()).hexdigest()
+        try:
+            spec=importlib.util.spec_from_file_location('mirror_html',Path(__file__).with_name('mirror-html.py'))
+            mirror=importlib.util.module_from_spec(spec);spec.loader.exec_module(mirror)
+            packed=mirror.singlefile(html,final,deadline,source.download,permitted,source.public_url)
+            if packed:result['mirrorHTML']=packed['html'];result['mirrorDetails']={k:v for k,v in packed.items() if k!='html'}
+        except Exception:pass # actual body remains available for honest reconstruction
         pictures=source.Pictures(final);pictures.feed(html)
         candidates=list(dict.fromkeys(u for _,u in sorted(pictures.images,key=lambda x:-x[0])))
         for image in candidates[:2]:
             if time.monotonic()>deadline:break
             try:
+                if not permitted(image):continue
                 data,mime,final_image=source.download(image,2_500_000)
                 if mime.startswith('image/'):result['images'].append({'url':final_image,'data':thumbnail(data)})
             except Exception:pass
@@ -175,7 +182,7 @@ def capture(url,deadline):
     return result
 
 if __name__=='__main__':
-    deadline=time.monotonic()+65;out=[]
+    deadline=time.monotonic()+150;out=[]
     for row in json.load(sys.stdin)[:6]:
         if time.monotonic()>deadline:break
         out.append(capture(row['url'],deadline))
