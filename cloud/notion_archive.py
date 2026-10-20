@@ -201,7 +201,7 @@ class NotionReports:
                 label=f"{i+1:02d}  {row.get('title') or row.get('url')}"
                 item=link_block(label,evidence_url(row,event['day']))
                 if item:
-                    item['paragraph']['rich_text'].extend(text('\n'+(stage_label(row) or OUTCOMES.get(row.get('outcome'),STATUSES.get(row.get('status'),'待核查')))+'  ·  '+('新增' if row.get('kind')=='new' else '内容变化')+'  ·  '+(row.get('platform') or '独立网页')+'\n检索词：'+str(row.get('query') or '见线索证据页')[:400]))
+                    item['paragraph']['rich_text'].extend(text('\n'+(stage_label(row) or OUTCOMES.get(row.get('outcome'),STATUSES.get(row.get('status'),'待核查')))+'  ·  '+('新增' if row.get('kind')=='new' else '内容变化')+'  ·  '+(row.get('platform') or '独立网页')+('  ·  当前'+{'high':'高优先级','medium':'中优先级','low':'低优先级','pending':'待评估'}.get((row.get('priority') or {}).get('level'),'待评估') if row.get('priority') else '')+'\n检索词：'+str(row.get('query') or '见线索证据页')[:400]))
                     specs.append(('case-'+str(i),item))
         elif event.get('reportBrief'):
             specs.append(('case-heading',block('heading_3','历史摘录 · 完整记录见更新链')))

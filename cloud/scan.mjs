@@ -1,3 +1,4 @@
+import {refreshPriorities} from '../priority.js';
 import {assertWorkflowTransition,workflowOf,mergeReviewWorkflows} from '../review.js';
 import {aliasTerritories} from '../territory.js';
 import {coverageQueue,siteCoverage} from '../coverage.js';
@@ -10,7 +11,7 @@ import {pacedWait} from '../search-engine.js';
 import {mergeWorkspace} from './state.js';
 const read=async name=>JSON.parse(await readFile(new URL('../'+name,import.meta.url),'utf8'));
 export async function initialState(){const rows=(await read('leads.json')).map(enrichLead);return {config:structuredClone(defaults),rows,monitor:{...initMonitor(null,rows),updateChain:[],chainVersion:1},history:[],selectedBrandIds:null,customAliases:defaults.aliases,batchSize:60,cursor:0,completed:[],siteCursors:{},deviceId:'fjd-cloud',schedule:{enabled:true,hour:9,timezone:'Asia/Shanghai'},archive:{receipts:{}}};}
-export async function configure(state){const catalog=await read('brand-catalog.json');const ids=Array.isArray(state.selectedBrandIds)?state.selectedBrandIds:catalog.entries.map(e=>e.id),groups=catalog.entries.filter(g=>ids.includes(g.id));state.selectedBrandIds=ids;state.config=normalizeConfig(state.config);state.config.aliases=[...new Set([...groups.flatMap(g=>g.searchTerms),...(state.customAliases||state.config.aliases)])];state.config.termRules=groups.flatMap(g=>g.termRules||[]);state.config.languageMode='all';state.config.aliasTerritories=aliasTerritories(catalog,ids);return buildPlans(state.config,await read('platform-languages.json'));}
+export async function configure(state){const catalog=await read('brand-catalog.json');const ids=Array.isArray(state.selectedBrandIds)?state.selectedBrandIds:catalog.entries.map(e=>e.id),groups=catalog.entries.filter(g=>ids.includes(g.id));state.selectedBrandIds=ids;state.config=normalizeConfig(state.config);state.config.aliases=[...new Set([...groups.flatMap(g=>g.searchTerms),...(state.customAliases||state.config.aliases)])];state.config.termRules=groups.flatMap(g=>g.termRules||[]);state.config.languageMode='all';state.config.aliasTerritories=aliasTerritories(catalog,ids);refreshPriorities(state,catalog);return buildPlans(state.config,await read('platform-languages.json'));}
 export function mergeState(current,incoming){
  if(!incoming?.config||!Array.isArray(incoming.rows))throw Error('未找到原网站的完整台账');
  const out=mergeWorkspace(current,incoming);migrateChain(out.monitor);

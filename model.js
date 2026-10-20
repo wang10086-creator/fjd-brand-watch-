@@ -1,7 +1,7 @@
 import {territoryAllows} from './territory.js?v=20261020-review';
 import {chinaPlatforms} from './china.js?v=20261020-review';
 import {expansion} from './expansion.js?v=20261020-review';
-import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261020-review';
+import {marketData,platforms,words,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt} from './core.js?v=20261020-priority';
 export {marketData,platforms,safeUrl,canonical,enrichLead,mergeRows,mergeBackup,normalizeSchedule,nextScheduleAt};
 export const languageNames={en:'英语',de:'德语',fr:'法语',es:'西班牙语',it:'意大利语',nl:'荷兰语',pl:'波兰语',sv:'瑞典语',tr:'土耳其语',ja:'日语',ko:'韩语',ms:'马来语',id:'印尼语',th:'泰语',vi:'越南语',pt:'葡萄牙语',ar:'阿拉伯语',cs:'捷克语',sk:'斯洛伐克语',hu:'匈牙利语',zh:'简体中文','zh-Hans':'简体中文','zh-Hant':'繁体中文',hi:'印地语',ru:'俄语',el:'希腊语',bs:'波斯尼亚语',hy:'亚美尼亚语',ka:'格鲁吉亚语',he:'希伯来语'};
 words.ru={commerce:['купить','дилер','дистрибьютор'],official:['официальный','официальный дилер'],used:['б/у','восстановленный']};
@@ -69,7 +69,7 @@ export function risk(row){
 export function counts(rows){return {total:rows.length,pending:rows.filter(r=>!r.status||r.status==='pending').length,attention:rows.filter(r=>risk(r).level!=='routine'&&r.status!=='cleared').length,high:rows.filter(r=>risk(r).level==='high').length,medium:rows.filter(r=>risk(r).level==='medium').length,routine:rows.filter(r=>risk(r).level==='routine').length}}
 const fold=x=>String(x||'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g,'');
 export function normalizeResults(items,plan,time=new Date().toISOString()){
- return items.filter(x=>safeUrl(x.url)&&matchedAliases(x,plan).length).filter(x=>!plan.domain||new URL(x.url).hostname===plan.domain||new URL(x.url).hostname.endsWith('.'+plan.domain)).map(x=>enrichLead({url:x.url,title:x.title||x.url,snippet:String(x.content||'').slice(0,900),country:plan.country,language:plan.language,platform:plan.platform,query:plan.query,keywords:matchedAliases(x,plan),searchUrl:plan.searchUrl,source:'Tavily 公开网页索引 · 浏览器执行',verification:'search-index',checkedAt:time,imageMatch:'unverified',status:'pending',queryProvenance:'recorded'}));
+ return items.filter(x=>safeUrl(x.url)&&matchedAliases(x,plan).length).filter(x=>!plan.domain||new URL(x.url).hostname===plan.domain||new URL(x.url).hostname.endsWith('.'+plan.domain)).map(x=>enrichLead({url:x.url,title:x.title||x.url,snippet:String(x.content||'').slice(0,900),country:plan.country,language:plan.language,platform:plan.platform,query:plan.query,keywords:matchedAliases(x,plan),priorityTargets:plan.aliases,searchUrl:plan.searchUrl,source:'Tavily 公开网页索引 · 浏览器执行',verification:'search-index',checkedAt:time,imageMatch:'unverified',status:'pending',queryProvenance:'recorded'}));
 }
 export function normalizeConfig(data={}){
  return {...defaults,...data,platformTerritory:['all','listed','unlisted'].includes(data.platformTerritory)?data.platformTerritory:'all',aliases:Array.isArray(data.aliases)?[...new Set(data.aliases.map(String).filter(Boolean))]:defaults.aliases,regions:Array.isArray(data.regions)?data.regions.filter(c=>marketData[c]):defaults.regions,platforms:Array.isArray(data.platforms)?data.platforms.filter(id=>platforms.some(p=>p.id===id)):defaults.platforms,languageTerms:data.languageTerms&&typeof data.languageTerms==='object'?data.languageTerms:{},languageMode:data.languageMode==='relevant'?'relevant':'all'};

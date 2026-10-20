@@ -1,3 +1,4 @@
+import {priorityCohort,prioritySummary,PRIORITY_VERSION,priorityDisclaimer} from '../priority.js';
 import {createHash} from 'node:crypto';
 import {overview} from '../report-chain.js';
 import {reportModel} from '../report-model.js';
@@ -10,11 +11,12 @@ export function reportOverviews(state){
  for(const e of m.updateChain||[])if(!latest.has(e.day)||Date.parse(e.at)>Date.parse(latest.get(e.day).at))latest.set(e.day,e);
  return [...latest.values()].sort((a,b)=>a.day.localeCompare(b.day)).map(e=>{
   const cumulative=overview(m,e.day),report=reportModel(m,e.day),cohort=report.cohort;
-  const reportCases=cohort.map(r=>({key:r.key,url:r.snapshot.url,title:r.snapshot.title,platform:r.snapshot.platform,status:r.reviewStatus,outcome:r.reviewOutcome,kind:r.kind,query:r.snapshot.query,searchUrl:r.snapshot.searchUrl,evidenceUrl:evidenceUrl(r.snapshot,e.day),...(report.statsVersion===2?{stage:r.reviewStage,node:r.reviewWorkflow.node,round:r.reviewWorkflow.round,closure:r.reviewWorkflow.closure?{type:r.reviewWorkflow.closure.type,reason:r.reviewWorkflow.closure.reason,measures:r.reviewWorkflow.closure.measures}:null}:{})}));
+  const current=priorityCohort(cohort,state.rows),currentByKey=new Map(current.map(r=>[r.key,r.currentPriority])),priorityCurrent={version:PRIORITY_VERSION,total:current.length,counts:prioritySummary(current.map(r=>({priorityV2:{auto:r.currentPriority.auto,manual:r.currentPriority.manual}}))),label:'当前优先级 · 当日新增及变化线索',disclaimer:priorityDisclaimer};
+  const reportCases=cohort.map(r=>({key:r.key,url:r.snapshot.url,title:r.snapshot.title,platform:r.snapshot.platform,status:r.reviewStatus,outcome:r.reviewOutcome,kind:r.kind,query:r.snapshot.query,searchUrl:r.snapshot.searchUrl,evidenceUrl:evidenceUrl(r.snapshot,e.day),priority:{level:currentByKey.get(r.key).level,automatic:currentByKey.get(r.key).auto.level,rules:currentByKey.get(r.key).auto.matches.map(m=>m.id),manual:!!currentByKey.get(r.key).manual},...(report.statsVersion===2?{stage:r.reviewStage,node:r.reviewWorkflow.node,round:r.reviewWorkflow.round,closure:r.reviewWorkflow.closure?{type:r.reviewWorkflow.closure.type,reason:r.reviewWorkflow.closure.reason,measures:r.reviewWorkflow.closure.measures}:null}:{})}));
   const images=cohort.map(r=>r.snapshot.imageAnalysis).filter(Boolean);cumulative.visual={checked:images.filter(a=>a.checkedImages>0).length,matched:images.filter(a=>a.status==='matched').length,unavailable:images.filter(a=>a.status==='unavailable').length,pending:cohort.length-images.filter(a=>a.status!=='pending').length};
   const count=reportCases.filter(r=>report.statsVersion===2?r.stage!=='closed':['pending','reviewing'].includes(r.status)).length;
   if(count!==cumulative.pending)throw Error('日报待核查数量与完整清单不一致，停止归档');
-  const digest=createHash('sha256').update(JSON.stringify({cumulative,reportCases})).digest('hex').slice(0,24);
-  return {day:e.day,at:e.at,type:e.type,cumulative,reportCases,reportVersion:e.at+'|v10-visual|'+digest};
+  const digest=createHash('sha256').update(JSON.stringify({cumulative,reportCases,priorityCurrent})).digest('hex').slice(0,24);
+  return {day:e.day,at:e.at,type:e.type,cumulative,reportCases,priorityCurrent,reportVersion:e.at+'|v11-priority|'+digest};
  });
 }

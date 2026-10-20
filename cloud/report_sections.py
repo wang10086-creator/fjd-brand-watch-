@@ -32,6 +32,15 @@ def render(event,out):
         t(x-13,240,z['day'][5:],22)
     if not trend:t(40,155,'暂无可比较的历史记录',27)
     im.save(out/'trend.png')
+    pc=event.get('priorityCurrent')
+    if pc:
+        im,d,t=canvas(300);t(20,8,'当前复核优先级 · 单位：条',28);counts=pc['counts']
+        rows=[('高优先级',counts['high'],'red'),('中优先级',counts['medium'],'amber'),('低优先级',counts['low'],'green'),('待评估',counts['pending'],'gray')];mx=max(1,*[z[1] for z in rows])
+        for i,(name,v,color) in enumerate(rows):
+            y=57+i*55;t(20,y,name,24);d.rectangle((245,y+5,990,y+29),fill='#eff3f1')
+            if v:d.rectangle((245,y+5,245+745*v/mx,y+29),fill=COLORS[color])
+            t(1010,y,v,24)
+        im.save(out/'priority.png')
     cv=c.get('coverage')
     if cv:
         im,d,t=canvas(240);t(20,10,'检索覆盖 · 站点与全网入口',28);total=cv.get('total',0);left=30

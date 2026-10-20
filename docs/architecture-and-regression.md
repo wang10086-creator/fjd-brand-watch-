@@ -387,3 +387,42 @@ These inform layout and workflow only; no proprietary implementation is copied.
 - During test development, one assertion used an ambiguous info-grid selector
   and a synthetic legacy row lacked an id. Both fixtures were corrected; no
   production business behavior was changed to accommodate tests.
+
+## V2 review priority — impact analysis
+
+- Recovery: backup/priority-v2-before-20261020 at a6d4936b; protected local
+  /workspace/backups/fjd-priority-v2 records code head and original public gzip.
+- Keep legacy risk/assess functions and immutable report/event fingerprints. New
+  priorityV2 row data stores auto assessment, independent manual override and
+  append-only adjustment history. No recordReview/appendReview calls on adjustment.
+- Shared V2 definitions drive deterministic evidence relations and criteria UI.
+  Catalog aliases/context and known product types inform matching; no ownership or
+  authorization is inferred. No paid LLM API or unsupported narrative generation.
+- Full data flow: ingest/enrich → deduplicating merge → independent priority model
+  → IndexedDB → existing encrypted sync (optional priorityUpdates in sync payload)
+  → cloud ledger → redacted public projection → current-priority report overlay.
+  Merge manual audit records independently of review timestamps and retain both
+  devices' events; deterministic latest event determines the active override.
+- L3 requires structured verification scope and exact substantive-evidence hash,
+  valid time and basis. A closed stage, note alone, access failure or image score
+  cannot prove stable use. Ambiguous evidence remains unassessed.
+- Current priority on old report dates is explicitly labeled current and kept
+  outside saved report snapshots/cumulative event checksums. Notion/Feishu get a
+  separate current-priority projection, never replacement of immutable events.
+- Automatic evidence history is also retained, deduplicated by rule/input/context/
+  result signature. Public views omit this private history. An anonymous device
+  must not recompute a cloud grade from a shortened public evidence excerpt.
+- Independent synchronization uses the existing sync action, optional encrypted
+  priorityUpdates, existing credential gate and acknowledgements. No added service,
+  token-consuming model call or new secret is required.
+- Added local regression for all nine independent rules, compatibility-vs-original
+  goods, actual marketplace offers, model disambiguation, L3 complete coverage,
+  independent persistence/rollback, crypto upload/readback, public privacy,
+  cross-device merges, current daily overlays and immutable report preservation.
+- Release verification gates: 182 Node tests / 41 Python tests pass with no
+  skipped tests. Priority UI, full workflow, legacy facts, original controls,
+  configuration/pixel matching, navigation, public fallback reading and archive
+  browser checks pass. Encrypted sync test decrypts the isolated actual request,
+  applies the independent server handler and verifies readback acknowledgements.
+- A real pre-release vault ciphertext backup is saved (2,440,001 bytes) with
+  restrictive permissions; no credentials or private notes are printed.
