@@ -570,3 +570,6 @@ batch when time runs out, so repeated early failures cannot starve a later reada
 image. Stored previews are exposed in a compact optional gallery even without a
 confirmed match. Collection time and comparison time are distinct. No handling
 form is replaced, and no processing/review events are created.
+# 2026-10-21 复核证据入口与地域提示
+
+影响清单与证据内容对照见 `docs/evidence-territory-delivery.md`。视图派生地域提示不写回台账；逐品牌查清单，实际经营地必须有依据，否则注明查询目标。详情仅补入缺少的查询记录和访问说明；保留 evidence.html 的历史公开协议及所有原报告链接。复核表单、优先级、图片比对、归档、同步与历史事件数据保持原实现。上线前增加地域边界、原 URL 安全、历史查询日期、响应式及只读不变性回归。
