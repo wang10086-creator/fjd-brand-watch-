@@ -351,3 +351,8 @@ These inform layout and workflow only; no proprietary implementation is copied.
   mobile checks agree at 215 rows, 5 reviews, stage partition 210/0/0/5; no real
   review action was submitted. The preexisting scheduled batch completed normally
   and added its legitimate event while the newer configuration check queued.
+- Final external receipts: configuration check 39395756417 and real sync
+  39396525781 succeeded. Notion Oct 20 readback has four-stage counts 7/0/0/0
+  for its seven daily cohort leads; Oct 19 keeps its historical labels. Original
+  72 event payloads remain identical, with one legitimate scheduled addition.
+  No production human review or extra group test message was submitted.
