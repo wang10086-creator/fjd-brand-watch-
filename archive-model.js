@@ -4,3 +4,5 @@ export function archiveUrl(value){return './archive.html#'+new URLSearchParams({
 export const archiveLabels={captured:'已存档',restricted:'访问受限',unavailable:'读取未完成',pending:'待收录'};
 export function archivePath(path){return /^archives\/pages\/[a-f0-9]{24}\.json\.gz$/.test(path||'')?path:'';}
 export function sameArchiveSite(a,b){try{return new URL(archiveKey(a)).hostname===new URL(archiveKey(b)).hostname}catch{return false}}
+
+export function archivePDFPath(path){return /^archives\/pdfs\/[a-f0-9]{24}-(?:page|summary)\.pdf$/.test(path||'')?path:'';}

@@ -476,3 +476,29 @@ These inform layout and workflow only; no proprietary implementation is copied.
   consistent styles, separate saves preserving unsent drafts, storage rollback,
   historical events/snapshots unchanged, desktop/mobile/HTML export, existing
   Node/Python and workflow/sync/navigation/public-read browser checks.
+
+## 2026-10-20 · Exact-hit evidence summaries and downloadable PDFs
+
+- Restore point: `backup/evidence-archive-before-20261020` at `59d8a00a`;
+  public ledger and archive catalog snapshots retained outside the repository.
+- Reuse: public feed → existing archive batch → inert compressed page + index
+  → same-origin archive/evidence readers. Add optional summary/PDF metadata to
+  the archive index, never to immutable report events or handling records.
+- New automatic targets are live lead URLs only; no link traversal. Retain old
+  child records while their root remains live; promote a child independently hit
+  by a live lead. Existing removal policy still prunes retired roots and files.
+- Deterministic Chinese summaries share brand/rule evidence extraction but do not
+  use or modify manual grades, workflow or private notes. Prefer captured body,
+  otherwise explicitly labelled search snippets or title-only information.
+- PDF rendering uses escaped local HTML with embedded JPEGs and system Chromium;
+  it executes no source-page code and makes no source network requests. Optional
+  Playwright renders only genuinely incomplete public HTML, never retries a
+  login/challenge/403 through a different identity. All its resource requests
+  pass the bounded public downloader; no browser cookies/account state.
+- Bounded six-URL batches, retained last successful copies, content-based PDF
+  deduplication, cooldowns, URL/redirect/response limits and nonfatal archive-step
+  failures preserve the existing monitor/Notion/Feishu pipeline.
+- Regressions must cover exact-hit-only scheduling, legacy child retention and
+  tombstones, summary provenance/false-claim prevention, PDF existence/content,
+  403/history-first fallback, SSRF/redirect/XSS limits, original workflow/priority
+  independence, anonymous cross-device reading and desktop/mobile navigation.

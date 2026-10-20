@@ -1,0 +1,44 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {gzipSync} from 'node:zlib';
+import {leadSummary} from '../lead-summary.js';import {evidenceSummaryView} from '../evidence-view.js';import {readArchiveEvidence} from '../archive-data.js';
+import {archiveKey,archivePDFPath} from '../archive-model.js';import {archiveBatch,applyArchiveBatch,applyArchivePDFs} from '../cloud/page-archives.mjs';
+const url='https://public.example/products/at2',key=archiveKey(url),at='2026-10-20T04:00:00Z',row={url,title:'FJDynamics AT2 for sale',snippet:'FJDynamics AT2 equipment is available for purchase. Contact our store for a quote.',query:'official authorized dealer',note:'PRIVATE NOTE',evidence:'PRIVATE LINK',lastSeen:at},page={version:1,url,finalUrl:url,title:'FJDynamics product review',text:'FJDynamics AT2 field review and tutorial. '.repeat(10),capturedAt:at,sourceHash:'hash',images:[],links:[]};
+test('summaries prefer real body, label indexed/title-only sources, and preserve evidence bytes',()=>{
+ const original=JSON.stringify(row),s=leadSummary(row,page);assert.equal(s.source,'page');assert.ok(s.facts.some(f=>f.rule==='M3'));assert.ok(!s.facts.some(f=>f.rule==='H2'));assert.equal(s.at,at);assert.ok(s.excerpts[0].includes('review'));assert.ok(s.text.includes('不代表'));assert.ok(s.text.length<=240);
+ const index=leadSummary(row);assert.equal(index.source,'index');assert.ok(index.facts.some(f=>f.rule==='H2'));assert.ok(index.text.includes('完整原始页面未获取'));assert.equal(leadSummary({...row,snippet:''}).source,'title');assert.equal(JSON.stringify(row),original);
+});
+test('queries, private notes and human decisions cannot manufacture public brand behavior or authorization',()=>{
+ const s=leadSummary({url,title:'FJDynamics scanner',snippet:'',query:'We are an official authorized dealer of FJDynamics',note:'PRIVATE NOTE',reviewOutcome:'authorized'});assert.equal(s.facts.length,0);assert.ok(!JSON.stringify(s).includes('PRIVATE'));assert.ok(!s.text.includes('已授权'));const q=leadSummary({url,title:'An article quoting an official statement by FJDynamics',snippet:'According to FJDynamics, an authorized dealer made a statement.'});assert.ok(!q.facts.some(f=>f.rule==='H3'));
+});
+test('registered logo variants do not become duplicate brand names and unrelated paragraphs cannot establish a cooperation relation',()=>{
+ const s=leadSummary(row,{...page,title:'FJDynamics equipment',text:'FJDynamics agricultural GNSS equipment.\n\nOur unrelated Garmin team partners with Trimble for integration.\n\nPublic product information and technical details.'});assert.equal(s.brands.filter(b=>b.toLowerCase().replace(/[^a-z]/g,'')==='fjdynamics').length,1);assert.ok(!s.brands.some(b=>b.includes('盾牌')));assert.ok(!s.facts.some(f=>f.rule==='M2'));
+});
+test('multilingual evidence retains original snippets and distinguishes third-party compatibility',()=>{
+ const s=leadSummary({...row,title:'Adaptador Compatível Com Fjdynamics Powersec',snippet:'Adaptador Ca/cc de 25 V compatível com Fjdynamics Powersec, comprar agora.'});assert.equal(s.source,'index');assert.ok(s.facts.some(f=>f.rule==='M1'));assert.ok(!s.facts.some(f=>f.rule==='H2'));assert.ok(s.excerpts.join('').includes('Compatível'));assert.ok(s.text.includes('适配'));
+});
+test('a saved purchase control can describe an actual product offer, while a homepage control cannot invent a product relationship',()=>{
+ const s=leadSummary(row,{...page,title:'FJDynamics AT2 GNSS system',text:'FJDynamics AT2 product information. '.repeat(6),productFacts:[{type:'sales-entry',text:'Add to cart'}]});assert.ok(s.facts.some(f=>f.rule==='H2'));assert.ok(s.excerpts.some(e=>e.includes('Add to cart')));
+ const homepage=leadSummary(row,{...page,title:'FJDynamics equipment',text:'FJDynamics information. '.repeat(6),productFacts:[{type:'sales-entry',text:'Add to cart'}]});assert.ok(!homepage.facts.some(f=>f.rule==='H2'));
+});
+test('archive selection never traverses children, retains old child archives and independently promotes an actual child lead',()=>{
+ const path='archives/pages/'+'a'.repeat(24)+'.json.gz',child='https://public.example/help',prior={version:1,pages:{[key]:{url,root:key,depth:0,status:'captured',path,at},[child]:{url:child,root:key,depth:1,status:'captured',path,at}}};
+ const feed={rows:[row]},original=JSON.stringify(prior),a=applyArchiveBatch(feed,prior,[],[]);assert.equal(Object.keys(a.index.pages).length,2);assert.equal(JSON.stringify(prior),original);assert.ok(archiveBatch(feed,prior,{now:Date.parse(at)+864000000}).every(t=>archiveKey(t.url)===key));
+ const b=applyArchiveBatch({rows:[{url:child}]},prior,[],[]);assert.equal(b.index.pages[child].root,child);assert.equal(b.index.pages[child].depth,0);assert.ok(!b.index.pages[key]);
+ const deleted=applyArchiveBatch({rows:[row],removedRecordKeys:[url]},prior,[],[]);assert.equal(Object.keys(deleted.index.pages).length,0);assert.ok(deleted.changes.some(c=>c.remove));const childDeleted=applyArchiveBatch({rows:[row],removedRecordKeys:[child]},prior,[],[]);assert.ok(childDeleted.index.pages[key]);assert.ok(!childDeleted.index.pages[child]);
+});
+test('a restricted recapture uses the historical body and never fabricates a new successful copy',()=>{
+ const prior={version:1,pages:{[key]:{url,root:key,path:'archives/pages/'+'b'.repeat(24)+'.json.gz',status:'captured',contentAt:at,at}}},task={url,root:key,depth:0};
+ const a=applyArchiveBatch({rows:[row]},prior,[task],[{url,status:'restricted',httpStatus:403,at:'2026-10-21'}],{savedPages:{[key]:page}});assert.equal(a.index.pages[key].status,'restricted');assert.equal(a.index.pages[key].contentAt,at);assert.equal(a.index.pages[key].summary.source,'page');assert.equal(a.pdfTasks[0].kind,'page');assert.equal(a.pdfTasks[0].capturedAt,at);assert.ok(!a.changes.some(c=>c.path.endsWith('.json.gz')));assert.ok(!JSON.stringify(a.pdfTasks).includes('PRIVATE'));
+ const b=applyArchiveBatch({rows:[row]},null,[task],[{url,status:'restricted',httpStatus:403,at}]);assert.equal(b.pdfTasks[0].kind,'summary');assert.equal(b.index.pages[key].summary.source,'index');const noText=applyArchiveBatch({rows:[{...row,title:'FJDynamics',snippet:''}]},null,[task],[{url,status:'restricted',at}]);assert.equal(noText.pdfTasks.length,0);
+});
+test('bad PDF or failed PDF render preserves any last valid file and does not stop index publication',()=>{
+ const prior={version:1,pages:{[key]:{url,root:key,pdf:{path:'archives/pdfs/'+'c'.repeat(24)+'-page.pdf',sha256:'old'}}}},changes=[];applyArchivePDFs(prior,changes,[{key,inputHash:'new'}],[{key,inputHash:'new',data:Buffer.from('<html>Error</html>').toString('base64')}],{now:at});assert.equal(prior.pages[key].pdf.sha256,'old');assert.ok(prior.pages[key].pdfError);assert.equal(changes.length,1);assert.equal(changes[0].path,'archives/index.json');assert.equal(archivePDFPath('https://evil.test/pdf'),'');
+});
+test('client archive reads check source identity and real PDF existence instead of enabling dead controls',async()=>{
+ const path='archives/pages/'+'d'.repeat(24)+'.json.gz',pdf='archives/pdfs/'+'d'.repeat(24)+'-page.pdf',record={url,path,pdf:{path:pdf,kind:'page'},contentAt:at},index={version:1,pages:{[key]:record}},calls=[];
+ const fetcher=async(u,options)=>{calls.push([new URL(u).pathname,options.method||'GET']);if(String(u).includes('index.json'))return Response.json(index);if(String(u).includes('.json.gz'))return new Response(gzipSync(JSON.stringify(page)));return new Response(null,{status:404})};
+ const a=await readArchiveEvidence(row,{fetcher});assert.equal(a.page.text,page.text);assert.equal(a.pdf,null);const html=evidenceSummaryView(row,a);assert.ok(!html.includes('data-pdf-preview'));assert.ok(html.includes('PDF 尚未生成'));assert.ok(calls.some(([,method])=>method==='HEAD'));
+ const wrong=await readArchiveEvidence(row,{fetcher:async(u,o)=>String(u).includes('.json.gz')?new Response(gzipSync(JSON.stringify({...page,url:'https://other.example/'}))):fetcher(u,o)});assert.equal(wrong.page,null);assert.ok(wrong.error.includes('校验'));
+});
+test('summary UI escapes source code and archive failures leave original processing state untouched',()=>{
+ const r={...row,title:'FJDynamics scanner',snippet:'<script>window.BAD=true</script> FJDynamics AT2 for sale.',reviewWorkflow:{stage:'ip',round:2}},original=JSON.stringify(r),html=evidenceSummaryView(r,{record:{status:'restricted',httpStatus:403,at},page:null});assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<form'));assert.ok(html.includes('不表示下架'));assert.equal(JSON.stringify(r),original);
+});
