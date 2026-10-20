@@ -135,8 +135,9 @@ def collect(row,libraries,versions,transport,deadline):
 
 
 def run(payload):
+    deadline=time.monotonic()+min(180,payload.get('seconds',140))
     libraries,versions=load_references(payload.get('customAssets'));versions['custom']=payload.get('customLibraryVersion','');transport=PublicImages(ROOT/'.cache/fjd-images')
-    deadline=time.monotonic()+min(180,payload.get('seconds',140));out=[]
+    out=[]
     for row in payload.get('rows',[])[:24]:
         if time.monotonic()>deadline:break
         out.append(collect(row,libraries,versions,transport,min(deadline,time.monotonic()+35)))

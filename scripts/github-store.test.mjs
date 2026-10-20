@@ -42,6 +42,12 @@ test('checkpoint files publish atomically and preserve unrelated files',async()=
  for(const path of ['vault.json','dashboard.json','public-dashboard.json','status.json'])assert.equal(JSON.parse(repo.value(path)).revision,3);
  assert.equal(repo.value('inbox/keep.json'),'private-cipher');
 });
+test('large JSON image checkpoints use verified blobs and a small atomic tree instead of oversized inline content',async()=>{
+ const repo=repository({'vault.json':'{"old":true}','inbox/preserve.json':'unrelated'}),store=storeFor(repo),value={images:'public-image-data'.repeat(40000)};
+ await store.putJSON('public-dashboard.json',value);
+ assert.equal(repo.value('public-dashboard.json'),JSON.stringify(value));assert.equal(repo.value('inbox/preserve.json'),'unrelated');
+ const tree=repo.calls.find(c=>c.path==='/git/trees'&&c.method==='POST').body.tree;assert.equal(tree[0].content,undefined);assert.match(tree[0].sha,/^[a-f0-9]{40}$/);assert.equal(repo.calls.filter(c=>c.method==='PATCH').length,1);
+});
 for(const status of [409,422])test(`branch conflict ${status} retries preserving a concurrent browser upload`,async()=>{
  const repo=repository({'vault.json':'{"old":true}'}),retries=[],store=storeFor(repo,{onRetry:e=>retries.push(e)});let once=true;
  repo.intercept=({method,response,external})=>{if(method==='PATCH'&&once){once=false;external('inbox/new.json','encrypted-browser-data');return response(status,{})}};

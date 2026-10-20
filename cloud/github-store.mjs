@@ -69,7 +69,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     for(const e of changes){
      if(e.sha===(current.files.get(e.path)||null))continue;
      if(e.remove)tree.push({path:e.path,mode:'100644',type:'blob',sha:null});
-     else if(e.bytesInput){const blob=await request('/git/blobs','POST',{encoding:'base64',content:e.bytes.toString('base64')});tree.push({path:e.path,mode:'100644',type:'blob',sha:blob.sha});}
+     else if(e.bytesInput||e.bytes.length>512*1024){const blob=await request('/git/blobs','POST',{encoding:'base64',content:e.bytes.toString('base64')});if(blob.sha!==e.sha)throw Error('GitHub 文件校验未通过，停止提交以保护原台账');tree.push({path:e.path,mode:'100644',type:'blob',sha:blob.sha});}
      else tree.push({path:e.path,mode:'100644',type:'blob',content:e.bytes.toString('utf8')});
     }
     const nextTree=await request('/git/trees','POST',{base_tree:current.tree,tree});

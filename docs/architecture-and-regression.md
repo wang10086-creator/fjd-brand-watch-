@@ -545,3 +545,12 @@ head in /workspace/backups/fjd-dual-images. No history migration or report rewri
 Verification gates: nine dual-image cases, real/derived image calibration with independent
 negative images, merge/public-redaction/encrypted roundtrip tests, all Node/Python suites,
 desktop/mobile review and existing business-flow browser regressions, live Pages checks.
+
+Real cloud verification found an HTTP 422 at POST /git/trees before any ref update.
+The prior public ledger is about 22.9 MB and encrypted files about 2.4 MB each;
+new image evidence increases this existing large request. Large (>512 KiB) text
+entries now use verified Git blobs, then the same atomic tree/commit/ref path.
+No conflict guard or historic data changes. Added a large-JSON regression.
+Cold reference initialization is included in the image-worker deadline, with an
+outer exit/serialization grace; interrupted system attempts are retryable and
+remain distinct from source HTTP/robots failures. Added a cold-start budget test.

@@ -5,7 +5,7 @@ from PIL import Image,ImageDraw,ImageOps
 import numpy as np
 import cv2
 from image_matcher import features,hashes,decoded,compare,VERSION
-from dual_images import compare_picture,collect,page_candidates,official_reference
+from dual_images import compare_picture,collect,page_candidates,official_reference,run
 from official_product_library import page_images,product_page
 from public_images import PublicImages
 
@@ -139,6 +139,11 @@ class DualImages(unittest.TestCase):
         self.assertFalse(first['imageEvidence']['complete']);self.assertEqual(len(first['imageEvidence']['images']),1)
         second=collect(first,self.libraries,versions,Transport(),time.monotonic()+30)
         self.assertEqual(len(second['imageEvidence']['images']),2);self.assertTrue(second['imageEvidence']['complete']);self.assertEqual(second['productImageMatch']['status'],'confirmed');self.assertEqual(second['trademarkImageMatch']['status'],'confirmed')
+
+    def test_cold_reference_loading_counts_towards_total_time_budget(self):
+        with patch('dual_images.time.monotonic',side_effect=[0,181]),patch('dual_images.load_references',return_value=({'trademark':[],'product':[]},{})),patch('dual_images.collect') as collector:
+            self.assertEqual(run({'rows':[{'url':'https://example.com'}],'seconds':180}),[])
+            collector.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

@@ -61,5 +61,5 @@ export function publicImageResult(value){
 }
 export function publicImageEvidence(value){
  if(!value)return undefined;
- return {...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated cloudPending requestedBy'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
+ return {...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated cloudPending requestedBy systemFailure'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
 }

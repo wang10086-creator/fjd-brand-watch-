@@ -10,12 +10,12 @@
   },
   "localTests": {
     "node": {
-      "passed": 239,
+      "passed": 240,
       "failed": 0,
       "skipped": 0
     },
     "python": {
-      "passed": 73,
+      "passed": 74,
       "failed": 0,
       "skipped": 0
     },
@@ -52,5 +52,10 @@
     "archiveIndexUnmodified": true
   },
   "productionVerification": null,
-  "externalDeliveryWrites": false
+  "externalDeliveryWrites": false,
+  "initialCloudAttempt": {
+    "runId": 39449552723,
+    "result": "GitHub tree write HTTP 422, no ref update",
+    "fix": "verified blobs for large JSON; atomic tree and existing conflict guards retained"
+  }
 }

@@ -108,7 +108,7 @@ async function main(){
   if(before!==protectedState())throw Error('独立图片任务检测到非图片业务数据变动，停止写入以保护原台账');
   await checkpoint();
   await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
-  console.log('独立图片队列：'+JSON.stringify(result));console.log('兼容性保护：线索标识、原图、历史图形记录、优先级、人工处理、监控事件和定时配置均保持一致。');return;
+  console.log('独立图片队列：'+JSON.stringify(result));if(result.systemErrors)process.exitCode=1;console.log('兼容性保护：线索标识、原图、历史图形记录、优先级、人工处理、监控事件和定时配置均保持一致。');return;
  }
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
