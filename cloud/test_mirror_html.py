@@ -1,4 +1,4 @@
-import importlib.util,pathlib,time,unittest,io
+import importlib.util,pathlib,time,unittest,io,base64
 from PIL import Image
 from lxml import html
 spec=importlib.util.spec_from_file_location('mirror_html',pathlib.Path(__file__).with_name('mirror-html.py'));m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
@@ -21,6 +21,12 @@ class MirrorHTMLTests(unittest.TestCase):
         r=m.singlefile(source,'https://fixture.example/product',time.monotonic()+35,download,lambda u:True,lambda u:None)
         self.assertIsNotNone(r,'pinned SingleFile and Chromium must actually run, not a fake renderer')
         self.assertIn('display:grid',r['html']);self.assertIn('Actual public equipment content',r['html']);self.assertGreater(r['embeddedImages'],0);self.assertNotIn('<script',r['html']);self.assertNotIn('evil.test',r['html']);self.assertTrue(any(u.endswith('/actual.png') for u in requests))
+    def test_large_raster_images_and_css_backgrounds_are_compacted_before_eviction(self):
+        image=Image.effect_noise((600,600),100);out=io.BytesIO();image.save(out,format='PNG');data='data:image/png;base64,'+base64.b64encode(out.getvalue()).decode()
+        self.assertGreater(len(data),160000)
+        packed=m.compact_image(data);self.assertTrue(packed.startswith('data:image/webp;base64,'));self.assertLess(len(packed),len(data))
+        safe=m.sanitize('<style>.hero{background-image:url("'+data+'")}</style><img src="'+data+'" alt="brand logo">')
+        self.assertIn('brand logo',safe);self.assertEqual(safe.count('data:image/webp;base64,'),2);self.assertNotIn('data:image/png',safe)
     def test_resource_limit_and_permissions_do_not_turn_external_resources_into_allowed_content(self):
         source='<title>Public evidence</title><p>Actual content</p><img src="http://private.test/secret">'
         calls=[]
