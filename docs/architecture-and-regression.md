@@ -510,3 +510,11 @@ These inform layout and workflow only; no proprietary implementation is copied.
 先保存代码分支 backup/html-mirrors-before-20261020；索引、公开快照及历史 PDF 哈希存于 /workspace/backups/fjd-html-mirrors。第三方 DOM 必须经过白名单净化、禁用外部资源/CSP 及无权限 sandbox；不能执行原站脚本或规避登录、robots、noarchive/403。索引添加 mirror 字段，不覆盖旧 path/pdf 字段。原始镜像、正文重建、搜索重建、基础记录四类独立标记；失败不降级已有高质量版本。日常队列限批、冷却、断点继续；低层副本先发布，正常可采集页面逐批升级。浏览器未同步记录仅提供明确标记的临时页面，不宣称已发布。
 
 线上验收补充：存档 archiveKey 会去 www，原台账 canonical 保留 www 并兼容移动京东等别名；生成副本的返回处理链接必须复用 core.canonical，不能用 archiveKey 代替。只修正新增镜像导航，保持原台账键/旧路由不变；增加 www、移动京东、农机通别名的回归。HTML 模板版本进入输入哈希，使修正发布为新版本，保留旧版本及原证据。
+
+## 2026-10-20 新增与变化统计整合及内容对比
+
+依赖与边界：monitor.snapshot/observe → 按日 observation（before/snapshot、kind）→ report-model 固有统计/不可变更新链 → daily-view 展示、reviewKeys 日期范围 → app 列表/详情。cloud/public-feed 只白名单公开字段；mergeMonitors 合并本机/加密云端/公开副本；归档直接复用日报 HTML。本次保留原报告模型、历史分类和事件校验值，新增/变化卡片仅对其既有范围做去重展示及统一当前优先级。线索处理、优先级引擎、镜像、任务调度不改。
+
+展示从真实 observation 派生，不把 needsRecheck/最近发现/访问成功/人工操作当成内容变化。旧 before/snapshot 不足时明确局限；索引差异不称为原网页修改。若新增同日变化明细，则作为 observation 的可选 contentChanges 扩展，保留真实发生时的成对快照，防止后续不同查询覆盖已发生的对比；同步公开裁剪和合并，既有无扩展事件不迁移。轻量文字差异只做展示、格式归一化，不回写旧快照。
+
+保护版本：backup/delta-changes-before-20261020；公开快照与存档索引备份 /workspace/backups/fjd-delta-changes。验证以历史公开快照逐字节不变、历史日报 fingerprint/更新链不变、四阶段/人工优先级独立、桌面与移动浏览器和云端数据契约测试为门槛。

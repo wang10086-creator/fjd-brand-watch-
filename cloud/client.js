@@ -1,9 +1,9 @@
 import {pendingPriorityUpdates} from '../priority.js?v=20261020-priority-r3';
 import {readPublicFile} from './public-reader.js?v=20261020-review';
-import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261020-priority-r3';
+import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261020-changes';
 import {notionPublicUrl} from '../archive-config.js?v=20261020-review';
 import {seal,unseal,migrationState} from './crypto.js?v=20261020-priority-r3';
-import {mergeWorkspace} from './state.js?v=20261020-priority-r3';
+import {mergeWorkspace} from './state.js?v=20261020-changes';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
 let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;const publicCache=new Map();

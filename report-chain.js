@@ -1,5 +1,6 @@
+import {deltaCohort} from './content-changes.js?v=20261020-changes';
 import {publicWorkflow} from './review.js?v=20261020-review';
-import {dayOf} from './monitor.js?v=20261020-review';
+import {dayOf} from './monitor.js?v=20261020-changes';
 import {reportModel} from './report-model.js?v=20261020-review';
 import {canonical,risk} from './model.js?v=20261020-review';
 export const triggerNames={schedule:'自动检索',manual:'手动检索',refresh:'立即检索','site-retry':'站点补查',retry:'失败重试',watch:'重点复查','public-collector':'公共补充检索',review:'人工复核'};
@@ -22,6 +23,6 @@ export function sitePlans(plans,completed,site,{limit=5,cursor=0,failed=[]}={}){
  return [...rotate.filter(p=>failIds.has(p.id)),...rotate.filter(p=>!failIds.has(p.id)&&!completed.includes(p.id)),...rotate.filter(p=>!failIds.has(p.id)&&completed.includes(p.id))].slice(0,limit);
 }
 export function reviewKeys(m,day,scope='delta'){
- const d=reportModel(m,day),events=scope==='new'?d.fresh:scope==='changed'?d.changed:scope==='repeat'?d.repeat:scope==='all'?d.observations:scope==='pending'?d.cohort.filter(e=>d.statsVersion===2?e.reviewStage!=='closed':['pending','reviewing'].includes(e.reviewStatus)):d.cohort;
+ const d=reportModel(m,day),delta=deltaCohort(d),events=scope==='new'?delta.fresh:scope==='changed'?delta.changed:scope==='repeat'?d.repeat:scope==='all'?d.observations:scope==='pending'?d.cohort.filter(e=>d.statsVersion===2?e.reviewStage!=='closed':['pending','reviewing'].includes(e.reviewStatus)):delta.all;
  return new Set(events.map(e=>e.key));
 }

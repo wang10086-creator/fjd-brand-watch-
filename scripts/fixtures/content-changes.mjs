@@ -1,0 +1,17 @@
+import {enrichLead,mergeRows,canonical} from '../../model.js';import {initMonitor,observe,dayOf,shiftDay,recordRun} from '../../monitor.js';import {appendRun} from '../../report-chain.js';import {workflowValues} from '../../review.js';import {adjustPriority} from '../../priority.js';
+export function contentChangesFixture(at=new Date().toISOString()){
+ const day=dayOf(at),prev=shiftDay(day,-1),atDay=(d,h)=>d+'T'+h+':00:00+08:00',start=atDay(shiftDay(day,-2),'09');
+ const make=(id,title,snippet='FJDynamics AT2 product information.')=>enrichLead({id,url:'https://www.changes-ui.example/'+id,title,snippet,platform:'dealer',country:'US',query:'FJDynamics AT2',source:'Fixture public index',verification:'search-index',lastSeen:start});
+ const base=make('changed-closed','FJDynamics AT2 scanner'),other=make('changed-accessory','Bracket compatible with FJDynamics AT2'),stable=make('repeat-stable','FJDynamics AT2 technical information'),missing=make('legacy-missing','FJDynamics original product record');
+ const form=new FormData();form.set('workflowAction','exclude');form.set('closureReason','authorized');form.set('note','Fixture authorization verified');Object.assign(base,workflowValues(form,base,start));adjustPriority(base,'low','Fixture scheduling decision',start);
+ let rows=[base,other,{...stable,needsRecheck:true},missing],m=initMonitor(null,rows,start);
+ const previous={...base,snippet:'FJDynamics AT2 equipment offer. Price EUR 900.',lastSeen:atDay(prev,'09')};observe(m,[previous],rows,{at:atDay(prev,'09'),runId:'yesterday'});rows=mergeRows(rows,[previous]).map(enrichLead);
+ const fresh=Array.from({length:5},(_,i)=>make('new-'+i,i<3?'FJDynamics AT2 original product for sale':'Third-party bracket compatible with FJDynamics AT2'));
+ const updated={...base,title:'FJDynamics AT2 product for sale',snippet:'FJDynamics AT2 equipment offer. Price EUR 1000.',lastSeen:atDay(day,'09')},accessory={...other,title:'Third-party bracket compatible with FJDynamics AT2 and AT2 Max',lastSeen:atDay(day,'09')};
+ const first=[...fresh,updated,accessory,stable].map(r=>({...r,lastSeen:atDay(day,'09')}));observe(m,first,rows,{at:atDay(day,'09'),runId:'today-main'});rows=mergeRows(rows,first).map(enrichLead);
+ const second={...updated,snippet:'FJDynamics AT2 equipment offer. Price EUR 1100.',lastSeen:atDay(day,'10')};observe(m,[second],rows,{at:atDay(day,'10'),runId:'today-recheck'});rows=mergeRows(rows,[second]).map(enrichLead);
+ const repeat={...second,snippet:'A different public index excerpt describing FJDynamics AT2 equipment.',query:'FJDynamics other words',lastSeen:atDay(day,'11')};observe(m,[repeat],rows,{at:atDay(day,'11'),runId:'repeat-other',query:repeat.query});rows=mergeRows(rows,[repeat]).map(enrichLead);
+ m.observations.push({id:'fixture-missing-before',key:canonical(missing.url),day:prev,at:atDay(prev,'12'),lastAt:atDay(prev,'12'),kind:'changed',before:null,snapshot:{...missing},queries:[],hits:1});
+ const run={id:'changes-qa',reportDay:day,startedAt:atDay(day,'09'),endedAt:atDay(day,'11'),success:1,attempted:1,items:[{at:atDay(day,'09'),status:'成功',platform:'dealer',domain:'changes-ui.example',resultDomains:['changes-ui.example']}],delta:m.observations.filter(e=>e.day===day).map(e=>({key:e.key,kind:e.kind}))};recordRun(m,run);appendRun(m,run,rows);
+ return {day,prev,rows,monitor:m,monitorScopeVersion:'20261016-world',selectedBrandIds:[],customAliases:['FJDynamics'],config:{regions:['US'],platforms:['dealer']},schedule:{enabled:false},chinaScopeVersion:1,queueVersion:2,importedPublicScans:['changes-qa-scan']};
+}

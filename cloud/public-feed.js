@@ -1,7 +1,7 @@
 import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261020-priority-r3';
 import {publicWorkflow} from '../review.js?v=20261020-review';
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js?v=20261020-review';
+import {mergeMonitors} from '../monitor.js?v=20261020-changes';
 import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-priority-r3';
 import {applyRecordPolicy} from '../record-policy.js?v=20261020-review';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
@@ -16,7 +16,7 @@ const marked=v=>({...withVisual(v),publicOnly:true});
 export function publicFeed(state,{revision,at=new Date().toISOString(),receipts={}}={}){
  applyRecordPolicy(state);refreshPriorities(state);
  const m=state.monitor;
- const observations=m.observations.map(e=>marked({...pick(e,'id key day at lastAt kind method hits changedAt'),before:e.before?withVisual(snapshot(e.before)):null,snapshot:withVisual(snapshot(e.snapshot)),queries:(e.queries||[]).map(q=>pick(q,'query searchUrl runId at'))}));
+ const observations=m.observations.map(e=>marked({...pick(e,'id key day at lastAt kind method hits changedAt'),before:e.before?withVisual(snapshot(e.before)):null,snapshot:withVisual(snapshot(e.snapshot)),...(Array.isArray(e.contentChanges)?{contentChanges:e.contentChanges.map(c=>marked({...pick(c,'id at legacy'),before:snapshot(c.before),snapshot:snapshot(c.snapshot)}))}:{}),queries:(e.queries||[]).map(q=>pick(q,'query searchUrl runId at'))}));
  const runs=m.runs.map(r=>marked({...pick(r,'id startedAt endedAt trigger reportDay planned attempted success failed added running cancelled executionMode'),items:(r.items||[]).map(item),delta:(r.delta||[]).map(d=>pick(d,'key kind'))}));
  const reviews=m.reviews.map(r=>marked({...pick(r,'id key url title day at levelBefore levelAfter'),before:review(r.before),after:review(r.after)}));
  const updateChain=(m.updateChain||[]).map(e=>marked({...pick(e,'id day at startedAt type historical summary cumulative'),entries:(e.entries||[]).map(r=>({...pick(r,'key kind title url query searchUrl platform snippet priority status'),...(r.reviewWorkflow?{reviewWorkflow:publicWorkflow(r.reviewWorkflow)}:{})})),queries:(e.queries||[]).map(q=>pick(q,'query searchUrl status platform domain at'))}));

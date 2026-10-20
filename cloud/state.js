@@ -1,11 +1,11 @@
 import {manualReviewFields,mergeReviewWorkflows} from '../review.js?v=20261020-review';
-import {hydratePublicRecords} from './public-feed.js?v=20261020-priority-r3';
+import {hydratePublicRecords} from './public-feed.js?v=20261020-changes';
 import {normalizeWorkspaceConfig} from '../workspace-config.js?v=20261020-review';
 import {applyRecordPolicy} from '../record-policy.js?v=20261020-review';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
 import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-priority-r3';
-import {mergeMonitors} from '../monitor.js?v=20261020-review';
-import {migrateChain} from '../report-chain.js?v=20261020-review';
+import {mergeMonitors} from '../monitor.js?v=20261020-changes';
+import {migrateChain} from '../report-chain.js?v=20261020-changes';
 const fields=[...manualReviewFields,'reviewedAt'];
 export function mergeWorkspace(local,remote){
  local=hydratePublicRecords(local,remote);

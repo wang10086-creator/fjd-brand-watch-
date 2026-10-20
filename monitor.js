@@ -1,9 +1,10 @@
+import {normalizedContent,changedContent,changeId,mergeContentChanges} from './content-changes.js?v=20261020-changes';
 import {manualReviewFields} from './review.js?v=20261020-review';
 import {canonical, safeUrl, risk} from './model.js?v=20261020-review';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);
-const clean=v=>String(v||'').normalize('NFKC').replace(/\s+/g,' ').trim();
+const clean=normalizedContent;
 const keyOf=r=>canonical(r.url);
 export function snapshot(row){return {url:safeUrl(row.url),title:String(row.title||''),snippet:String(row.snippet||'').slice(0,1500),platform:row.platform||'dealer',country:row.country||'',language:row.language||'',query:String(row.query||''),searchUrl:safeUrl(row.searchUrl),source:String(row.source||''),verification:row.verification||'search-index',status:row.status||'pending',imageMatch:row.imageMatch||'unverified',...(row.reviewWorkflow?{reviewWorkflow:structuredClone(row.reviewWorkflow)}:{}),...(row.reviewOutcome?{reviewOutcome:row.reviewOutcome}:{}),...(row.imageAnalysis?{imageAnalysis:structuredClone(row.imageAnalysis)}:{}),checkedAt:row.checkedAt||null};}
 export const fingerprint=r=>JSON.stringify([clean(r.title),clean(r.snippet)]);
@@ -21,12 +22,22 @@ export function observe(m,rows,existing,{at=new Date().toISOString(),runId='manu
  for(const row of rows){const key=keyOf(row);if(!key||seen.has(key))continue;seen.add(key);
   const old=prior.get(key),known=m.known[key],before=known?.snapshot||(old?snapshot(old):null);
   const merged=old?{...old,...row,status:old.status,note:old.note,confirmedIssue:old.confirmedIssue,imageMatch:old.imageMatch,...(old.reviewWorkflow?{reviewWorkflow:old.reviewWorkflow,reviewOutcome:old.reviewOutcome}:{})}:row;
-  const snap=snapshot(merged),queryKey=query||row.query||'',comparable=known?.variants?.[queryKey],signals=x=>{const z=risk({title:x.title,snippet:x.snippet});return [z.claims,z.imitation,z.relabel].join('|')};
+  const snap=snapshot(merged),queryKey=query||row.query||'',comparable=known?.variants?.[queryKey],signals=x=>{const z=risk({title:clean(x.title),snippet:clean(x.snippet)});return [z.claims,z.imitation,z.relabel].join('|')};
   const comparison=comparable||before,changed=!!comparison&&(clean(comparison.title)!==clean(snap.title)||signals(comparison)!==signals(snap)||(!!comparable&&fingerprint(comparable)!==fingerprint(snap))),isNew=!before;
-  const day=reportDay||dayOf(at),id='observation|'+day+'|'+key;let event=m.observations.find(e=>e.id===id);
+  const day=reportDay||dayOf(at),id='observation|'+day+'|'+key;let event=m.observations.find(e=>e.id===id);const previousKind=event?.kind;
   const provenance={query:query||row.query||'',searchUrl:searchUrl||row.searchUrl||'',runId,at};
   if(!event){event={id,key,day,at,lastAt:at,kind:isNew?'new':changed?'changed':'repeat',method,before:changed?comparison:null,snapshot:snap,queries:[],hits:0};m.observations.push(event);}
   else if(changed&&event.kind==='repeat'){event.kind='changed';event.before=comparison;}
+  if(changed&&event.kind==='changed'){
+   // Optional per-transition evidence; preserve legacy daily before/snapshot fields.
+   if(!Array.isArray(event.contentChanges)){
+    event.contentChanges=[];
+    if(previousKind==='changed'&&event.snapshot&&event.lastAt!==at)event.contentChanges.push({id:event.id+'|legacy',at:event.changedAt||event.at,before:structuredClone(event.before??null),snapshot:structuredClone(event.snapshot),legacy:true});
+   }
+   if(changedContent(comparison,snap).length){const id=event.id+'|'+at+'|'+runId+'|'+changeId(JSON.stringify([comparison.title,comparison.snippet,snap.title,snap.snippet]));
+    if(!event.contentChanges.some(c=>c.id===id))event.contentChanges.push({id,at,before:structuredClone(comparison),snapshot:structuredClone(snap)});
+   }
+  }
   if(isNew||changed)event.changedAt=at;
   if(at>=event.lastAt){event.snapshot=snap;event.lastAt=at;}
   if(!event.queries.some(q=>q.runId===runId&&q.query===provenance.query)){event.queries.push(provenance);event.hits++;}
@@ -65,7 +76,7 @@ export function reportDates(m){return [...new Set([dayOf(),...m.observations.map
 export function mergeMonitors(current,incoming,rows){
  const out=initMonitor(current,rows);if(!incoming||incoming.version!==1)return out;
  // Earliest recorded discovery wins across backups; never re-report it on import day.
- for(const field of ['observations','reviews','runs','checks','legacyRuns']){const map=new Map(out[field].map(x=>[x.id,x]));for(const x of incoming[field]||[]){if(!x?.id)continue;const old=map.get(x.id);if(!old)map.set(x.id,structuredClone(x));else if(field==='observations'){const latest=(x.lastAt||x.at)>(old.lastAt||old.at)?x:old;const earliest=x.at<old.at?x:old;const queries=[...new Map([...(old.queries||[]),...(x.queries||[])].map(q=>[q.runId+'|'+q.query,q])).values()];map.set(x.id,{...latest,kind:old.kind==='new'||x.kind==='new'?'new':old.kind==='changed'||x.kind==='changed'?'changed':'repeat',at:earliest.at,before:earliest.before||old.before||x.before,queries,hits:queries.length});}else if(field==='runs'&&((x.items||[]).length>(old.items||[]).length||x.endedAt>old.endedAt))map.set(x.id,structuredClone(x));}out[field]=[...map.values()];}
+ for(const field of ['observations','reviews','runs','checks','legacyRuns']){const map=new Map(out[field].map(x=>[x.id,x]));for(const x of incoming[field]||[]){if(!x?.id)continue;const old=map.get(x.id);if(!old)map.set(x.id,structuredClone(x));else if(field==='observations'){const latest=(x.lastAt||x.at)>(old.lastAt||old.at)?x:old;const earliest=x.at<old.at?x:old;const queries=[...new Map([...(old.queries||[]),...(x.queries||[])].map(q=>[q.runId+'|'+q.query,q])).values()];map.set(x.id,{...latest,kind:old.kind==='new'||x.kind==='new'?'new':old.kind==='changed'||x.kind==='changed'?'changed':'repeat',at:earliest.at,before:earliest.before||old.before||x.before,...(old.contentChanges||x.contentChanges?{contentChanges:mergeContentChanges(old.contentChanges,x.contentChanges)}:{}),queries,hits:queries.length});}else if(field==='runs'&&((x.items||[]).length>(old.items||[]).length||x.endedAt>old.endedAt))map.set(x.id,structuredClone(x));}out[field]=[...map.values()];}
  const firstNew=new Map();for(const e of out.observations.filter(e=>e.kind==='new')){if(!firstNew.has(e.key)||e.day<firstNew.get(e.key))firstNew.set(e.key,e.day)}for(const e of out.observations){if(e.kind==='new'&&e.day>firstNew.get(e.key))e.kind=e.before?'changed':'repeat';}
  for(const [key,value] of Object.entries(incoming.known||{})){if(!out.known[key]||value.at>out.known[key].at)out.known[key]=structuredClone(value);}
  out.updateChain=[...new Map([...(incoming.updateChain||[]),...(out.updateChain||[])].map(e=>[e.id,e])).values()];

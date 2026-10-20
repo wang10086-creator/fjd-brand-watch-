@@ -6,14 +6,14 @@ import {dailyView,dailyHTML} from '../daily-view.js';
 import {priorityCounts,priorityCards,priorityDetail} from '../priority-view.js';
 import {adjustPriority} from '../priority.js';
 
-const statLinks=html=>[...html.matchAll(/href="[^"]*scope=(new|changed)&priority=(\w+)"[^>]*><span>[^<]*<\/span><strong>(\d+)<\/strong>/g)].map(([,scope,level,n])=>({scope,level,n:Number(n)}));
-test('compact daily counts partition new and changed cohorts separately, preserving snapshots and exports',()=>{
+const statLinks=html=>[...html.matchAll(/href="[^"]*scope=(delta)&priority=(\w+)"[^>]*><span>[^<]*<\/span><strong>(\d+)<\/strong>/g)].map(([,scope,level,n])=>({scope,level,n:Number(n)}));
+test('compact daily counts unite new and changed with independent type links, preserving snapshots and exports',()=>{
  const state=priorityLayoutFixture(),m=state.monitor,d=reportModel(m,state.day),saved=finalizeReport(m,state.day),original=JSON.stringify(m);
  assert.equal(d.fresh.length,3);assert.equal(d.changed.length,2);assert.equal(d.repeat.length,1);
- const expected=[{scope:'new',level:'high',n:1},{scope:'new',level:'medium',n:1},{scope:'new',level:'low',n:0},{scope:'new',level:'pending',n:1},{scope:'changed',level:'high',n:1},{scope:'changed',level:'medium',n:0},{scope:'changed',level:'low',n:1},{scope:'changed',level:'pending',n:0}];
- for(const html of [dailyView(m,state.day,{state}),dailyHTML(m,state.day,{state,publication:saved})]){assert.deepEqual(statLinks(html),expected);assert.ok(!html.includes('class="panel priority-panel"'));assert.ok(!html.includes('class="priority-card '));assert.match(html,/新发现线索/);assert.match(html,/本日新增 · 当前优先级/);assert.match(html,/本日变化 · 当前优先级/)}
+ const expected=[{scope:'delta',level:'high',n:2},{scope:'delta',level:'medium',n:1},{scope:'delta',level:'low',n:1},{scope:'delta',level:'pending',n:1}];
+ for(const html of [dailyView(m,state.day,{state}),dailyHTML(m,state.day,{state,publication:saved})]){assert.deepEqual(statLinks(html),expected);assert.ok(!html.includes('class="panel priority-panel"'));assert.ok(!html.includes('class="priority-card '));assert.match(html,/新增与变化线索/);assert.match(html,/scope=new" data-delta-part="new">新发现线索 <b>3/);assert.match(html,/scope=changed" data-delta-part="changed">旧线索新变化 <b>2/);assert.match(html,/当前优先级分布/);assert.ok(!html.includes('metric-new'));assert.ok(!html.includes('metric-changed'))}
  assert.equal(JSON.stringify(m),original);assert.equal(reportPublication(m,state.day).dirty,false);
- adjustPriority(state.rows[0],'low','Independent current display','2026-10-20T06:00:00Z');const current=statLinks(dailyView(m,state.day,{state}));assert.equal(current.find(x=>x.scope==='new'&&x.level==='low').n,1);assert.equal(current.filter(x=>x.scope==='changed').reduce((n,x)=>n+x.n,0),2);assert.equal(JSON.stringify(m),original);
+ adjustPriority(state.rows[0],'low','Independent current display','2026-10-20T06:00:00Z');const current=statLinks(dailyView(m,state.day,{state}));assert.equal(current.find(x=>x.scope==='delta'&&x.level==='low').n,2);assert.equal(current.filter(x=>x.scope==='delta').reduce((n,x)=>n+x.n,0),5);assert.equal(JSON.stringify(m),original);
 });
 test('compact priority controls omit an all-grade card, conditionally show pending and retain clear/toggle accessibility',()=>{
  const {rows}=priorityLayoutFixture();assert.equal(priorityCards,priorityCounts);
@@ -27,6 +27,6 @@ test('detail keeps matching automatic/current grades concise, separate adjustmen
 });
 test('rendering every retained report leaves production monitor records and immutable events byte-identical',()=>{
  const f=JSON.parse(gunzipSync(fs.readFileSync(new URL('../public-snapshot.json.gz',import.meta.url)))).feed,original=JSON.stringify(f);
- for(const day of new Set(f.monitor.observations.map(e=>e.day))){const d=reportModel(f.monitor,day);if(d.unknown)continue;const html=dailyView(f.monitor,day,{state:f});for(const [scope,cohort] of [['new',d.fresh],['changed',d.changed]])assert.equal(statLinks(html).filter(x=>x.scope===scope).reduce((n,x)=>n+x.n,0),cohort.length)}
+ for(const day of new Set(f.monitor.observations.map(e=>e.day))){const d=reportModel(f.monitor,day);if(d.unknown)continue;const html=dailyView(f.monitor,day,{state:f});assert.equal(statLinks(html).reduce((n,x)=>n+x.n,0),new Set([...d.fresh,...d.changed].map(e=>e.key)).size)}
  assert.equal(JSON.stringify(f),original);
 });
