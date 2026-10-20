@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-20",
+  "code": "a1bb6dc3",
+  "tests": {"nodePassed": 222, "pythonPassed": 56, "skipped": 0, "browserSuitesPassed": 12},
+  "live": {"desktop": true, "mobileWidth": 390, "date": "2026-10-20", "delta": 7, "new": 7, "changed": 0, "priorities": {"high": 5, "medium": 2, "low": 0, "pending": 0}, "historicalChangesInspected": 3, "scriptErrors": []},
+  "preserved": {"leads": 215, "observations": 192, "immutableUpdates": 73, "existingReviews": 5, "publicSnapshotByteIdentical": true, "archiveIndexByteIdentical": true},
+  "github": {"ci": 39432087186, "pages": 39432087502},
+  "externalWrites": {"notion": "not invoked", "feishu": "not invoked", "humanReview": "not submitted", "priority": "not submitted"},
+  "contentEvidenceLimit": "Historical search-index differences do not establish that the original website was modified. Missing snapshots remain missing."
+}
