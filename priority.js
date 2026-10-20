@@ -1,6 +1,6 @@
-import {priorityBrands} from './priority-brands.js?v=20261020-priority';
+import {priorityBrands} from './priority-brands.js?v=20261020-priority-r2';
 
-export const PRIORITY_VERSION='V2.0-20261020';
+export const PRIORITY_VERSION='V2.1-20261020';
 export const priorityLabels={high:'高优先级',medium:'中优先级',low:'低优先级',pending:'待评估'};
 export const priorityDisclaimer='优先级仅用于安排 IP 对接人的线索复核顺序，不代表是否构成侵权，也不决定线索的后续处理结论。';
 export const priorityRules=[
@@ -51,7 +51,9 @@ export function evaluatePriority(row,context={},at=new Date().toISOString()){
  const matches=[];
  const add=(id,p,reason)=>{if(matches.some(m=>m.id===id))return;const rule=priorityRules.find(r=>r.id===id),positions=names.map(n=>p.text.search(nameRE(n))).filter(n=>n>=0),start=Math.max(0,(positions.length?Math.min(...positions):0)-80);matches.push({id,name:rule.name,level:rule.level,evidence:[{source:p.source,text:p.text.slice(start,start+480)}],reason})};
  const sentences=parts.flatMap(p=>p.text.split(/(?<=[。！？!?;；])\s*|\n+|(?<=\.)\s+(?=[A-Z])/u).filter(Boolean).map(text=>({source:p.source,text}))),brandSentences=sentences.filter(p=>hasBrand(p.text));
- const compatibility=t=>{const masked=names.reduce((text,n)=>text.replace(nameRE(n),'TARGET'),t),forTarget=/\bfor\s+TARGET\b/iu.test(masked),clear=/(?:compatible (?:with|for)|fits?|suitable for|适用于|適用於|兼容|相容|適配|适配).{0,40}TARGET|TARGET.{0,40}(?:compatibility|兼容|相容)/iu.test(masked);return (compatRE.test(t)&&(accessoryRE.test(t)||productRE.test(t)||clear)||forTarget&&accessoryRE.test(t))&&(!originalRE.test(t)||/\b(?:non[- ]genuine|not original)\b|非原装|非原裝/iu.test(t))};
+ const maskedTarget=t=>names.reduce((text,n)=>text.replace(nameRE(n),'TARGET'),t);
+ const targetOriginal=t=>/(?:\b(?:genuine|original|OEM)\s+TARGET\b|\bTARGET\s+(?:genuine|original|OEM)\b|原装\s*TARGET|原裝\s*TARGET|TARGET\s*(?:原装|原裝|純正))/iu.test(maskedTarget(t))&&!/非原装|非原裝|non[- ]genuine|not original/iu.test(t);
+ const compatibility=t=>{const masked=maskedTarget(t),forTarget=/\bfor\s+TARGET\b/iu.test(masked),clear=/(?:compatible (?:with|for|avec|con)|compat[ií]vel (?:com|con)|kompatibel mit|fits?|suitable for|pasuje do|zamiennik|适用于|適用於|兼容|相容|適配|适配).{0,40}TARGET|TARGET.{0,40}(?:compatibility|兼容|相容|互換)/iu.test(masked);return (clear||compatRE.test(t)&&(accessoryRE.test(t)||productRE.test(t))||forTarget&&accessoryRE.test(t))&&!targetOriginal(t)};
  const primary=parts.find(p=>p.source==='title'),primaryCompat=!!primary&&hasBrand(primary.text)&&compatibility(primary.text);
  let host='';try{host=new URL(row.url).hostname.replace(/^www\./,'')}catch{}
  const domainTargets=(context.brands||priorityBrands).filter(b=>(b.aliases||[]).some(a=>{const n=fold(a),d=fold(host.split('.').slice(0,-1).join(''));return n.length>=5&&(d===n||d===n.replace(/s$/,''))||n==='fjd'&&/^fjd(?:[-.]|$)/i.test(host)}));
@@ -63,7 +65,7 @@ export function evaluatePriority(row,context={},at=new Date().toISOString()){
   const salesAt=t.search(salesRE),brandSale=salesAt>=0&&brandPositions.some(i=>Math.abs(i-salesAt)<=180);
   const subjectGoods=(p.source==='title'||hasModel(t)||productRE.test(t)||originalRE.test(t)||/\b(?:products?|equipment|parts?)\b|产品|產品|设备|設備/iu.test(t));
   const referencesOtherSales=/\b(?:does not sell|not for sale|no longer sells?|used to sell|other (?:shops?|stores?) sell)\b|不销售|不銷售|不出售|已停止销售|已停止銷售|其他商店.*销售/iu.test(t);
-  if(brandSale&&subjectGoods&&!compat&&!(primaryCompat&&p.source!=='title'&&!originalRE.test(t))&&!referencesOtherSales&&!quotedClaimRE.test(t)&&!(contentRE.test(t)&&!/(?:add to (?:cart|basket)|request (?:a )?quote|shop now|立即购买|立即購買|询价|詢價)/iu.test(t)))add('H2',p,'页面指向目标品牌商品，并存在销售、报价或转卖信息。');
+  if(brandSale&&subjectGoods&&!compat&&!(primaryCompat&&p.source!=='title'&&!targetOriginal(t))&&!referencesOtherSales&&!quotedClaimRE.test(t)&&!(contentRE.test(t)&&!/(?:add to (?:cart|basket)|request (?:a )?quote|shop now|立即购买|立即購買|询价|詢價)/iu.test(t)))add('H2',p,'页面指向目标品牌商品，并存在销售、报价或转卖信息。');
   const identityText=names.reduce((text,name)=>text.replace(nameRE(name),'TARGET'),t),identity=identityRE.test(t)||/\b(?:official|authori[sz]ed|exclusive|regional)\s+TARGET\s+(?:store|shop|dealer|distributor|agent|service)\b/iu.test(identityText);
   if(identity&&!quotedClaimRE.test(t)&&(p.source==='title'||selfRE.test(t)||new RegExp(names.map(n=>escapeRE(n)).join('|')+'\\s*(?:官方店|授权经销商|授權經銷商|区域代理|區域代理)','iu').test(t)))add('H3',p,'当前经营者以目标品牌官方或渠道服务身份作出声明。');
   if(cooperationRE.test(t)&&!/(?:not (?:a )?partner|no partnership|未.*合作|没有.*合作|沒有.*合作)/iu.test(t))add('M2',p,'页面明确描述与目标品牌的合作、联合开发或集成关系。');
@@ -73,11 +75,12 @@ export function evaluatePriority(row,context={},at=new Date().toISOString()){
  // Model-only compatibility is useful when the equipment context disambiguates a short model.
  for(const p of sentences)if(!hasBrand(p.text)&&hasModel(p.text)&&productRE.test(p.text)&&compatRE.test(p.text)&&accessoryRE.test(p.text))add('M1',p,'页面以设备类型及型号明确指向第三方适配配件。');
  // A concrete marketplace offer is itself a sales entry; search/category URLs are not.
- let listing=false;try{const u=new URL(row.url),h=u.hostname,path=u.pathname;listing=/amazon\./i.test(h)&&/\/(?:dp|gp\/product)\/[A-Z0-9]+/i.test(path)||/ebay\./i.test(h)&&/\/itm\//i.test(path)||/olx\./i.test(h)&&/\/(?:d\/)?oferta\//i.test(path)||/(?:aliexpress|alibaba|1688)\.com$/i.test(h)&&/\/(?:item|offer|product-detail)\//i.test(path)||/^(?:item\.(?:m\.)?jd\.com|item\.taobao\.com|detail\.tmall\.com)$/i.test(h)&&(/\d+\.html$/.test(path)||u.searchParams.has('id'));}catch{}
+ let listing=false;try{const u=new URL(row.url),h=u.hostname,path=u.pathname;listing=/(?:^|\.)amazon\.(?:com(?:\.[a-z]{2})?|co\.[a-z]{2}|[a-z]{2,3})$/i.test(h)&&/\/(?:dp|gp\/product)\/[A-Z0-9]+/i.test(path)||/(?:^|\.)ebay\.(?:com(?:\.[a-z]{2})?|co\.[a-z]{2}|[a-z]{2,3})$/i.test(h)&&/\/itm\//i.test(path)||/(?:^|\.)olx\.(?:com(?:\.[a-z]{2})?|co\.[a-z]{2}|[a-z]{2,3})$/i.test(h)&&/\/(?:d\/)?oferta\//i.test(path)||/(?:aliexpress|alibaba|1688)\.com$/i.test(h)&&/\/(?:item|offer|product-detail)\//i.test(path)||/(?:^|\.)(?:mercadolibre|mercadolivre)\.(?:com(?:\.[a-z]{2})?|[a-z]{2})$/i.test(h)&&/(?:^\/ML[A-Z]-?\d+|\/(?:up|p)\/ML[A-Z][A-Z0-9-]*\d+)/i.test(path)||/(?:^|\.)(?:lazada|shopee)\./i.test(h)&&/(?:\/products?\/|\/i\d|[.-]i\.\d+\.\d+)/i.test(path)||/(?:^|\.)smartstore\.naver\.com$/i.test(h)&&/\/products\/\d+/i.test(path)||/^(?:item\.(?:m\.)?jd\.com|item\.taobao\.com|detail\.tmall\.com)$/i.test(h)&&(/\d+\.html$/.test(path)||u.searchParams.has('id'));}catch{}
  if(listing&&primary&&hasBrand(primary.text)&&!primaryCompat&&!contentRE.test(primary.text)&&!quotedClaimRE.test(primary.text))add('H2',{source:'listing URL + title',text:row.url+' ｜ '+primary.text},'标题指向目标品牌商品，对应具体电商商品或转售刊登入口。');
  if(imageTarget){const sale=sentences.find(p=>salesRE.test(p.text)&&!compatRE.test(p.text));if(sale&&!primaryCompat)add('H2',{source:'image + '+sale.source,text:'已匹配品牌参照图；'+sale.text},'已有品牌图样比对证据，页面同时提供相关商品的销售或报价信息。')}
  const titleSubject=primary&&(hasBrand(primary.text)||hasModel(primary.text)&&productRE.test(primary.text));
- const material=titleSubject&&sentences.find(p=>contentRE.test(p.text));
+ const contentLink=/\/(?:videos?|posts?|news|articles?|blog|manuals?|downloads?)\//iu.test(row.url||'');
+ const material=titleSubject&&(sentences.find(p=>contentRE.test(p.text))||(contentLink?{source:'content URL + title',text:row.url+' ｜ '+primary.text}:null));
  if(material)add('M3',material,'页面以目标品牌或产品为主体发布资料、资讯或测评内容。');
  const unrelated=sentences.find(p=>unrelatedRE.test(p.text)&&(/\b(?:FJD|AT2|P1|P2)\b/iu.test(p.text)||names.some(n=>fold(n).length<=3&&nameRE(n).test(p.text))));
  if(unrelated&&!names.some(n=>fold(n).length>3))add('L1',unrelated,'命中的缩写或型号在原文中明确指向其他对象或行业。');

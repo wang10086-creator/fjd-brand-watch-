@@ -1,5 +1,5 @@
-import {priorityCohort,priorityOf,priorityLabels} from './priority.js?v=20261020-priority';
-import {priorityCards,priorityBadge,priorityCSS} from './priority-view.js?v=20261020-priority';
+import {priorityCohort,priorityOf,priorityLabels} from './priority.js?v=20261020-priority-r2';
+import {priorityCards,priorityBadge,priorityCSS} from './priority-view.js?v=20261020-priority-r2';
 import {evidenceUrl} from './lead-access.js?v=20261020-review';
 import {outcomes,stages,workflowLabel,workflowDetail} from './review.js?v=20261020-review';
 import {executiveReport,executiveCSS,compactReportCSS} from './report-executive.js?v=20261020-review';

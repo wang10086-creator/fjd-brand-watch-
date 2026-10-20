@@ -1,4 +1,4 @@
-import {refreshPriority,mergePriority,priorityOf} from './priority.js?v=20261020-priority';
+import {refreshPriority,mergePriority,priorityOf} from './priority.js?v=20261020-priority-r2';
 import {mergeReviewWorkflows,manualReviewFields} from './review.js?v=20261020-review';
 import {worldMarkets} from './world-markets.js?v=20261020-review';
 import {globalPlatforms} from './global-platforms.js?v=20261020-review';

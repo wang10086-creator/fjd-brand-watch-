@@ -426,3 +426,11 @@ These inform layout and workflow only; no proprietary implementation is copied.
   applies the independent server handler and verifies readback acknowledgements.
 - A real pre-release vault ciphertext backup is saved (2,440,001 bytes) with
   restrictive permissions; no credentials or private notes are printed.
+- Production source verification identified Portuguese explicit compatibility and
+  Mercado Livre /up/ product paths that were left pending despite adequate
+  evidence. V2.1 implements these relationships and known content/video routes,
+  with actual-structure regression fixtures. No auxiliary English part name is
+  required for an explicit compatible-with-target statement. Automatic history
+  preserves the prior V2.0 evaluation rather than overwriting its evidence.
+- Large adjustment batches reuse encrypted upload pointers; all pending IDs stay
+  visible even when a batch is bounded. Final gates: 184 Node / 41 Python pass.

@@ -9,7 +9,7 @@ from brief import brief_card
 class PriorityReportTests(unittest.TestCase):
     def event(self):
         event=copy.deepcopy(EVENT)
-        event['priorityCurrent']={'version':'V2.0-20261020','total':3,'counts':{'high':1,'medium':1,'low':0,'pending':1},'disclaimer':'优先级仅安排复核顺序，不代表侵权认定。'}
+        event['priorityCurrent']={'version':'V2.1-20261020','total':3,'counts':{'high':1,'medium':1,'low':0,'pending':1},'disclaimer':'优先级仅安排复核顺序，不代表侵权认定。'}
         return event
     def test_priority_section_is_an_overlay_and_never_rewrites_original_metrics(self):
         e=self.event();old=copy.deepcopy(e['cumulative']);text=' '.join(s[2] for s in sections(e))
