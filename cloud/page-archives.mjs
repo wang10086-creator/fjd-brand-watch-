@@ -29,6 +29,7 @@ export function applyArchiveBatch(feed,prior,batch,results,{now=new Date().toISO
   const page={version:1,url:task.url,finalUrl:r.finalUrl,title:String(r.title||'').slice(0,300),capturedAt:r.at||now,sourceHash:r.sourceHash,text:r.text.slice(0,30000),textTruncated:!!r.textTruncated,linksTruncated:!!r.linksTruncated,links,images:(r.images||[]).filter(i=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(i.data||'')&&i.data.length<85000).slice(0,2).map(i=>({url:i.url,data:i.data}))};
   meta.path=path;meta.contentAt=page.capturedAt;meta.title=page.title;meta.linksCount=links.length;
   changes.push({path,bytes:gzipSync(Buffer.from(JSON.stringify(page))),bytesInput:true});
+  index.pages[key]=meta; // count the current root in the per-site expansion cap
   if(task.depth<2)for(const l of links){const child=archiveKey(l.url);if(!child||index.pages[child]||roots.has(child)||child===key)continue;
    const hostCount=Object.values(index.pages).filter(x=>sameArchiveSite(x.url,task.url)).length;
    if(hostCount>=40||Object.keys(index.pages).length>=2000)break;
