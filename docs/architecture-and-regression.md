@@ -451,3 +451,28 @@ These inform layout and workflow only; no proprietary implementation is copied.
 - The existing regression workflow gains only workflow_dispatch so checks can
   be explicitly run after bot-authored snapshot commits; original push/PR
   triggers, all test commands and scheduled monitor workflows remain intact.
+
+## 2026-10-20 · Compact priority display and processing-first detail
+
+- Restore point: `backup/priority-layout-before-20261020` at `07967bbd`;
+  read-only public snapshot retained in `/workspace/backups/fjd-priority-layout`.
+- Scope: `priority-view.js`, `daily-view.js`, `app.js`, entry cache versions and
+  focused UI tests. No priority rules, workflow transitions, storage schema,
+  cloud transport, archive generators or immutable report events are modified.
+- Daily metrics embed compact current-priority counts inside the existing new
+  and changed metric cards separately. Counts and links use exactly that metric's
+  cohort (`new` or `changed`), never the combined delta denominator. Metric links
+  remain accessible without nesting priority links inside another anchor.
+- Inbox keeps the four stage cards first, then a compact independent priority
+  row and shared collapsed V2 criteria within the same progress panel. Stage
+  counts omit their own stage filter; priority counts omit their own priority
+  filter and retain the current stage/brand/platform/date/search filters. Each
+  row documents its own denominator. Re-clicking a selected priority clears it.
+- Detail keeps independent forms and existing save handlers; only reorders the
+  processing card before priority and shares its neutral card styling. Narrow
+  layouts show the action column first while retaining all source/image evidence.
+- Regression scope: new/changed metric partitions and dated links, no all-priority
+  card, same-grade toggle, combined filters, nine shared criteria, form order and
+  consistent styles, separate saves preserving unsent drafts, storage rollback,
+  historical events/snapshots unchanged, desktop/mobile/HTML export, existing
+  Node/Python and workflow/sync/navigation/public-read browser checks.
