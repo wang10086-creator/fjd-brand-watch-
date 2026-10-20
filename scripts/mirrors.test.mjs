@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-import {archiveKey} from '../archive-model.js';import {mirrorDocument,mirrorEligible,mirrorPath} from '../mirror-model.js';import {applyArchiveBatch,applyMirrors,archiveBatch,renderArchivePDFs} from '../cloud/page-archives.mjs';import {verifiedMirror,verifiedPDF} from '../archive-data.js';
+import {canonical} from '../core.js';import {archiveKey} from '../archive-model.js';import {mirrorDocument,mirrorEligible,mirrorPath} from '../mirror-model.js';import {applyArchiveBatch,applyMirrors,archiveBatch,renderArchivePDFs} from '../cloud/page-archives.mjs';import {verifiedMirror,verifiedPDF} from '../archive-data.js';
 const at='2026-10-20T05:00:00Z',url='https://public.example/a',key=archiveKey(url),row={url,title:'FJDynamics AT2',snippet:'A real search excerpt for FJDynamics AT2 equipment for sale.',lastSeen:at,note:'PRIVATE',reviewWorkflow:{stage:'closed'}},feed={rows:[row]},task={url};
 function run(results=[],prior=null,savedPages={}){const a=applyArchiveBatch(feed,prior,[task],results,{now:at,savedPages});applyMirrors(feed,a.index,a.changes,results,{now:at,savedPages});return a}
 test('four honest levels produce independent HTML pages with source, content and strict CSP',()=>{
@@ -40,6 +40,12 @@ test('browser verifies actual key, type, body and digest; missing or mismatched 
  assert.equal(await verifiedMirror(record,'https://different.example/a',{fetcher:async()=>new Response(bytes)}),null);
  assert.equal(await verifiedMirror(record,url,{fetcher:async()=>new Response(null,{status:404})}),null);
  assert.equal(mirrorPath('https://evil.test/a.html'),'');assert.equal(mirrorPath('archives/mirrors/../../evil.html'),'');
+});
+test('mirror identity and existing lead navigation keep their distinct canonical rules without losing www or mobile JD aliases',()=>{
+ for(const url of ['https://www.mercadolivre.com.br/product/a?utm_campaign=x','https://item.m.jd.com/product/123.html','https://a.nongjitong.com/item/a']){
+  const r={...row,url},doc=mirrorDocument(r),match=doc.match(/href="([^"]+)"[^>]*>返回线索处理/);assert.ok(match);
+  const link=new URL(match[1].replaceAll('&amp;','&'),'https://monitor.example/archives/mirrors/a.html'),key=new URLSearchParams(link.hash.split('?')[1]).get('lead');assert.equal(key,canonical(url));assert.ok(doc.includes('name="fjd-mirror-key" content="'+archiveKey(url)+'"'));
+ }
 });
 test('retired PDF entry points never execute tasks and neither cloud nor UI references PDF renderer',async()=>{
  assert.deepEqual(await renderArchivePDFs([{text:'Public body '.repeat(100)}]),[]);assert.equal(await verifiedPDF({pdf:{path:'legacy'}}),null);
