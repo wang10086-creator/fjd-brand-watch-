@@ -15,7 +15,7 @@
       "skipped": 0
     },
     "python": {
-      "passed": 78,
+      "passed": 79,
       "failed": 0,
       "skipped": 0
     },
@@ -51,7 +51,29 @@
     "snapshotUnmodifiedBeforeRelease": true,
     "archiveIndexUnmodified": true
   },
-  "productionVerification": null,
+  "productionVerification": {
+    "codeCommit": "51bfa717",
+    "ciRunId": 39454331792,
+    "pagesRunId": 39454330642,
+    "imageRunId": 39454614978,
+    "result": "success",
+    "ruleVersion": "dual-images-2.1",
+    "rows": 215,
+    "rowsWithCollectedEvidence": 21,
+    "imagesRetained": 141,
+    "latestRuleRows": 10,
+    "trademarkConfirmed": 0,
+    "productConfirmed": 0,
+    "notFoundInComparedImagesRows": 14,
+    "partialRows": 7,
+    "firstTimeBacklogRows": 194,
+    "latestRuleBacklogRows": 205,
+    "monitorUnchanged": true,
+    "receiptsUnchanged": true,
+    "allOriginalPublicRowFieldsUnchanged": true,
+    "externalDeliveryWrites": false,
+    "liveDesktopAndMobile": "passed; two fresh browser contexts; real official material hash checks and temporary independent dual exact-file self-check; no production row writes"
+  },
   "externalDeliveryWrites": false,
   "initialCloudAttempt": {
     "runId": 39449552723,

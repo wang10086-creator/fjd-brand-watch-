@@ -166,5 +166,19 @@ class DualImages(unittest.TestCase):
         urls=page_candidates(text,'https://example.com/product')
         self.assertEqual(urls[:2],['https://example.com/hero.jpg','https://example.com/side.jpg']);self.assertFalse(any('bad.example' in u for u in urls))
 
+    def test_repeated_first_image_failure_cannot_starve_a_later_readable_picture(self):
+        class Transport:
+            def get(s,url,*args,**kwargs):
+                if url.endswith('/page'):return b'<img src="/blocked.jpg"><img src="/good.png">','text/html',url
+                if url.endswith('/blocked.jpg'):raise PermissionError('HTTP 403')
+                return self.raw,'image/png',url
+        versions={'trademark':'t','product':'p'}
+        with patch('dual_images.time.monotonic',side_effect=[0,20]):
+            first=collect({'url':'https://example.com/page'},self.libraries,versions,Transport(),10)
+        self.assertEqual(first['imageEvidence']['candidateCursor'],1);self.assertEqual(first['imageEvidence']['images'],[])
+        with patch('dual_images.time.monotonic',side_effect=[0,20]):
+            second=collect(first,self.libraries,versions,Transport(),10)
+        self.assertEqual(second['productImageMatch']['status'],'confirmed');self.assertEqual(len(second['imageEvidence']['images']),1)
+
 
 if __name__=='__main__':unittest.main()

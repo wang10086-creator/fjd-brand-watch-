@@ -125,8 +125,12 @@ def collect(row,libraries,versions,transport,deadline):
         else:raise ValueError('不是可解析的公开网页')
     except Exception as e:page_error=failure(e)
     unique=list(dict.fromkeys(candidates))[:8];seen=set();complete=True
-    for url in unique:
+    cursor=row.get('imageEvidence',{}).get('candidateCursor',0)
+    cursor=cursor%len(unique) if unique and isinstance(cursor,int) else 0
+    ordered=unique[cursor:]+unique[:cursor];attempted=0
+    for url in ordered:
         if time.monotonic()>deadline:complete=False;break
+        attempted+=1
         try:
             raw,kind,final=transport.get(url,3_500_000)
             if not kind.startswith('image/'):raise ValueError('不是图片')
@@ -149,7 +153,7 @@ def collect(row,libraries,versions,transport,deadline):
         found=matches[category];confirmed=any(not m.get('suspected') for m in found)
         status='confirmed' if confirmed else 'no_reference' if not libraries[category] else 'suspected' if found else 'pending' if not complete or (images and (failures or page_error)) else 'unavailable' if not images and (failures or page_error) else 'no_images' if not images else 'not_found'
         result[key]={'version':2,'algorithmVersion':VERSION,'at':at,'status':status,'checkedImages':len(images),'failedImages':len(failures),'referenceCount':len(libraries[category]),'libraryVersion':versions.get(category,'empty'),'complete':complete and not failures,'matches':found,'error':page_error}
-    result['imageEvidence']={'version':2,'at':at,'complete':complete and not failures and not page_error,'libraryVersion':versions,'images':images,'failures':failures,'pageError':page_error,'candidateCount':len(dict.fromkeys(candidates)),'imagesTruncated':len(dict.fromkeys(candidates))>8}
+    result['imageEvidence']={'version':2,'at':at,'complete':complete and not failures and not page_error,'libraryVersion':versions,'images':images,'failures':failures,'pageError':page_error,'candidateCount':len(dict.fromkeys(candidates)),'imagesTruncated':len(dict.fromkeys(candidates))>8,'candidateCursor':(cursor+attempted)%len(unique) if unique else 0}
     return result
 
 

@@ -1,5 +1,5 @@
-import {imageMatchBadges,imageMatchEvidence,imageMatchCSS} from './image-match-view.js?v=20261020-images-r2';
-import {matchesImageFilter,queueImageCheck} from './image-evidence.js?v=20261020-images-r2';
+import {imageMatchBadges,imageMatchEvidence,imageMatchCSS} from './image-match-view.js?v=20261020-images-r3';
+import {matchesImageFilter,queueImageCheck} from './image-evidence.js?v=20261020-images-r3';
 import {changeBadge,pageChangesView,bindPageChanges,changeCSS} from './change-view.js?v=20261020-changes';
 import {bindMirrorLinks} from './mirror-local.js?v=20261020-mirrors';
 import {mirrorRoute} from './mirror-model.js?v=20261020-mirrors';
@@ -11,7 +11,7 @@ import {workflowForm,updateWorkflowForm} from './review-view.js?v=20261020-proce
 import {archiveUrl} from './archive-model.js?v=20261020-mirrors';
 import {matchesLeadText} from './lead-search.js?v=20261020-review';
 import {readLocalSnapshot} from './cloud/local-snapshot.js?v=20261020-review';
-import {applyPublicFeed} from './cloud/public-feed.js?v=20261020-images-r2';
+import {applyPublicFeed} from './cloud/public-feed.js?v=20261020-images-r3';
 import {enrichBrowserPictures,visualEvidence} from './visual-browser.js?v=20261020-images-r2';
 import {configurationSections,foldSection} from './config-view.js?v=20261020-review';
 import {aliasTerritories,platformChoices} from './territory.js?v=20261020-review';
@@ -27,9 +27,9 @@ const reportStyle=document.createElement('style');reportStyle.textContent=execut
 import {cloudProgressView} from './cloud/progress-view.js?v=20261020-review';
 import {upgradeGlobalScope} from './monitor-policy.js?v=20261020-review';
 import {notionPublicUrl} from './archive-config.js?v=20261020-review';
-import {refreshCloudSnapshot,pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261020-images-r2';
+import {refreshCloudSnapshot,pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,sendReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261020-images-r3';
 import {finalizeReport,reportPublication} from './report-model.js?v=20261020-review';
-import {chainView,eventChart} from './feishu-client.js?v=20261020-images-r2';
+import {chainView,eventChart} from './feishu-client.js?v=20261020-images-r3';
 import {appendRun,appendReview,migrateChain,chainFor,sitePlans,reviewKeys} from './report-chain.js?v=20261020-changes';
 import {searchPlan,pacedWait} from './search-engine.js?v=20261020-review';
 import {outcomes,outcomeOf,reviewValues,stages,workflowOf,stageOf,workflowLabel,workflowDetail,handlingNodes,closureTypes,closureReasons,disposalMeasures} from './review.js?v=20261020-process';
@@ -38,7 +38,7 @@ import {loadState,persist,flush} from './storage.js?v=20261020-review';
 import {brandCatalogView,operationsView} from './feature-views.js?v=20261020-review';
 import {dayOf,shiftDay,initMonitor,observe,recordReview,recordRun,recordCheck,dayReport,mergeMonitors,evidencePackage} from './monitor.js?v=20261020-changes';
 import {dailyView,dailyHTML,deltaCSS} from './daily-view.js?v=20261020-changes';
-import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js?v=20261020-images-r2';
+import {marketData,platforms,languageNames,defaults,normalizeConfig,buildPlans,suitablePlatforms,supportedMarkets,risk,counts,normalizeResults,mergeRows,mergeBackup,enrichLead,canonical,safeUrl,normalizeSchedule,nextScheduleAt} from './model.js?v=20261020-images-r3';
 const $=s=>document.querySelector(s), esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const link=(u,t)=>safeUrl(u)?`<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener noreferrer">${esc(t)} ↗</a>`:'';
 const pname=id=>platforms.find(p=>p.id===id)?.name||id||'独立网页', cname=id=>marketData[id]?.name||id||'未核实';

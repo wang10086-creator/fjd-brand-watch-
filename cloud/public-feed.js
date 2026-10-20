@@ -1,9 +1,9 @@
-import {imageCategories,publicImageResult,publicImageEvidence,mergeImageResult,mergeImageEvidence} from '../image-evidence.js?v=20261020-images-r2';
+import {imageCategories,publicImageResult,publicImageEvidence,mergeImageResult,mergeImageEvidence} from '../image-evidence.js?v=20261020-images-r3';
 import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261020-priority-r3';
 import {publicWorkflow} from '../review.js?v=20261020-review';
 // Only fields already suitable for the public Notion report are published here.
 import {mergeMonitors} from '../monitor.js?v=20261020-changes';
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-images-r2';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-images-r3';
 import {applyRecordPolicy} from '../record-policy.js?v=20261020-review';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));

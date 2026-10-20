@@ -564,3 +564,9 @@ versions and feature caches advance. Flat-background polarity normalization does
 not invert arbitrary photos. A verified light crop retains the same inlier/SSIM
 thresholds and allows the expected slightly larger projected frame. Added JSON-LD
 public image discovery, without script execution or authentication changes.
+
+Final image-resume guard: a per-lead candidate cursor rotates the bounded eight-image
+batch when time runs out, so repeated early failures cannot starve a later readable
+image. Stored previews are exposed in a compact optional gallery even without a
+confirmed match. Collection time and comparison time are distinct. No handling
+form is replaced, and no processing/review events are created.

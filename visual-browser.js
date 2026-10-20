@@ -1,5 +1,5 @@
 import {comparePictures,visualLabels} from './visual-match.js?v=20261020-review';
-import {robotsAllowImages,imageCategories,imageEvidenceVersion,imageInputFingerprint,queueImageCheck,mergeImageResult,mergeImageEvidence} from './image-evidence.js?v=20261020-images-r2';
+import {robotsAllowImages,imageCategories,imageEvidenceVersion,imageInputFingerprint,queueImageCheck,mergeImageResult,mergeImageEvidence} from './image-evidence.js?v=20261020-images-r3';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let manifest,libraries;const cache=new Map();
 export function visualEvidence(row){const a=row.imageAnalysis;if(!a)return '';return `<details class="visual-legacy"><summary>历史轮廓比对记录 · 仅相似候选</summary><div class="notice visual-result"><b>${visualLabels[a.status]||'待核对图形记录'}</b><p class="helper">${Number(a.checkedImages)||0} 张来源图片已比对 · ${Number(a.referenceCount)||0} 张参照图${a.match?' · 轮廓相似分 '+(Number(a.match.score)||0):''} · ${esc(a.at?new Date(a.at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'')}</p><p class="helper">${esc(a.message||'32×32 轮廓仅供定位候选，不作为商标图或产品图确认匹配的充分条件。')}</p></div></details>`;}
