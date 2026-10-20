@@ -356,3 +356,34 @@ These inform layout and workflow only; no proprietary implementation is copied.
   for its seven daily cohort leads; Oct 19 keeps its historical labels. Original
   72 event payloads remain identical, with one legitimate scheduled addition.
   No production human review or extra group test message was submitted.
+
+## Review confirmation UI — 2026-10-20
+
+- Restore point: local branch `backup/review-ui-before-20261020`, commit
+  `1c1082b8`. No ledger, encrypted vault, saved report or archive file is edited.
+- Impact map: `review-view.js` renders the existing form and conditional fields;
+  `app.js` combines `reviewValues` with pageState/imageMatch/evidence/watch/note,
+  then calls recordReview/appendReview → persist/flush → existing sync. All
+  supplemental controls already participate in formal submission when their native
+  details section is collapsed. No new storage format or transport is needed.
+- Remove only the standalone facts button and its browser submitter override.
+  Keep review.js `facts` action, original fields, prior workflow events and old
+  review endpoints for historical/older-client compatibility. Four-stage rules,
+  completion confirmation and reopen remain unchanged.
+- Use 处理意见/处理依据/处理记录 and 确认处理 in the form, relevant validation
+  feedback, list/timeline and CSV headings; exported keys/data remain identical.
+  Only user-facing validation strings change in review.js, no validators/enums.
+- Regression additions cover all stages' single main confirmation, supplementary
+  values saved while collapsed, closed-case supplementation retaining original
+  closure basis, and historical standalone facts read/history/CSV preservation.
+  Formal tests still include impossible-storage rollback and a complete reopened
+  second round. Production checks are read-only; external writes are not needed
+  for this UI-only change.
+- Completed verification: 155 Node tests and 38 Python tests pass, no skipped
+  tests. Workflow, legacy facts, original retry controls and navigation browser
+  checks pass. Mobile 390px detail/list retain their existing layout without
+  horizontal overflow. Old event/review values are compared before and after
+  formal saves; no standalone facts control remains.
+- During test development, one assertion used an ambiguous info-grid selector
+  and a synthetic legacy row lacked an id. Both fixtures were corrected; no
+  production business behavior was changed to accommodate tests.

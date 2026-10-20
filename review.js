@@ -38,7 +38,7 @@ export function publicWorkflow(w){
  return {version:1,stage:w.stage,opinion:w.opinion,node:w.node||'',round:w.round,updatedAt:w.updatedAt||null,closure:close(w.closure),rounds:(w.rounds||[]).map(r=>({number:r.number,openedAt:r.openedAt||null,closedAt:r.closedAt||null,closure:close(r.closure),events:(r.events||[]).map(e=>Object.fromEntries(['id','at','action','fromStage','toStage','node','opinion','round'].filter(k=>e[k]!==undefined).map(k=>[k,e[k]])))}))};
 }
 function readClosure(form,type,note,at){
- if(!note)throw Error('结案必须填写核查依据或实际完成依据');
+ if(!note)throw Error('结案必须填写处理依据或实际完成依据');
  if(type==='excluded'){
   const reason=form.get('closureReason'),explanation=String(form.get('closureExplanation')||'').trim();
   if(!['authorized','normal','irrelevant','other'].includes(reason))throw Error('请选择排除侵权嫌疑的结案原因');
@@ -61,13 +61,13 @@ export function workflowValues(form,previous,at=new Date().toISOString()){
   if(!String(form.get('reopenReason')||'').trim())throw Error('请填写本次重新打开的原因');
   stage='initial';opinion='pending';node='';closure=null;
  }else if(action==='suspected'){
-  if(!['initial','ip'].includes(stage))throw Error('当前阶段不能执行该核查意见');
-  if(!note)throw Error('疑似侵权转交前，请填写具体核查依据');
+  if(!['initial','ip'].includes(stage))throw Error('当前阶段不能执行该处理意见');
+  if(!note)throw Error('疑似侵权转交前，请填写具体处理依据');
   if(stage==='initial'){stage='ip';node=''}else{stage='handling';node=form.get('handlingNode');if(!handlingNodes[node])throw Error('请选择后续处理节点')}
   opinion='suspected';
  }else if(action==='insufficient'){
   if(stage!=='initial')throw Error('信息不足仅适用于IP对接人初核阶段');
-  if(!note)throw Error('请记录待补充的信息及核查说明');opinion='insufficient';
+  if(!note)throw Error('请记录待补充的信息及处理说明');opinion='insufficient';
  }else if(action==='exclude'){
   if(!['initial','ip'].includes(stage))throw Error('当前阶段请通过结案操作记录排除判断');
   closure=readClosure(form,'excluded',note,at);stage='closed';opinion='exclude';
@@ -77,9 +77,9 @@ export function workflowValues(form,previous,at=new Date().toISOString()){
  }else if(action==='facts'){
   // Auxiliary observations never change an opinion, stage, node or closure.
  }else if(action==='update'){
-  if(stage!=='handling'&&stage!=='closed')throw Error('请选择当前阶段的核查意见');
+  if(stage!=='handling'&&stage!=='closed')throw Error('请选择当前阶段的处理意见');
   if(stage==='handling'){node=form.get('handlingNode');if(!handlingNodes[node])throw Error('请选择处理节点');if(node!==old.node&&!note)throw Error('调整处理节点时，请填写转交依据')}
- }else throw Error('请选择有效的核查意见或处理操作');
+ }else throw Error('请选择有效的处理意见');
  if(form.get('pageState')==='removed'&&!note)throw Error('记录页面已移除时，请填写查看时间及依据');
  const w=structuredClone(old);delete w.legacy;w.rounds||=[];
  if(!w.rounds.length)w.rounds.push({number:old.round,openedAt:null,...(old.stage==='closed'?{closedAt:old.closure?.at||null,closure:structuredClone(old.closure)}:{}),legacy:legacyBaseline(previous),events:[]});
