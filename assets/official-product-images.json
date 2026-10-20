@@ -1,0 +1,2190 @@
+{
+  "version": 1,
+  "references": [
+    {
+      "id": "product-5bd7ebf750bbe3f0e569cd0d",
+      "sha256": "5bd7ebf750bbe3f0e569cd0dd081d8a810ef42fb68934c4a4eaf76bafa50563a",
+      "pixelSha256": "d3408c0f93cf22989646895686a6873b05cc1bd4a09b017d70146d4b963be87e",
+      "width": 2000,
+      "height": 2000,
+      "format": "PNG",
+      "phash": "5c623399c93637cc",
+      "file": "assets/products/5bd7ebf750bbe3f0e569cd0d.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Go",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJDTrionV4eGo_2.png?v=1787624166&width=2000",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+          "pageTitle": "FJD Trion V4e Go FJD Trion V4e Go",
+          "pageSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJDTrionV4eGo_2.png?v=1787624166&width=2000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJDTrionV4eGo_2.png?v=1787624166&width=2000",
+          "alt": "Front view of a modular 3D LiDAR scanner with smartphone holder mount and spherical camera",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/5bd7ebf750bbe3f0e569cd0d-thumb.jpg"
+    },
+    {
+      "id": "product-72e5ace4cfcae77f63d24a3e",
+      "sha256": "72e5ace4cfcae77f63d24a3e34fe67a80fc4ad8fe029eb8eb66deb035a0047b8",
+      "pixelSha256": "8b3cda58b1cbb449f2532cabe4c9a3869a518dd78d84c7580d0c049f75e021c1",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "phash": "f2962da51cd9a934",
+      "file": "assets/products/72e5ace4cfcae77f63d24a3e.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Go",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_1.jpg?v=1788417005&width=2048",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+          "pageTitle": "FJD Trion V4e Go FJD Trion V4e Go",
+          "pageSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_1.jpg?v=1788417005&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_1.jpg?v=1788417005&width=2048",
+          "alt": "V4e Go handheld LiDAR scanner in use with a smartphone",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/72e5ace4cfcae77f63d24a3e-thumb.jpg"
+    },
+    {
+      "id": "product-60612e5fdce7a3ebd7fcc305",
+      "sha256": "60612e5fdce7a3ebd7fcc3055933e8322fbce71b4015a5812ff25ab947554097",
+      "pixelSha256": "29d5e109990a9cf71169b737e14bedd9fb783a57bbcd46ef3618cc1bf6d65c1b",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG",
+      "phash": "1307cec2e9ac8ef1",
+      "file": "assets/products/60612e5fdce7a3ebd7fcc305.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Go",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V4E_GO_2048X2048px_4.png?v=1788252931&width=2048",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+          "pageTitle": "FJD Trion V4e Go FJD Trion V4e Go",
+          "pageSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V4E_GO_2048X2048px_4.png?v=1788252931&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/V4E_GO_2048X2048px_4.png?v=1788252931&width=2048",
+          "alt": "Close-up of operator holding a portable SLAM 3D scanner during field surveying",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/60612e5fdce7a3ebd7fcc305-thumb.jpg"
+    },
+    {
+      "id": "product-9ba14ecab8f3e1554fd26d0a",
+      "sha256": "9ba14ecab8f3e1554fd26d0a87439555a9b93d4f64481f40070b9a91a2f4f893",
+      "pixelSha256": "f5d9239644dd4c8c2f7185fef81080a7cdebe1c5b4cde4478778ffaf30ba7bd0",
+      "width": 2048,
+      "height": 2048,
+      "format": "JPEG",
+      "phash": "f9f48543ab1a42a7",
+      "file": "assets/products/9ba14ecab8f3e1554fd26d0a.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Go",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_2.jpg?v=1788417006&width=2048",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
+          "pageTitle": "FJD Trion V4e Go FJD Trion V4e Go",
+          "pageSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_2.jpg?v=1788417006&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_2.jpg?v=1788417006&width=2048",
+          "alt": "User viewing real-time scan data on the  V4e Go Trion Scan App",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/9ba14ecab8f3e1554fd26d0a-thumb.jpg"
+    },
+    {
+      "id": "product-1afd6579c277d338f5f2867e",
+      "sha256": "1afd6579c277d338f5f2867eb5a43368585e1199eded0025819da5b0868a4be4",
+      "pixelSha256": "4a7daf8f3538207a9461375c66d9c06371371d09e4aec7f80dae0810acf1918f",
+      "width": 1254,
+      "height": 1254,
+      "format": "PNG",
+      "phash": "13a54f33f0c61733",
+      "file": "assets/products/1afd6579c277d338f5f2867e.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-c1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1.png?v=1787799961&width=1254",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-c1",
+          "pageTitle": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+          "pageSha256": "df5a70319a19fb6b18765879ad11dfeb2fb97a203ce383e7f2908118caf7d411",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1.png?v=1787799961&width=1254",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1.png?v=1787799961&width=1254",
+          "alt": "C1 handheld LiDAR scanner for indoor floor plan mapping",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/1afd6579c277d338f5f2867e-thumb.jpg"
+    },
+    {
+      "id": "product-18631619bc2ba55d08701ed2",
+      "sha256": "18631619bc2ba55d08701ed23b50f3bd5ac1afbc160c42909fe2e36a8d1b7d47",
+      "pixelSha256": "9902703238d88c127a91d23ed30bc19b232b391759bab141c7035a879d2d5b88",
+      "width": 1254,
+      "height": 1254,
+      "format": "PNG",
+      "phash": "33c36ccc33b336c8",
+      "file": "assets/products/18631619bc2ba55d08701ed2.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-c1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1__2.png?v=1787799961&width=1254",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-c1",
+          "pageTitle": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+          "pageSha256": "df5a70319a19fb6b18765879ad11dfeb2fb97a203ce383e7f2908118caf7d411",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1__2.png?v=1787799961&width=1254",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_C1__2.png?v=1787799961&width=1254",
+          "alt": "C1 indoor 3D scanner complete kit with smartphone mount",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/18631619bc2ba55d08701ed2-thumb.jpg"
+    },
+    {
+      "id": "product-d83bea6249c2fc961e5da160",
+      "sha256": "d83bea6249c2fc961e5da160e60017751f2470add241cc1d39c69a642aaaf36c",
+      "pixelSha256": "94e21fa24b82f4390cf46dba8500abad226723ca5777fdc12577133a626c81b6",
+      "width": 2000,
+      "height": 2000,
+      "format": "PNG",
+      "phash": "d6c939373342999c",
+      "file": "assets/products/d83bea6249c2fc961e5da160.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-c1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_1.png?v=1788224169&width=2000",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-c1",
+          "pageTitle": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+          "pageSha256": "df5a70319a19fb6b18765879ad11dfeb2fb97a203ce383e7f2908118caf7d411",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_1.png?v=1788224169&width=2000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_1.png?v=1788224169&width=2000",
+          "alt": "A hand-held gray laser scanner, shown with a smartphone mounted on top for display, facing forward.",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/d83bea6249c2fc961e5da160-thumb.jpg"
+    },
+    {
+      "id": "product-be823a03e427094a2ee8c027",
+      "sha256": "be823a03e427094a2ee8c027c5d80efec025925b5395b218338abdaf3b23fb29",
+      "pixelSha256": "5520c3b8ceb55d7d9c4077429f4de433d236063758d3156fab408577770f12d1",
+      "width": 2000,
+      "height": 2000,
+      "format": "PNG",
+      "phash": "7c6a339599c89336",
+      "file": "assets/products/be823a03e427094a2ee8c027.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-c1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_4.png?v=1788224170&width=2000",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-c1",
+          "pageTitle": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+          "pageSha256": "df5a70319a19fb6b18765879ad11dfeb2fb97a203ce383e7f2908118caf7d411",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_4.png?v=1788224170&width=2000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_C1_4.png?v=1788224170&width=2000",
+          "alt": "An alternative rear-quarter view of the scanner and smartphone device, highlighting the ergonomic design of the handle.",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/be823a03e427094a2ee8c027-thumb.jpg"
+    },
+    {
+      "id": "product-46d9bdacbab2eaa97fa86b52",
+      "sha256": "46d9bdacbab2eaa97fa86b5200a219bae3b7c1d6826e84b0567aead5cac3c90b",
+      "pixelSha256": "4bc227daeb9b895408754c202748e2c28825aebec9de99cc0f432c4968229596",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG",
+      "phash": "dc3333cc3346cc39",
+      "file": "assets/products/46d9bdacbab2eaa97fa86b52.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Pro",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "75252c87cd37bc3797e361a22a9987cff5649d88e36f026c5956a0db9ea4e3c1",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "alt": "buy FJD Trion V4e mini RTK receiver with compact and lightweight design for portable land surveying",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-gnss-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "d80da784c29c9611da788925957cec304c95c24bed76ad6dbdc74aed489130b8",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "alt": "buy FJD Trion V4e mini RTK receiver with compact and lightweight design for portable land surveying",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+          "pageTitle": "FJD Trion V4e Scan",
+          "pageSha256": "201726be5308c67c50efc2b687e3bbd831a55a9ca2a456a75488b1da10e4a2cb",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/buy_FJD_Trion_V4e_mini_RTK_receiver_with_compact_and_lightweight_design_for_portable_land_surveying.png?v=1773820399&width=2048",
+          "alt": "buy FJD Trion V4e mini RTK receiver with compact and lightweight design for portable land surveying",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/46d9bdacbab2eaa97fa86b52-thumb.jpg"
+    },
+    {
+      "id": "product-fa7f6f662bf1e3954225dcf7",
+      "sha256": "fa7f6f662bf1e3954225dcf7a72ece36f7dcefce6cfd35d8abf83dde82283efe",
+      "pixelSha256": "6396a25d4b4f4f413823dee857aab7a745aaecd8a2a8238b90ddbd6f127b8fd3",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG",
+      "phash": "7c92996d926c6d92",
+      "file": "assets/products/fa7f6f662bf1e3954225dcf7.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Pro",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_V4e_Pro_RTK_receiver_for_sale.png?v=1772784193&width=2048",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "75252c87cd37bc3797e361a22a9987cff5649d88e36f026c5956a0db9ea4e3c1",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_V4e_Pro_RTK_receiver_for_sale.png?v=1772784193&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_V4e_Pro_RTK_receiver_for_sale.png?v=1772784193&width=2048",
+          "alt": "FJD Trion V4e Pro RTK receiver for sale",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-gnss-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "d80da784c29c9611da788925957cec304c95c24bed76ad6dbdc74aed489130b8",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_V4e_Pro_RTK_receiver_for_sale.png?v=1772784193&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_V4e_Pro_RTK_receiver_for_sale.png?v=1772784193&width=2048",
+          "alt": "FJD Trion V4e Pro RTK receiver for sale",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/fa7f6f662bf1e3954225dcf7-thumb.jpg"
+    },
+    {
+      "id": "product-60e6ea7a914dbfc9f8798d61",
+      "sha256": "60e6ea7a914dbfc9f8798d6127094c06a4bc034772490f8d234835994e02e720",
+      "pixelSha256": "d26c4f8df2ff905f67275a7205ed00565fef11153230fe4319768c126ba6901d",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "phash": "76c2993cb96699c8",
+      "file": "assets/products/60e6ea7a914dbfc9f8798d61.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Pro",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro.jpg?v=1770985656&width=1024",
+      "collectedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "75252c87cd37bc3797e361a22a9987cff5649d88e36f026c5956a0db9ea4e3c1",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro.jpg?v=1770985656&width=1024",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro.jpg?v=1770985656&width=1024",
+          "alt": "FJD Trion V4e Pro",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "75252c87cd37bc3797e361a22a9987cff5649d88e36f026c5956a0db9ea4e3c1",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro_2048x.jpg?v=1770985656",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro_2048x.jpg?v=1770985656",
+          "alt": "FJD Trion V4e Pro",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-gnss-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "d80da784c29c9611da788925957cec304c95c24bed76ad6dbdc74aed489130b8",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro.jpg?v=1770985656&width=1024",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro.jpg?v=1770985656&width=1024",
+          "alt": "FJD Trion V4e Pro",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-gnss-receiver",
+          "pageTitle": "FJD Trion V4e Pro",
+          "pageSha256": "d80da784c29c9611da788925957cec304c95c24bed76ad6dbdc74aed489130b8",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro_2048x.jpg?v=1770985656",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/v4epro_2048x.jpg?v=1770985656",
+          "alt": "FJD Trion V4e Pro",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:47:30.081824Z"
+        }
+      ],
+      "previewFile": "assets/products/60e6ea7a914dbfc9f8798d61-thumb.jpg"
+    },
+    {
+      "id": "product-563893630b0feca04528878b",
+      "sha256": "563893630b0feca04528878b9fce868f200328b79eb2042ff55dc36184b6d56a",
+      "pixelSha256": "4b4acee3422a614df4a4bea762cf1c98d4d825cfb3bea2b85b75d21cc3c1f88d",
+      "width": 2048,
+      "height": 2048,
+      "format": "PNG",
+      "phash": "764299b92d5a2766",
+      "file": "assets/products/563893630b0feca04528878b.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Scan",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_v4e_scan_kit_for_BIM_projects_and_construction_layout_mapping.png?v=1773048146&width=2048",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+          "pageTitle": "FJD Trion V4e Scan",
+          "pageSha256": "201726be5308c67c50efc2b687e3bbd831a55a9ca2a456a75488b1da10e4a2cb",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_v4e_scan_kit_for_BIM_projects_and_construction_layout_mapping.png?v=1773048146&width=2048",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_v4e_scan_kit_for_BIM_projects_and_construction_layout_mapping.png?v=1773048146&width=2048",
+          "alt": "FJD Trion_v4e_scan_kit",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/563893630b0feca04528878b-thumb.jpg"
+    },
+    {
+      "id": "product-01c864001660da71dcd7eb93",
+      "sha256": "01c864001660da71dcd7eb938862b08eb0a0f0b86aeedb6cb7b83c5a9a693056",
+      "pixelSha256": "26a092e1bd6dd21506afee441e22de5ecf69b23e4285d335b46aa700185d72e8",
+      "width": 1024,
+      "height": 1024,
+      "format": "JPEG",
+      "phash": "dcc913363b193336",
+      "file": "assets/products/01c864001660da71dcd7eb93.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V4e Scan",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/Scan.jpg?v=1773820097&width=1024",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+          "pageTitle": "FJD Trion V4e Scan",
+          "pageSha256": "201726be5308c67c50efc2b687e3bbd831a55a9ca2a456a75488b1da10e4a2cb",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/Scan.jpg?v=1773820097&width=1024",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/Scan.jpg?v=1773820097&width=1024",
+          "alt": "FJD Trion V4e Scan",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        },
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-scan",
+          "pageTitle": "FJD Trion V4e Scan",
+          "pageSha256": "201726be5308c67c50efc2b687e3bbd831a55a9ca2a456a75488b1da10e4a2cb",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/Scan_2048x.jpg?v=1773820097",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/preview_images/Scan_2048x.jpg?v=1773820097",
+          "alt": "FJD Trion V4e Scan",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/01c864001660da71dcd7eb93-thumb.jpg"
+    },
+    {
+      "id": "product-4cc4a9bbc63943da53648a69",
+      "sha256": "4cc4a9bbc63943da53648a6910c780ddea4b22b9be0a2121418cbc547a3f8e98",
+      "pixelSha256": "49238a1d4bfe63347b745d1692e4ea428e5e2319870d7bdb4d360d4d72849b8c",
+      "width": 1000,
+      "height": 1000,
+      "format": "PNG",
+      "phash": "fcda33251352e41b",
+      "file": "assets/products/4cc4a9bbc63943da53648a69.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion P2",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/Georeferenced_point_cloud_data_generated_by_FJD_Trion_P2_handheld_LiDAR_scanner_system.png?v=1773041147&width=1000",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+          "pageTitle": "FJD Trion P2",
+          "pageSha256": "e7605854cdec8c8c715ad8a9f6ed4e974963928f862966abb314857b457f43d6",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/Georeferenced_point_cloud_data_generated_by_FJD_Trion_P2_handheld_LiDAR_scanner_system.png?v=1773041147&width=1000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/Georeferenced_point_cloud_data_generated_by_FJD_Trion_P2_handheld_LiDAR_scanner_system.png?v=1773041147&width=1000",
+          "alt": "Georeferenced point cloud data generated by FJD Trion P2 handheld LiDAR scanner system",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/4cc4a9bbc63943da53648a69-thumb.jpg"
+    },
+    {
+      "id": "product-9231679d2ffff199b2965992",
+      "sha256": "9231679d2ffff199b2965992ed445d6d4707d56a46e8834c65ec0b3cbe8a5100",
+      "pixelSha256": "4bfa5da18ef6909c42b1a5098da05bd1e80823b75edb18c7b7b695a9664ef5fb",
+      "width": 1000,
+      "height": 1000,
+      "format": "PNG",
+      "phash": "fcda3325125aad13",
+      "file": "assets/products/9231679d2ffff199b2965992.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion P2",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_P2_X5_handheld_LiDAR_scanner_Model_for_professional_3D_modeling.png?v=1773040821&width=1000",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+          "pageTitle": "FJD Trion P2",
+          "pageSha256": "e7605854cdec8c8c715ad8a9f6ed4e974963928f862966abb314857b457f43d6",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_P2_X5_handheld_LiDAR_scanner_Model_for_professional_3D_modeling.png?v=1773040821&width=1000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_Trion_P2_X5_handheld_LiDAR_scanner_Model_for_professional_3D_modeling.png?v=1773040821&width=1000",
+          "alt": "FJD_Trion_P2_X5_handheld LiDAR scanner Model for professional 3D modeling",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/9231679d2ffff199b2965992-thumb.jpg"
+    },
+    {
+      "id": "product-d918612a31d05efbfabcda00",
+      "sha256": "d918612a31d05efbfabcda0048e4165ee126042dac373306ecda5b7005401a5b",
+      "pixelSha256": "783c5052e4a838bc2f841c547c9f0950775d2bac58b89d9f15e0426a01a6f98b",
+      "width": 1000,
+      "height": 1000,
+      "format": "PNG",
+      "phash": "fcda33a5125a2533",
+      "file": "assets/products/d918612a31d05efbfabcda00.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion P2",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/P2_X3_lightweight_FJD_Trion_P2_portable_3D_laser_scanner.png?v=1773040965&width=1000",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+          "pageTitle": "FJD Trion P2",
+          "pageSha256": "e7605854cdec8c8c715ad8a9f6ed4e974963928f862966abb314857b457f43d6",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/P2_X3_lightweight_FJD_Trion_P2_portable_3D_laser_scanner.png?v=1773040965&width=1000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/P2_X3_lightweight_FJD_Trion_P2_portable_3D_laser_scanner.png?v=1773040965&width=1000",
+          "alt": "P2_X3_lightweight FJD Trion P2 portable 3D laser scanner",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/d918612a31d05efbfabcda00-thumb.jpg"
+    },
+    {
+      "id": "product-87f1d9d498f1034bd0b21718",
+      "sha256": "87f1d9d498f1034bd0b21718eba6ab383be9313bdcf547c36e268c170f19bf14",
+      "pixelSha256": "44b448388e52ebae681c086c4f7b9087d0ddf18d1985b3844e6aa9677d21926d",
+      "width": 2000,
+      "height": 2000,
+      "format": "JPEG",
+      "phash": "7691bdea0316f1e0",
+      "file": "assets/products/87f1d9d498f1034bd0b21718.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion P2",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/Real-time_indoor_3D_mapping_with_FJD_Trion_P2_handheld_scanner_for_BIM_and_architecture_projects.jpg?v=1773041584&width=2000",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-p2-scanner",
+          "pageTitle": "FJD Trion P2",
+          "pageSha256": "e7605854cdec8c8c715ad8a9f6ed4e974963928f862966abb314857b457f43d6",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/Real-time_indoor_3D_mapping_with_FJD_Trion_P2_handheld_scanner_for_BIM_and_architecture_projects.jpg?v=1773041584&width=2000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/Real-time_indoor_3D_mapping_with_FJD_Trion_P2_handheld_scanner_for_BIM_and_architecture_projects.jpg?v=1773041584&width=2000",
+          "alt": "FJD Trion P2 indoor operation",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/87f1d9d498f1034bd0b21718-thumb.jpg"
+    },
+    {
+      "id": "product-1455bf6e935df5b1c578fe28",
+      "sha256": "1455bf6e935df5b1c578fe280ae06f0d10b204a832384e8d7e83d8e13665e0f2",
+      "pixelSha256": "723f15e1647c0d7f7c6bb6ea781f1c55f5d4d82ac49abb6f71c0043388066775",
+      "width": 1000,
+      "height": 1000,
+      "format": "PNG",
+      "phash": "306823de1fd06f9c",
+      "file": "assets/products/1455bf6e935df5b1c578fe28.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion Survey App",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-survey",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=1000",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-survey",
+          "pageTitle": "FJD Trion Survey App",
+          "pageSha256": "7d5e4d741b8ae7b83442e8f13fc613e3411e9492690307e1722ff01871b4be27",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=1000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=1000",
+          "alt": "FJD Trion Survey App",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/1455bf6e935df5b1c578fe28-thumb.jpg"
+    },
+    {
+      "id": "product-52ed08316509138e692f40ac",
+      "sha256": "52ed08316509138e692f40acb993659d172bc346f6ac9068e35a6d9b472b1051",
+      "pixelSha256": "7cf1508ceddd455116b7dafddf792ff395b1e5bec969be6790588cd5959124ef",
+      "width": 851,
+      "height": 780,
+      "format": "PNG",
+      "phash": "dac23d25e25d620f",
+      "file": "assets/products/52ed08316509138e692f40ac.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion Survey App",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-survey",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=851",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-survey",
+          "pageTitle": "FJD Trion Survey App",
+          "pageSha256": "7d5e4d741b8ae7b83442e8f13fc613e3411e9492690307e1722ff01871b4be27",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=851",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=851",
+          "alt": "FJD Trion Survey App",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/52ed08316509138e692f40ac-thumb.jpg"
+    },
+    {
+      "id": "product-74772498fe1cedbe26d8c99e",
+      "sha256": "74772498fe1cedbe26d8c99efc2d7c566a1c93fa4d8c7e2130f041f5c8964146",
+      "pixelSha256": "d38c9cf26d34819e3ba6275e20437bb26ea74fc3a7f0026d0126377625da9246",
+      "width": 416,
+      "height": 416,
+      "format": "PNG",
+      "phash": "306823de1fd06f9c",
+      "file": "assets/products/74772498fe1cedbe26d8c99e.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion Survey App",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-survey",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=416",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-survey",
+          "pageTitle": "FJD Trion Survey App",
+          "pageSha256": "7d5e4d741b8ae7b83442e8f13fc613e3411e9492690307e1722ff01871b4be27",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=416",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-4.png?v=1780649865&width=416",
+          "alt": "FJD Trion Survey App",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/74772498fe1cedbe26d8c99e-thumb.jpg"
+    },
+    {
+      "id": "product-fff6b14b00c88777c8ebce4d",
+      "sha256": "fff6b14b00c88777c8ebce4db48698e437fe5427b5bde85af91efbef6d8e67ad",
+      "pixelSha256": "9e663eeae0f64201aff854db382da8590a8cf0a94508dddd68e860a4c21a06a9",
+      "width": 416,
+      "height": 381,
+      "format": "PNG",
+      "phash": "dac23d25e25d620f",
+      "file": "assets/products/fff6b14b00c88777c8ebce4d.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion Survey App",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-survey",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=416",
+      "collectedAt": "2026-10-20T14:51:21.171760Z",
+      "updatedAt": "2026-10-20T14:51:21.171760Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-survey",
+          "pageTitle": "FJD Trion Survey App",
+          "pageSha256": "7d5e4d741b8ae7b83442e8f13fc613e3411e9492690307e1722ff01871b4be27",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=416",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/survey-2.png?v=1780648921&width=416",
+          "alt": "FJD Trion Survey App",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-20T14:51:21.171760Z"
+        }
+      ],
+      "previewFile": "assets/products/fff6b14b00c88777c8ebce4d-thumb.jpg"
+    }
+  ],
+  "pages": {
+    "https://agriculture.fjdynamics.com/products/fjd-at2-max-auto-steer-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18332-ce516de1/website.s_at2_max_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_max_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AT2 Max Autosteer System",
+      "htmlSha256": "4066bfcd66d2fc49355074a443c45b59289dc6d60843defcbc0d779333e05532",
+      "candidateCount": 24
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v4e-lidar-kit": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-rough-ranger-versatile-robotic-mower": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26853-ca6be7f1/3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26851-9e40f08e/%E5%87%AF%E8%8C%9C%E7%9A%84%20%2813%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26472-d797d516/4.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26796-ba132dfa/RM21P.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26816-12e2986f/77.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26817-4f6920fe/75.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26869-f9dfb2e4/%E5%87%AF%E8%8C%9C%E7%9A%84%20%2816%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26818-8742049f/74.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Rough Ranger FJD Rough Ranger",
+      "htmlSha256": "90c30580bc2d73ca9e78c1689406a542dfa5143b24cf5d47da7e430ad8908f76",
+      "candidateCount": 18
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-v4e-go": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion V4e Go FJD Trion V4e Go",
+      "htmlSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+      "candidateCount": 70
+    },
+    "https://agriculture.fjdynamics.com/product/fjd-at2-ultra-auto-steer-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12768-99da1e3e/imgi_94_AT2%20Ultra.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12764-33b30eac/Frame%206.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12769-a6a3f61b/imgi_99_AT2%20Ultra-M.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12765-33b30eac/Frame%206.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18331-07d4d067/imgi_99_AT2%20Ultra-M.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12763-f05e0565/imgi_78_RTK%20Accuracy.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/youtube.jpg",
+          "reason": "HTTP 404"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12759-f68218fc/imgi_80_AT2-Ultra%E5%AE%98%E7%BD%91%E7%B4%A0%E6%9D%901.jpg",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AT2 Ultra Auto Steer System Become Dealer FJD AT2 Ultra Auto Steer System Request Dealer Contact FJD AT2 Ultra Auto Steer System Become Dealer FJD AT2 Ultra Auto Steer System Request Dealer Contac",
+      "htmlSha256": "527f1c6b25641e30e30784442d87994b762c9cda65d39b06f69db24380cb1937",
+      "candidateCount": 14
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v10l-rtk-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/5118-069e6a28/20250924_V10L_Images_Visible%20Green%20Laser%20Under%20Darkness.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5120-ac0166de/20250924_V10L_Images_Non-Contact%20Stakeout.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5150-1bb4be5b/20250924_V10L_Images_EasyFix%20Feature.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5148-91b47ffc/20250924_V10L_Images_Non-Contact%20Measurement.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5151-3a7e051c/20250924_V10L_Images_2nd%20Generation%20IMU.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5169-46db4449/%E6%89%8B%E7%B0%BF%E5%AE%A3%E4%BC%A0%E5%9B%BE%EF%BC%883%E4%B8%AA%EF%BC%89.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5174-b4f9855b/2.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5173-2bb82aac/1.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion V10L Thank you for your feedback!",
+      "htmlSha256": "c02788e0b868b38e7003318beaaa2cdb7dec25060b7e1191d1522bd0362f8543",
+      "candidateCount": 14
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-rcm01-robotic-cylinder-mower": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/34836-e050e509/RCM01%2016-9%20.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11109-c6162149/%E6%BB%9A%E5%88%80%E5%89%B2%E8%8D%89.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/17306-cde7238b/RCM01%E9%98%B4%E9%98%B3%E6%9D%A1%E7%BA%B9%20%E6%9B%B4%E6%96%B0.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11116-e46e0e3e/%E5%A4%9A%E7%A7%8D%E6%A0%B7%E5%BC%8F.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11389-194c3240/aerial-view-of-golf-course-during-summer-2026-01-07-01-37-43-utc.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11123-ceb15c1f/%E4%BA%BA%E5%8A%9B%E5%92%8C%E8%83%BD%E6%BA%90%E6%88%90%E6%9C%AC.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11124-66c43716/%E5%A4%9C%E9%97%B4%E4%BD%9C%E4%B8%9A.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11126-59bc2755/%E5%A4%9A%E5%9C%B0%E5%9D%97%E4%BD%9C%E4%B8%9A.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD RCM01 Robotic Cylinder Mower for Golf Fairways",
+      "htmlSha256": "0f46986fd05763c7f48b94b894da3139bae26f2766fccbe8ad46bd93b641781b",
+      "candidateCount": 12
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-c1": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion C1 Indoor Scanner for Floor Plans FJD Trion C1",
+      "htmlSha256": "df5a70319a19fb6b18765879ad11dfeb2fb97a203ce383e7f2908118caf7d411",
+      "candidateCount": 64
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-al02-land-leveling-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/33547-5983e8b3/EN_20251226_FJD%20AL02%20Max_Brochure%202.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_al02_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AL02 Max 3D Land Leveling System",
+      "htmlSha256": "41c4113cf369a1ce0e6ff9ad99460aa6d08c1210cb4929728c8035ef7f475865",
+      "candidateCount": 14
+    },
+    "https://www.fjdtrion.com/product/fjd-g31-pro-3d-excavator-guidance-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-paintmaster-pro": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 1,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33896-6fb72861/1baf9cba-ad01-4ca5-acc1-fa6ba11bf53c_lossless%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33900-d04b86b1/football-field-banner_sRGB_lossless.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/31910-8688014f/20260826-192543.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/31841-6e5f82bb/kv.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/30800-a745e70c/Less%20Labour%20Required.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/30801-af1e7af4/Lower%20Paint%20Consumption.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/30799-e1e8fc46/Full-Size%20Pitches%20per%20Charge.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/31834-72ccf6e0/250%2B%20Ready-to-Use%20Templates.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD PaintMaster Pro PaintMaster Pro PaintMaster Pro PaintMaster Pro PaintMaster Pro PaintMaster Pro",
+      "htmlSha256": "23654267fc0cb470da18a82dcc777fbf6b76a276226787063044976e2c032f24",
+      "candidateCount": 19
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-rtk-receiver": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/3d/models/o/8f8e6e06e015a74a/v4epro.glb?v=0",
+          "reason": "响应超过采集上限"
+        }
+      ],
+      "title": "FJD Trion V4e Pro",
+      "htmlSha256": "75252c87cd37bc3797e361a22a9987cff5649d88e36f026c5956a0db9ea4e3c1",
+      "candidateCount": 64
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v4e-go": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/33094-8eacf5ae/06_Precise%20scan%20on%20every%20pass_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33205-9de2dce8/03_Ready%20in%20a%20snap_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33095-4c3de662/05_More%20ways%20to%20go_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33101-0027df09/04_outdoor_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33098-c27bdce1/07_Watch%20reality%20take%20shape_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33202-575a6b82/01_20260902-160621_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/33204-d5179612/02_20260902-160610_compressed.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5039-c58e6e82/apple-4.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "Handheld LiDAR scanner with GNSS receiver FJD Trion V4e Go \n                     Thank you for your feedback!",
+      "htmlSha256": "80b3236559fabcae0d9ad141eddaf7d5aa3ab88b6c20f95ee0244880abe39c02",
+      "candidateCount": 15
+    },
+    "https://landscaping.fjdynamics.com/product/golfmind": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 1,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26607-9057038d/08586E43-0711-4D61-AEDD-3F64282428D7.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26473-849373c3/1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26470-8da74159/3.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26474-d5462721/2.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26472-d797d516/4.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26705-93fd4c48/20260605-184305.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26524-0ec9638b/1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/26633-2f4d4776/C811FF97-0747-4032-893D-77597953C6AF.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "Golf Mind What GolfMind Helps You Manage Plan Mowing with Clear Course Data",
+      "htmlSha256": "e04dd72de095f22dd3bab54e6ebce22cebc1a5d493284b35741bb6e1546c7ce4",
+      "candidateCount": 20
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-at2-lite-auto-steer-system": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18333-5e0b9805/website.s_at2_lite_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17894-13a1d5f9/%E5%B8%A6%E6%8A%95%E5%BD%B1.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17907-8258385d/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%283%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17909-7fbb0f02/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%284%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17908-ee1d0dc0/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%287%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17912-8160b4c1/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%285%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17910-7c3f7ff1/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%286%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/youtube.jpg",
+          "reason": "HTTP 404"
+        }
+      ],
+      "title": "FJD AT2 Lite AUTO STEER SYSTEM FJD AT2 Lite AUTO STEER SYSTEM",
+      "htmlSha256": "e15a81c796916daff3f384764805e4490de2bf3e044ab1a9a2e0f191082eb0fa",
+      "candidateCount": 23
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-v4e-pro-mini-gnss-receiver": {
+      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/3d/models/o/8f8e6e06e015a74a/v4epro.glb?v=0",
+          "reason": "响应超过采集上限"
+        }
+      ],
+      "title": "FJD Trion V4e Pro",
+      "htmlSha256": "d80da784c29c9611da788925957cec304c95c24bed76ad6dbdc74aed489130b8",
+      "candidateCount": 64
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-c1": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/31758-43a8e969/Catch%20gaps%20on%20site.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31759-3e6b5c36/From%20raw%20room%20to%20ready%20file.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31760-c349c42e/C1_Laser%20measurement.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31762-2d62b65a/Built%20for%20room%20after%20room.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31802-6b241333/Watch%20reality%20take%20shape.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31763-bb4814f6/Keep%20every%20result%20within%20reach.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/32998-1e2cb3e6/20260901-173021.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/31782-d77a1db8/laser%20measurement_horizontal.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "Handheld Indoor LiDAR Scanner",
+      "htmlSha256": "b3edfcc5dc61a061462871fdd62075695b348ade51eb6654efedffe556bf4682",
+      "candidateCount": 10
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-at2-auto-steer-system": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/15744-10305f34/website.s_at2_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/28172-039bae71/AT2_%E7%BB%84%E5%90%88%E5%9B%BE_%E6%96%B0%E6%96%B9%E5%90%91%E7%9B%98_%E6%AD%A3%E9%9D%A2.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_at2_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AT2  AUTO STEER SYSTEM.",
+      "htmlSha256": "0cfb57ad06eef5d8f530bb4f419eeb4f2ade4941b3f81efe922961bb4366482a",
+      "candidateCount": 40
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-vela-lidar-robotic-mower": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 1,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27260-a9f88ceb/Vela%E7%B4%A0%E6%9D%90%E5%9B%BE%20%282%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27447-2ed03357/ChatGPT%20Image%202026%E5%B9%B46%E6%9C%8826%E6%97%A5%2016_10_33.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27456-d725bdd6/24.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27455-26b464b6/13.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27450-b745639c/4.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27449-d8815201/Vela%E7%B4%A0%E6%9D%90%E5%9B%BE%20%288%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27030-c5f0a0ea/Vela%E7%B4%A0%E6%9D%90%E5%9B%BE.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/27266-4fbd76a3/Vela%E7%B4%A0%E6%9D%90%E5%9B%BE%20%282%29.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Vela",
+      "htmlSha256": "105694682167d37071545f24e00b2f84dbb1f10a20775d78c3e70caea794427d",
+      "candidateCount": 9
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-v4e-scan": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/3d/models/o/4eb0434daf5a2946/Scan.glb?v=0",
+          "reason": "响应超过采集上限"
+        }
+      ],
+      "title": "FJD Trion V4e Scan",
+      "htmlSha256": "201726be5308c67c50efc2b687e3bbd831a55a9ca2a456a75488b1da10e4a2cb",
+      "candidateCount": 34
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-p2-vision-plus": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/19534-a5c8aee7/IMG_5692.JPG",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19495-ffe28e5d/1-thermal%20module.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19496-d9f11412/2-3D%20LiDAR.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19497-ebbe1536/3-built-in%20RGB%20Camera.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19499-23160f2d/%28169%29%20FJDTrion-%20%E8%A7%86%E9%A2%91%E5%B0%81%E9%9D%A2.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19540-8b4b64ec/water%20leakage.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19475-e7f64d2f/Facade%20Delamination.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19542-90d6b226/electrical%20overheating.jpg",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion P2 Vision+",
+      "htmlSha256": "fbb4aa2f6071abe68c521e55eadfd5b1641407c51890496cfa56135fe064ccad",
+      "candidateCount": 18
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-at2-ultra-auto-steer-system": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12768-99da1e3e/imgi_94_AT2%20Ultra.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12764-33b30eac/Frame%206.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12769-a6a3f61b/imgi_99_AT2%20Ultra-M.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12765-33b30eac/Frame%206.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18331-07d4d067/imgi_99_AT2%20Ultra-M.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12763-f05e0565/imgi_78_RTK%20Accuracy.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12759-f68218fc/imgi_80_AT2-Ultra%E5%AE%98%E7%BD%91%E7%B4%A0%E6%9D%901.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/12767-f990ee90/imgi_81_AT2-Ultra%E5%AE%98%E7%BD%91%E7%B4%A0%E6%9D%902.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AT2 Ultra Auto Steer System",
+      "htmlSha256": "7081dcecc2eff81c521f1dd6423b8a326d45418d248e627cc005a6e3049175a8",
+      "candidateCount": 13
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-fr4000-robotic-mower": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/32280-4cee4beb/FR4000%20BANNER%20%281%29.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13539-3530ac39/%E5%AE%98%E7%BD%91%E5%9B%BE%E7%89%87-12.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12903-e2efe1c0/EN_20240409_FR4000_Network%20RTK-1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12904-3b32d1b2/EN_20240409_FR4000_Radio%20RTK.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12905-702cb53b/%E5%AE%98%E7%BD%91%E6%96%B0%E5%A2%9E2%401.25x%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12920-47f635ae/35%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12921-ca5ab847/36.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12914-4380ea9a/FR4000%E6%94%B9%E7%89%88%E5%9B%BE%E7%89%87_%E7%94%BB%E6%9D%BF%201%20%E5%89%AF%E6%9C%AC%203.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD FR4000 Robotic Lawn Mower for Efficient Turf Maintenance",
+      "htmlSha256": "1d57805f828c46be5746e15b54f2e5dae5504d23b5aba92bea35f27ebac54d04",
+      "candidateCount": 19
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-p2-scanner": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/files/Real-time_3D_mapping_FJD_Trion_P2_scanner_for_rapid_reality_capture.png?v=1773041061&width=2000",
+          "reason": "响应超过采集上限"
+        },
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/files/Real-time_3D_mapping_with_FJD_Trion_P2_handheld_scanner_for_BIM_and_architecture_projects.png?v=1773041218&width=2000",
+          "reason": "响应超过采集上限"
+        },
+        {
+          "url": "https://store.fjdtrion.com/cdn/shop/files/lightweight_FJD_Trion_P2_portable_3D_laser_scanner_in_industrial_site_use.png?v=1773041536&width=2000",
+          "reason": "响应超过采集上限"
+        }
+      ],
+      "title": "FJD Trion P2",
+      "htmlSha256": "e7605854cdec8c8c715ad8a9f6ed4e974963928f862966abb314857b457f43d6",
+      "candidateCount": 44
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-p2-lidar-scanner": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/18352-2db59439/%E4%BA%91%E5%B9%B3%E5%8F%B0Explorer-2.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5206-e53e8e77/p2-spec-1%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion P2",
+      "htmlSha256": "077defd6efafe0b349488aa0efe259a176730f13a161f3bac12411e5be5e9b58",
+      "candidateCount": 2
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-as2-steer-ready": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7788-19c1477c/EN_20240628_FJD%20AS2_KV.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7721-646ce75b/website.s_as2_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7789-65cb504b/%E6%8A%98%E9%A1%B5%E4%B8%BB%E5%9B%BE-1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7793-f8b3dd5c/AS2-MAX-1_%25E7%2594%25BB%25E6%259D%25BF-1.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7790-87fff471/Effortless%20Precision%20on%20Any%20Terrain%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7791-cd18ea64/Effortless%20Precision%20on%20Any%20Terrain%20%282%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/7702-f8b3dd5c/AS2-MAX-1_%25E7%2594%25BB%25E6%259D%25BF-1.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_home_carousel_image_2",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AS2 Steer Ready Autosteering System",
+      "htmlSha256": "dc9d23cedddfe1bdfb2c897b746801342a87f3d112d9ea7db96329a135c7fcee",
+      "candidateCount": 47
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-fv2000-robotic-mower": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/8465-d1c47370/%E5%AE%98%E7%BD%91%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13100-880950d8/45.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13101-9a2dd4d8/46.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13118-58f84c54/47.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13119-6c082ef9/48%20%281%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13120-0fac1509/49.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13121-a79a448c/50.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13146-0882b978/51.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD FV2000 Robotic Lawn Mower: Precision makes mowing perfection",
+      "htmlSha256": "128bba5aaa7ac774afe22866de6d2a336bbe8689170916594b893cfd1f95bcc7",
+      "candidateCount": 18
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-survey": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion Survey App",
+      "htmlSha256": "7d5e4d741b8ae7b83442e8f13fc613e3411e9492690307e1722ff01871b4be27",
+      "candidateCount": 28
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-p1-lidar-scanner": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_image_text_default_image_fjd",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_text_image_default_image_fjd",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion P1",
+      "htmlSha256": "161af2b35e26f18e55d57df433c207045675825ebbd97ae3634d45ad0ff08860",
+      "candidateCount": 24
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-hydraulic-autosteering-kit": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ah2_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD HYDRAULIC AUTOSTEERING KIT",
+      "htmlSha256": "d36ebd7a42a48f41bd8927b01b4cf33a380bb714467a9de9babde29f92a42c6f",
+      "candidateCount": 28
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-rm21-multi-functional-robotic-mower": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10402-fa57efc6/banner%202.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10396-dc3030af/RM21%E5%BF%AB%E9%80%9F%E4%BB%8B%E7%BB%8D%E6%A8%AA%E5%9B%BE.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10398-a6ec0f09/%E7%94%BB%E6%9D%BF%2015.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10399-67c69745/%E7%94%BB%E6%9D%BF%204.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10397-1787d022/%E7%94%BB%E6%9D%BF%208.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10400-e1e00e3f/%E7%94%BB%E6%9D%BF%2011.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/10205-d514e56d/%E7%94%BB%E6%9D%BF%201.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/9939-82e519cd/RM21-%E5%A4%9A%E5%9C%B0%E5%9D%97%E4%BD%9C%E4%B8%9A.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "RM21\nMulti-Functional Robotic Mower",
+      "htmlSha256": "dc95e5dbbc08138697678e00b73d3243e4ebcf30a95e3c04883a580324c2441d",
+      "candidateCount": 16
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-s2-series-lidar-scanner": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/11542-1e46486c/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%286%29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_image_image",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_multi_image_text_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_multi_image_text_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s2_multi_image_text_image_3",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion S2",
+      "htmlSha256": "ace0c306c9094117f760059c2a69052edc6d7a0f4a24b78465c5e274196d51a3",
+      "candidateCount": 23
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-ag1-guidance-system": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18335-002f4140/website.s_ag1_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/33367-0a6601bb/AG1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/18334-002f4140/website.s_ag1_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ag1_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ag1_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ag1_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ag1_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ag1_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD AG1 GUIDANCE SYSTEM",
+      "htmlSha256": "70e395e1c74706cd661b2b666d815e8a1ecd8c6918e3cfa12b99f83f8ab6f411",
+      "candidateCount": 35
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-frx-robotic-mower": {
+      "checkedAt": "2026-10-20T14:51:21.171760Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/30912-0fe0bbde/frx%20banner%20.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11801-28de4aea/Frame%20151.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11802-e834c161/%E9%AB%98%E4%BD%8E.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/8847-0ca5896d/Frame%20150.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/8848-6e0d5df4/Frame%20156.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/8850-3b3e7cce/Frame%20155.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/8832-9bfb65ab/%E5%8E%8B%E7%BC%A9%E7%89%88.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/20290-0a853525/FRX%E7%88%AC%E5%9D%A125%C2%B0.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD FRX Robotic Mower",
+      "htmlSha256": "35102f461e3ce7e84ca434ee536e3a667380caf9b0011bdbb86a085b14a4f5b1",
+      "candidateCount": 23
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-s1-3d-lidar-scanner": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/5027-335aa149/S1_us.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5039-c58e6e82/apple-4.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5043-ad18e704/google-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5044-ad18e704/google-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5045-fcc58920/Explorer-02.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s1_key_images_default_image_1_fjd",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s1_key_images_default_image_2_fjd",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_s1_key_images_default_image_3_fjd",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion S1",
+      "htmlSha256": "e5245d5f2d94cdae00c83e05e737bb204cf2c86e032d7409af78dec45d942335",
+      "candidateCount": 14
+    },
+    "https://shop.fjdynamics.com/products/fjd-trion-p1-3d-scanner": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-eg10": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27943-94a1deb0/ChatGPT%20Image%20Jul%207%2C%202026%2C%2008_43_04%20PM.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/17597-a9263c3f/FJD%20Trion%20digital%20mkt%20folder.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27813-c7c4c908/20260702-134606-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27814-6a62dd17/ChatGPT%20Image%20---2222026%E5%B9%B47%E6%9C%882%E6%97%A5%2019_43_22.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27815-29cd3bf6/20260702-134606-4.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27939-7c531b9d/20260702-134606-5-1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27995-3fd00972/ChatGPT%20Image%202026%E5%B9%B46%E6%9C%8826-222%E6%97%A5%2022_05_49_%E5%89%AF%E6%9C%AC.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/27780-90adc040/ChatGPT%20Image%202026%E5%B9%B47%E6%9C%882%E6%97%A5%2019_43_22.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD EG10 EXCAVATOR GUIDANCE SYSTEM",
+      "htmlSha256": "9d50833b18a404084560f9cc5fdc941a4c1c1e45938be4585b122865f5f2e2ee",
+      "candidateCount": 14
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-atx-auto-steering-kit": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33341-125e361e/DSC03984.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33777-720f1f43/Full%20view.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33976-30e1d7d5/129A3553.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/34073-329b17de/Planned%20mowing%20routes.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33527-d281f9ab/Repeatable%20settings.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33122-8af70923/169.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33524-d3b4ae45/Fusion%20navigation.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/33526-aa66b0fa/Sensitive-area%20planning.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD ATX",
+      "htmlSha256": "3b90c06241fc8be618889a329aa7161d8fcf1b83866007dc7c20483241deb2cb",
+      "candidateCount": 17
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-model-pc": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/18371-43d29253/Screenshot%202026-04-21%20at%2015.49.20.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/18372-44cf0fac/Screenshot%202026-04-21%20at%2015.49.00.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/18374-869bdad3/Screenshot%202026-04-21%20at%2015.48.55.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/18373-9a14f6cf/Screenshot%202026-04-21%20at%2015.49.14.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/18375-f7fd4f09/Screenshot%202026-04-21%20at%2015.49.07.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/18376-ef79ca7b/Screenshot%202026-04-21%20at%2015.48.49.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_model_software_multi_image_text_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.apple_store_btn",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion Model",
+      "htmlSha256": "ab21eb58107475b6c03418cfe092c30b9eae07e8622e41f88b19c85234428bbf",
+      "candidateCount": 13
+    },
+    "https://shop.fjdynamics.com/products/fjd-trion-p2-scanner": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-ats-precision-spray-autosteering-system": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_banner_2nd_bg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_banner_2nd_product",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_1",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_2",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_3",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_4",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_5",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/website.s_ats_feature_image_6",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD ATS PRECISION SPRAY AUTOSTEERING SYSTEM",
+      "htmlSha256": "4d0ce239ec8f98c2a309c5ea7ec152498d8655c0fee29bdbeb15c7f1ade2f9ec",
+      "candidateCount": 34
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-gm22s-electric-greens-mower": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12590-76da316d/GM22S.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12524-c17cac5b/%E5%AE%98%E7%BD%91%E5%9B%BE%E7%89%87-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12518-e1a43bb7/24.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12520-a76cc627/25.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12521-b08f71e1/26.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12538-bf11f476/field-for-golf-2026-01-08-23-42-51-utc.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12568-f47c9f16/29.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/12569-b499b7b9/30.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD GM22S Electric Greens Mower",
+      "htmlSha256": "d0d87ee0cf456a579a5f473cdc84997ac238b5b82b234e951369710efbaf0d01",
+      "candidateCount": 14
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-x1": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/34046-25f74532/odoo_compressed_05.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34047-e45c45ff/Set_the_standard_before_the_site_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34048-a57ff75e/Follow_the_task_in_the_field_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34049-e51d3610/Mark_issues_in_the_3D_record_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34050-2ca1292e/X1_voice_notes_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34051-9a3e270f/From_field_to_result_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34053-8827cfe1/One_device_for_field-ready_reality_capture_odoo.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34052-939c2c45/see-the-work-while-you-capture-it.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "3D Handheld LiDAR Scanner",
+      "htmlSha256": "99c89714fecd0c8bbe7ad0c451597cef87a5ebd5807ee757ca601cdd037e7a16",
+      "candidateCount": 15
+    },
+    "https://shop.fjdynamics.com/products/fjd-trion-s1-3d-lidar-scanner": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-ats-ultra-pwn-spray-tip-control-system": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11480-66cd7c58/Sprayer%20Controller-2.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11481-e74bd92e/PWN%20Spray%20Tip-1.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11490-4e27c64a/Spec-7.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11491-fc102781/Spec-6.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11803-306731ad/imgi_89_banner1.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD ATS ULTRA",
+      "htmlSha256": "530714a914aec7d47997ba6b6ac14d4ae0fed52e9ec35b87da2a5458a18d9f1a",
+      "candidateCount": 5
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-ms100-mower-kit": {
+      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/11722-dd0728d0/Landscaping%20%20%E5%AE%98%E7%BD%91-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13423-c4f66fb1/%E5%AE%98%E7%BD%91%E5%9B%BE%E7%89%87-10.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13438-a24cdb07/66.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13437-97e7bb58/67.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13439-de83450b/68.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13420-cfcbfee0/website.s_ms100_picture_2_default_image",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13412-7a45ffb5/63.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/13413-8773b10e/64.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD MS100 Mower Kit",
+      "htmlSha256": "56f10b853059cd6771961b0c3024a88254a0b48b916dea628bf161fb3073bb08",
+      "candidateCount": 11
+    }
+  },
+  "updatedAt": "2026-10-20T15:04:26.491232Z",
+  "algorithmVersion": "dual-images-2.0",
+  "officialDomains": {
+    "www.fjdynamics.com": "https://www.fjdynamics.com/",
+    "www.fjdtrion.com": "https://www.fjdtrion.com/",
+    "agriculture.fjdynamics.com": "https://www.fjdynamics.com/",
+    "landscaping.fjdynamics.com": "https://www.fjdynamics.com/",
+    "store.fjdtrion.com": "https://www.fjdtrion.com/",
+    "shop.fjdynamics.com": "https://www.fjdtrion.com/product/fjd-trion-p2-lidar-scanner"
+  },
+  "discoveredPages": 95,
+  "lastBatch": {
+    "at": "2026-10-20T15:04:26.491232Z",
+    "checkedPages": 12,
+    "newImages": 0,
+    "errors": []
+  },
+  "libraryVersion": "28dfea0820a5db38",
+  "excludedNonProductResources": [
+    {
+      "url": "https://landscaping.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/s_fjd_landscaping_kv_v3/kv-residential-slope.webp",
+      "reason": "shared theme illustration, not a verified product material"
+    },
+    {
+      "url": "https://landscaping.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/s_text_mask_v3.webp",
+      "reason": "shared theme illustration, not a verified product material"
+    },
+    {
+      "url": "https://1500006283.vod2.myqcloud.com/6c9ac49bvodcq1500006283/23beec585145403698412420405/1d7jgj.jpeg",
+      "reason": "generic scene, no verified product depiction"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ jobs:
       - name: 数据流、队列与兼容性检查
         run: npm test
       - name: 准备图表测试依赖
-        run: python3 -m pip install --quiet Pillow==11.3.0 playwright==1.55.0 lxml==6.0.2 tinycss2==1.4.0
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 playwright==1.55.0 lxml==6.0.2 tinycss2==1.4.0
       - name: 准备 HTML 单页工具
         run: npm ci --prefix cloud/mirror-tool --ignore-scripts --no-audit --no-fund && node cloud/mirror-tool/prepare.mjs
       - name: 归档、回执、完整清单与图表检查

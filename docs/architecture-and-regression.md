@@ -518,3 +518,30 @@ These inform layout and workflow only; no proprietary implementation is copied.
 展示从真实 observation 派生，不把 needsRecheck/最近发现/访问成功/人工操作当成内容变化。旧 before/snapshot 不足时明确局限；索引差异不称为原网页修改。若新增同日变化明细，则作为 observation 的可选 contentChanges 扩展，保留真实发生时的成对快照，防止后续不同查询覆盖已发生的对比；同步公开裁剪和合并，既有无扩展事件不迁移。轻量文字差异只做展示、格式归一化，不回写旧快照。
 
 保护版本：backup/delta-changes-before-20261020；公开快照与存档索引备份 /workspace/backups/fjd-delta-changes。验证以历史公开快照逐字节不变、历史日报 fingerprint/更新链不变、四阶段/人工优先级独立、桌面与移动浏览器和云端数据契约测试为门槛。
+
+
+## 2026-10-20 — independent trademark and official product image evidence
+
+Impact map before implementation: browser search calls visual-browser; cloud runner calls
+visual-enrichment after scan/sync. Legacy imageAnalysis is a 32 px contour candidate,
+manual imageMatch belongs to review facts, and neither is sufficient for a new confirmed
+badge. core.mergeRows, mergeWorkspace and publicFeed are shared persistence boundaries;
+the new category fields must merge by timestamps/evidence IDs and be publicly whitelisted.
+Current imageUrl must never be replaced by a discovered best candidate. IndexedDB/JSON
+backups already retain additive row properties. Daily snapshots/update-chain checksums,
+reviewWorkflow, priorityV2, Notion/Feishu delivery and scan schedules are out of scope.
+
+Plan: retain legacy APIs and records, add an independent V2 evidence model, bounded
+robots-aware public downloads and OpenCV/Pillow verification, official-only provenance
+library, and compact list/detail UI. Browser performs exact-file/decoded-pixel checks
+and queues unsupported/cross-origin checks; cloud verifies local regions and transformed
+material. An image-only operation can backfill without search, review or delivery events.
+Failed downloads remain unavailable/pending, not negative matches; previously confirmed
+evidence remains readable with its capture date. Product matches must cover substantial
+product image content, never only a logo. Exact 100% requires file or decoded pixel equality.
+
+Restore point: backup/dual-images-before-20261020; public snapshot, archive index and code
+head in /workspace/backups/fjd-dual-images. No history migration or report rewrite.
+Verification gates: nine dual-image cases, real/derived image calibration with independent
+negative images, merge/public-redaction/encrypted roundtrip tests, all Node/Python suites,
+desktop/mobile review and existing business-flow browser regressions, live Pages checks.

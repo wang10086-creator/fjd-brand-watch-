@@ -1,9 +1,10 @@
+import {pendingImageUpdates} from './image-updates.js?v=20261020-images';
 import {pendingPriorityUpdates} from '../priority.js?v=20261020-priority-r3';
 import {readPublicFile} from './public-reader.js?v=20261020-review';
-import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261020-changes';
+import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261020-images';
 import {notionPublicUrl} from '../archive-config.js?v=20261020-review';
-import {seal,unseal,migrationState} from './crypto.js?v=20261020-priority-r3';
-import {mergeWorkspace} from './state.js?v=20261020-changes';
+import {seal,unseal,migrationState} from './crypto.js?v=20261020-images';
+import {mergeWorkspace} from './state.js?v=20261020-images';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
 let head=null,headFetchedAt=0,headMaxAge=120000,headRequest=null;const publicCache=new Map();
@@ -69,10 +70,11 @@ export async function syncArchive(state,{force=false}={}){
  const accepted=new Set((dashboard.state.monitor.updateChain||[]).map(e=>e.id));
  const allPriorityUpdates=pendingPriorityUpdates(state,dashboard.state),priorityUpdates=allPriorityUpdates.slice(0,50);state.priorityPendingIds=allPriorityUpdates.map(x=>x.event.id);
  const missing=(state.monitor.updateChain||[]).some(e=>!accepted.has(e.id));
+ const imageUpdates=pendingImageUpdates(state,dashboard.state).slice(0,24);
  if(missing){
   if(!force&&Date.now()-Date.parse(state.archive.submittedAt||0)<300000)return false;
   await dispatch('migrate',await makePayload({state:migrationState(state)},{large:true}));state.archive.submittedAt=new Date().toISOString();state.archive.syncState='submitted';
- }else if(priorityUpdates.length){await dispatch('sync',await makePayload({priorityUpdates},{large:true}));state.archive.submittedAt=new Date().toISOString();state.archive.syncState='submitted';}else if(force)await dispatch('sync');else {state.archive.syncState='synced';return false;}
+ }else if(priorityUpdates.length||imageUpdates.length){await dispatch('sync',await makePayload({priorityUpdates,imageUpdates},{large:true}));state.archive.submittedAt=new Date().toISOString();state.archive.syncState='submitted';}else if(force)await dispatch('sync');else {state.archive.syncState='synced';return false;}
  state.cloudService={...state.cloudService,phase:'queued',currentSite:null,queuedAt:new Date().toISOString()};return true;
 }
 export async function sendReviews(state){const events=(state.monitor.updateChain||[]).filter(e=>e.type==='review'&&state.archive?.receipts?.[e.id]?.status!=='synced'&&!(state.cloudQueuedReviews||[]).includes(e.id)).slice(0,5).map(e=>({...e,chartPng:undefined,reviewRecord:state.monitor.reviews.find(r=>r.id===e.id.slice(7))}));if(!events.length)return false;await dispatch('review',await makePayload({events}));state.cloudQueuedReviews=[...(state.cloudQueuedReviews||[]),...events.map(e=>e.id)];return true;}

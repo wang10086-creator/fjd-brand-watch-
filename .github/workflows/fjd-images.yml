@@ -1,0 +1,47 @@
+name: 独立图片核验
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '10 10 * * 0'
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: fjd-cloud-monitor
+  cancel-in-progress: false
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+      - uses: actions/cache@v4
+        with:
+          path: .cache/fjd-images
+          key: image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-${{ github.run_id }}
+          restore-keys: |
+            image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-
+      - name: 每周增量更新官网产品图库
+        if: github.event_name == 'schedule'
+        run: |
+          python3 cloud/official_product_library.py --pages 6 --per-page 4 --seconds 150
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add assets/official-product-images.json assets/products
+          if ! git diff --cached --quiet; then
+            git commit -m "Refresh verified official product image references"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: 分批核验图片（不检索、不生成日报、不推送消息）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FJD_OPERATION: images
+        run: node cloud/runner.mjs

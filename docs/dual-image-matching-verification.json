@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "date": "2026-10-20",
+  "algorithmVersion": "dual-images-2.0",
+  "referenceCounts": {
+    "trademark": 126,
+    "officialProduct": 21,
+    "officialPrimaryPages": 6,
+    "checkedOfficialPages": 46
+  },
+  "localTests": {
+    "node": {
+      "passed": 239,
+      "failed": 0,
+      "skipped": 0
+    },
+    "python": {
+      "passed": 73,
+      "failed": 0,
+      "skipped": 0
+    },
+    "browserGroups": [
+      "dual-images",
+      "configuration",
+      "workflow",
+      "priority",
+      "priority-layout",
+      "controls",
+      "navigation",
+      "public-reading",
+      "content-changes",
+      "review-legacy",
+      "evidence-content",
+      "archive",
+      "evidence-links"
+    ]
+  },
+  "calibration": {
+    "samples": 25,
+    "positiveCases": 11,
+    "negativeCases": 14,
+    "falsePositives": 0,
+    "falseNegatives": 0,
+    "notes": "Small deterministic reference/derived sample set, not an estimate of Internet-wide precision or recall. Same model/different photo negatives are manually inspected official images."
+  },
+  "baseline": {
+    "leads": 215,
+    "observations": 192,
+    "immutableUpdates": 73,
+    "reviews": 5,
+    "snapshotUnmodifiedBeforeRelease": true,
+    "archiveIndexUnmodified": true
+  },
+  "productionVerification": null,
+  "externalDeliveryWrites": false
+}

@@ -14,7 +14,7 @@ on:
         description: 'check 配置检查；verify 检索归档及群测试；scan 立即检索；sync 归档；archive 页面存档；digest 每日简报'
         type: choice
         default: scan
-        options: [auto, check, verify, archive, scan, site-retry, sync, digest, test-digest, migrate, review]
+        options: [auto, check, verify, archive, scan, site-retry, sync, digest, test-digest, migrate, review, images]
       payload:
         description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
         required: false
@@ -35,7 +35,13 @@ jobs:
         with:
           node-version: '24'
       - name: 准备日报图表
-        run: python3 -m pip install --quiet Pillow==11.3.0
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+      - uses: actions/cache@v4
+        with:
+          path: .cache/fjd-images
+          key: image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-${{ github.run_id }}
+          restore-keys: |
+            image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-
       - name: 云端检索、Notion 归档与飞书简报
         if: inputs.operation != 'archive'
         env:
@@ -50,11 +56,11 @@ jobs:
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
       - name: 准备单页 HTML 镜像组件
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && github.event.schedule != '30 2 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '30 2 * * *' }}
         continue-on-error: true
         run: bash cloud/prepare-archive.sh
       - name: 公开页面存档（独立于检索统计）
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && github.event.schedule != '30 2 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '30 2 * * *' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,3 +3,6 @@ __pycache__/
 *.sqlite3
 *.sqlite3-*
 connection.key
+
+# Public image download/feature cache (regenerated, bounded, never published)
+.cache/fjd-images/

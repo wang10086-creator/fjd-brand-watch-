@@ -1,3 +1,4 @@
+import {applyImageUpdates} from './image-updates.js';
 import {refreshPriorities,applyPriorityUpdates} from '../priority.js';
 import {publishWebSnapshot} from './web-snapshot.mjs';
 import {gzipSync} from 'node:zlib';
@@ -88,7 +89,7 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
- const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review'].includes(op))throw Error('不支持的云端操作');
+ const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -99,10 +100,19 @@ async function main(){
    vault.delivery={receipts:{},pages:{},pushes:vault.feishu?.pushes||{}};delete vault.feishu;
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
- vault.version=2;upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
+ vault.version=2;if(op!=='images')upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
+ if(op==='images'){
+  const protectedState=()=>JSON.stringify({rows:vault.state.rows.map(r=>Object.fromEntries(['id','url','imageUrl','imageAnalysis','reviewWorkflow','priorityV2','reviewOutcome','status','decision','confirmedIssue','note','reviewedAt','imageMatch','evidence','watch','needsRecheck','firstSeen','lastSeen'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))),monitor:vault.state.monitor,history:vault.state.history,config:vault.state.config,schedule:vault.state.schedule});
+  const before=protectedState();const result=await enrichPictures(vault.state,{limit:12});
+  if(before!==protectedState())throw Error('独立图片任务检测到非图片业务数据变动，停止写入以保护原台账');
+  await checkpoint();
+  await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
+  console.log('独立图片队列：'+JSON.stringify(result));console.log('兼容性保护：线索标识、原图、历史图形记录、优先级、人工处理、监控事件和定时配置均保持一致。');return;
+ }
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}
+ if(op==='sync'&&payload.imageUpdates){applyImageUpdates(vault.state,payload.imageUpdates);await checkpoint();}
  if(op==='sync'&&payload.priorityUpdates){applyPriorityUpdates(vault.state,payload.priorityUpdates);await checkpoint();}
  if(op==='review'){applyReviews(vault.state,payload.events);await checkpoint();}
  if(op==='check'&&/^[a-f0-9-]{36}$/.test(payload.permissionProbe||''))vault.browserPermissionCheck={id:payload.permissionProbe,at:new Date().toISOString(),repositoryWrite:true,payloadDecrypted:true,workflowTriggered:true};
