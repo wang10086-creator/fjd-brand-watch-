@@ -50,4 +50,10 @@
 
 技术限制：这不是商标法律状态查询。现有清单缺少完整注册号、类别、有效期及法律状态；少量地域描述未解析。品牌采用现有标题/摘要识别结果，不根据检索词、平台或域名擅自认定品牌/经营地。未有足够依据时保留“待核实”。原站访问限制仍可能存在，站内已有证据和镜像继续可用；不绕过登录或访问控制。
 
-线上发布回执另补。
+## 线上发布回执
+
+- 功能提交：[`9dfdd979`](https://github.com/wang10086-creator/fjd-brand-watch-/commit/9dfdd979e2f660f5ab6d2a01b3d7c9997dd0e721)。
+- [GitHub CI 39507234917](https://github.com/wang10086-creator/fjd-brand-watch-/actions/runs/39507234917)：成功，253 项 Node 与 79 项 Python 全部通过。
+- [GitHub Pages 39507234331](https://github.com/wang10086-creator/fjd-brand-watch-/actions/runs/39507234331)：构建及部署成功。
+- 线上真实台账只读检查：桌面 1380px、手机 390px 均通过；准确原 URL、单条聚合地域提示、历史查询、单一详情镜像按钮、处理及优先级表单均正常，无脚本错误或横向溢出。旧 `evidence.html#url=…&day=…` 可正常读取对应日报证据，独立证据页仍保留镜像和原页面入口。
+- 更新入口：[线索复核](https://wang10086-creator.github.io/fjd-brand-watch-/?v=20261021-evidence-territory#inbox)。线上检查没有提交处理表单、没有改动真实人工记录，也没有发送外部消息。
