@@ -1,4 +1,4 @@
-import {priorityBrands} from './priority-brands.js?v=20261020-priority-r2';
+import {priorityBrands} from './priority-brands.js?v=20261020-priority-r3';
 
 export const PRIORITY_VERSION='V2.1-20261020';
 export const priorityLabels={high:'高优先级',medium:'中优先级',low:'低优先级',pending:'待评估'};
@@ -107,9 +107,9 @@ export function mergePriority(a,b){
  const history=[...events.values()].sort(eventSort),last=history.at(-1),manuals=[a.manual,b.manual].filter(Boolean).sort(eventSort),manual=manuals.at(-1);
  const active=last&&(!manual||eventSort(last,manual)>=0)?(last.to==='auto'?null:{id:last.id,level:last.to,at:last.at,autoHash:last.autoHash}):manual||null;
  const autos=[a.auto,b.auto].filter(Boolean).sort((x,y)=>String(x.evaluatedAt).localeCompare(String(y.evaluatedAt)));
- return {...a,...b,version:1,auto:structuredClone(autos.at(-1)),manual:active?structuredClone(active):null,history,assessments:mergeAssessments(a.assessments||[],b.assessments||[],a.auto,b.auto)};
+ const merged={...a,...b,version:1,auto:structuredClone(autos.at(-1)),manual:active?structuredClone(active):null,history,assessments:mergeAssessments(a.assessments||[],b.assessments||[],a.auto,b.auto)};delete merged.cloudEvidenceHash;return merged;
 }
-export function refreshPriority(row,context={},at){if(row.publicOnly&&row.priorityV2?.auto?.version===PRIORITY_VERSION)return row;const old=row.priorityV2||{},auto=evaluatePriority(row,context,at);row.priorityV2={...old,version:1,auto,manual:old.manual||null,history:old.history||[],assessments:mergeAssessments(old.assessments||[],old.auto,auto)};return row}
+export function refreshPriority(row,context={},at){if(row.priorityV2?.auto?.version===PRIORITY_VERSION&&(row.priorityV2.cloudEvidenceHash===priorityEvidenceHash(row)||row.publicOnly&&!row.priorityV2.cloudEvidenceHash))return row;const old=row.priorityV2||{},auto=evaluatePriority(row,context,at);row.priorityV2={...old,version:1,auto,manual:old.manual||null,history:old.history||[],assessments:mergeAssessments(old.assessments||[],old.auto,auto)};return row}
 export function refreshPriorities(state,catalog,at=new Date().toISOString()){const context=priorityContext(catalog,state.config);for(const row of state.rows||[])refreshPriority(row,context,at);return state}
 export function priorityOf(row){const p=row?.priorityV2,auto=priorityLabels[p?.auto?.level]?p.auto:evaluatePriority(row||{}),manual=['high','medium','low'].includes(p?.manual?.level)?p.manual:null;return {level:manual?.level||auto.level,auto,manual:manual||null,needsReview:!!manual&&manual.autoHash!==assessmentKey(auto),history:p?.history||[],assessments:p?.assessments||[]}}
 export function adjustPriority(row,level,reason='',at=new Date().toISOString()){

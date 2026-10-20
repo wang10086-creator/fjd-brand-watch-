@@ -1,5 +1,6 @@
 name: 兼容性回归检查
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:

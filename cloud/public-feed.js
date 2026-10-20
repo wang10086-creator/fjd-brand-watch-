@@ -1,8 +1,8 @@
-import {publicPriority,mergePriority,refreshPriorities} from '../priority.js?v=20261020-priority-r2';
+import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261020-priority-r3';
 import {publicWorkflow} from '../review.js?v=20261020-review';
 // Only fields already suitable for the public Notion report are published here.
 import {mergeMonitors} from '../monitor.js?v=20261020-review';
-import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-priority-r2';
+import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-priority-r3';
 import {applyRecordPolicy} from '../record-policy.js?v=20261020-review';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
@@ -31,8 +31,11 @@ export function applyPublicFeed(state,feed){
  state.rows||=[];
  const locals=new Map(state.rows.filter(r=>!r.publicOnly).map(r=>[canonical(r.url),r])),remote=new Map(feed.rows.map(r=>[canonical(r.url),r]));
  state.rows=mergeRows(state.rows,feed.rows).map(r=>{const local=locals.get(canonical(r.url)),incoming=remote.get(canonical(r.url));
-  if(local?.reviewedAt&&local.reviewedAt>=(incoming?.reviewedAt||''))return enrichLead({...r,...pick(local,'status reviewOutcome reviewedAt note evidence decision confirmedIssue imageMatch needsRecheck watch pageState reviewWorkflow'),publicOnly:false});
-  return enrichLead(incoming?{...r,...pick(incoming,'status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck reviewWorkflow'),priorityV2:mergePriority(r.priorityV2,incoming.priorityV2),publicOnly:true}:r);
+  const priority=mergePriority(r.priorityV2,incoming?.priorityV2),useCloud=!!incoming?.priorityV2?.auto&&!(local?.reviewedAt&&local.reviewedAt>(incoming?.reviewedAt||''));
+  if(useCloud)priority.auto=structuredClone(incoming.priorityV2.auto);
+  const finish=value=>{if(useCloud){value.priorityV2=priority;value.priorityV2.cloudEvidenceHash=priorityEvidenceHash(value)}return enrichLead(value)};
+  if(local?.reviewedAt&&local.reviewedAt>=(incoming?.reviewedAt||''))return finish({...r,...pick(local,'status reviewOutcome reviewedAt note evidence decision confirmedIssue imageMatch needsRecheck watch pageState reviewWorkflow'),publicOnly:false});
+  return finish(incoming?{...r,...pick(incoming,'status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck reviewWorkflow'),priorityV2:priority,publicOnly:true}:r);
  });
  const history=new Map((state.history||[]).map(r=>[r.id,r]));for(const r of feed.monitor.runs||[]){const old=history.get(r.id);if(!old||old.publicOnly)history.set(r.id,structuredClone(r));}state.history=[...history.values()].sort((a,b)=>b.startedAt.localeCompare(a.startedAt)).slice(0,100);
  state.monitor=mergeMonitors(state.monitor,feed.monitor,state.rows);

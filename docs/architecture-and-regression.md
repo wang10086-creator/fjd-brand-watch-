@@ -439,3 +439,15 @@ These inform layout and workflow only; no proprietary implementation is copied.
   graded input: every non-priority field and monitor event remains exact, current
   manual history stays exact, and an old automatic assessment is retained in
   history on a rules-version update. No preexisting assertion was skipped.
+- Cross-device verification added two regressions: a newer excerpt-derived grade
+  must not override the authoritative full-evidence cloud grade, including the
+  equal-review-time private-note branch. A content hash locks only unchanged
+  received evidence; a real browser search change unlocks reevaluation. This
+  local cache marker is stripped from encrypted migration and never public.
+  Private handling notes and independent manual priority history are retained.
+- Keep public cloud assessments unchanged on direct snapshot restoration; a real
+  non-public search result with changed evidence clears the public-only source
+  flag before reevaluation. Added explicit snapshot/search regressions.
+- The existing regression workflow gains only workflow_dispatch so checks can
+  be explicitly run after bot-authored snapshot commits; original push/PR
+  triggers, all test commands and scheduled monitor workflows remain intact.
