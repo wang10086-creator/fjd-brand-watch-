@@ -344,3 +344,10 @@ These inform layout and workflow only; no proprietary implementation is copied.
   rollback, original 403 retry/resume, repeated navigation, configuration/market/
   image comparison, and blocked-host cross-device reading. Old data remains at
   215 rows / 5 reviews / 192 observations / 72 events, byte-identical to backup.
+- Additional endpoint and Notion checks bring the final suites to 153 Node / 38
+  Python tests. Sequential review API transitions preserve all five action events
+  through closure/reopen; new Notion case lists count legal handling as open.
+- Production Pages 39395754795 and CI 39395755695 succeeded. Read-only desktop and
+  mobile checks agree at 215 rows, 5 reviews, stage partition 210/0/0/5; no real
+  review action was submitted. The preexisting scheduled batch completed normally
+  and added its legitimate event while the newer configuration check queued.

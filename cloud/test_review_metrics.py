@@ -21,3 +21,10 @@ class WorkflowReportTests(unittest.TestCase):
         font=ImageFont.truetype(str(pathlib.Path(__file__).parent/'assets/report-font.otf'),24);missing=bytes(font.getmask(chr(0x10ffff)))
         for ch in set('待IP对接人初核待IP部门复核待后续处置已结案业务法务处理中'):
             self.assertNotEqual(bytes(font.getmask(ch)),missing,ch)
+    def test_new_case_list_keeps_legal_open_and_matches_the_archive_total(self):
+        from test_notion import Store,EVENT
+        from notion_archive import NotionReports,plain
+        event=copy.deepcopy(EVENT);event['day']='2026-10-20';event['at']='2026-10-20T02:00:00Z'
+        event['cumulative'].update(statsVersion=2,new=4,changed=0,pending=3,closed=1,review={'pending':1,'reviewing':1,'escalated':1,'cleared':1})
+        event['reportCases']=[{'title':stage,'url':'https://shop.example/'+stage,'stage':stage,'node':'legal' if stage=='handling' else '', 'status':status,'kind':'new'} for stage,status in [('initial','pending'),('ip','reviewing'),('handling','escalated'),('closed','cleared')]]
+        store=Store();sink=NotionReports(store.request,'parent');sink.overview(event);page=sink.pages[event['day']]['id'];text=' '.join(plain(b) for b in store.blocks[page]);self.assertIn('待完成核查 3',text);self.assertIn('已结案 1',text);self.assertIn('待后续处置 · 法务部门处理中',text)
