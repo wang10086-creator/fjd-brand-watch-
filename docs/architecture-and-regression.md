@@ -752,3 +752,8 @@ product-image coverage. Such sets now remain unavailable/incomplete and retry; S
 login titles and account-verification redirects are also restricted. Public evidence
 retains final page URL/title for diagnosis. Previously completed navigation-only
 records are revalidated without altering their source URL or manual review history.
+Explicit URL verification now bypasses legacy unchecked/compared tiers and processes
+only the requested existing record. Normal scheduled jobs retain four bounded batches.
+Deferred attempts clear stale completion and advance requestedAt without erasing valid
+historical matches; otherwise an old successful retry date could postpone unfinished
+work. A regression covers legacy imageAnalysis.status=compared plus a future retry date.

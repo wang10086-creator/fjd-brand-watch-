@@ -117,9 +117,10 @@ async function main(){
   const protectedState=()=>JSON.stringify({rows:vault.state.rows.map(r=>Object.fromEntries(['id','url','imageUrl','imageAnalysis','reviewWorkflow','priorityV2','reviewOutcome','status','decision','confirmedIssue','note','reviewedAt','imageMatch','evidence','watch','needsRecheck','firstSeen','lastSeen'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))),monitor:vault.state.monitor,history:vault.state.history,config:vault.state.config,schedule:vault.state.schedule});
   const localMinute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
   if(localMinute>=530&&localMinute<585){console.log('日报截止与发布保护时段，独立图片队列稍后续查');return;}
+  const target=vault.state.rows.some(r=>r.url===env.FJD_IMAGE_URL)?env.FJD_IMAGE_URL:null;
   const before=protectedState(),deadline=Date.now()+240000;let total=0;
-  for(let batch=0;batch<4&&Date.now()<deadline-5000;batch++){
-   const result=await enrichPictures(vault.state,{limit:12,priorityUrls:batch===0&&vault.state.rows.some(r=>r.url===env.FJD_IMAGE_URL)?[env.FJD_IMAGE_URL]:[],maxDurationMs:Math.min(90000,deadline-Date.now()-5000)});total+=result.attempted;
+  for(let batch=0;batch<(target?1:4)&&Date.now()<deadline-5000;batch++){
+   const result=await enrichPictures(vault.state,{limit:target?1:12,priorityUrls:target?[target]:[],maxDurationMs:Math.min(90000,deadline-Date.now()-5000)});total+=result.attempted;
    if(before!==protectedState())throw Error('独立图片任务检测到非图片业务数据变动，停止写入以保护原台账');
    vault.state.visualSummary.backfill={version:1,total:vault.state.rows.length,processed:vault.state.rows.filter(r=>r.imageEvidence?.at).length,unprocessed:vault.state.rows.filter(r=>!r.imageEvidence?.at).length,restricted:vault.state.rows.filter(r=>r.imageEvidence?.pageError||r.imageEvidence?.failures?.length).length};
    await checkpoint({imagesOnly:true});console.log('独立图片批次：'+JSON.stringify(result));

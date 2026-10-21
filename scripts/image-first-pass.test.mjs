@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {firstImagePass} from '../cloud/first-images.mjs';
 import {enrichPictures} from '../cloud/visual-enrichment.mjs';
 import {publicFeed,applyPublicFeed} from '../cloud/public-feed.js';
-import {imageInputFingerprint,imageMatches} from '../image-evidence.js';
+import {imageInputFingerprint,imageMatches,deferImageCheck} from '../image-evidence.js';
 import {normalizeResults} from '../model.js';
 import {dualImageRows} from './fixtures/dual-images.mjs';
 import {initialState,scan} from '../cloud/scan.mjs';
@@ -30,4 +30,11 @@ test('search normalization keeps genuine per-result image URLs only',()=>{
 test('cloud scan calls first image verifier before checkpoint exposes newly discovered row',async()=>{
  const state=await initialState();state.config={...state.config,regions:['CN'],platforms:['jd-cn']};state.selectedBrandIds=[];state.customAliases=['FJDynamics'];let checked=false;
  await scan(state,{budget:1,wait:async()=>{},fetcher:async(u,o)=>({ok:true,json:async()=>({results:[{url:'https://'+JSON.parse(o.body).include_domains[0]+'/first-image-test',title:'FJDynamics product'}]})}),imageVerifier:async rows=>{checked=true;for(const r of rows)r.imageEvidence={firstPass:{status:'completed'},complete:false}},checkpoint:async()=>{const row=state.rows.find(r=>r.url.endsWith('/first-image-test'));if(row)assert.equal(row.imageEvidence.firstPass.status,'completed')}});assert.ok(checked);
+});
+
+test('explicit target outranks legacy tier and deferred work clears stale completion/retry gate',async()=>{
+ const target={...dualImageRows()[2],imageAnalysis:{status:'compared'},imageEvidence:{at:'2026-10-20',complete:true,nextRetryAt:'2099-01-01'}};
+ const state={rows:[{url:'https://pending.example/a'},target]};let urls;
+ await enrichPictures(state,{limit:1,priorityUrls:[target.url],collector:async items=>{urls=items.map(r=>r.url);return []}});
+ assert.deepEqual(urls,[target.url]);assert.equal(target.imageEvidence.complete,false);assert.ok(target.imageEvidence.requestedAt);assert.equal(target.imageEvidence.cloudPending,true);assert.equal(imageMatches(target,'productImageMatch').length,1);
 });

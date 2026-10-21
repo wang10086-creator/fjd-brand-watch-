@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       priority_url:
-        description: 已有线索的公开URL（仅优先核验，不新增线索）
+        description: 已有线索的公开URL（单条核验；留空自动批量续查）
         required: false
         type: string
   schedule:
