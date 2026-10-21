@@ -31,13 +31,13 @@ const github=store.request,file=store.readJSON,put=store.putJSON;
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
 function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},bot:{kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function dashboard(){return {version:2,state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
-async function checkpoint(){
- applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);
+async function checkpoint({imagesOnly=false}={}){
+ if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
- vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
+ if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
- const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts});
+ const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
  await store.write([
   {path:'public-dashboard.json.gz',bytes:gzipSync(Buffer.from(JSON.stringify(publicSnapshot))),bytesInput:true},
   {path:'vault.json',value:cipher},
@@ -46,7 +46,7 @@ async function checkpoint(){
   {path:'status.json',value:publicStatus()}
  ]);
  // Only a confirmed Git write before cutoff can become the formal report source.
- confirmCycleDraft(vault.state);
+ if(!imagesOnly)confirmCycleDraft(vault.state);
 }
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
@@ -115,11 +115,18 @@ async function main(){
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
  if(op==='images'){
   const protectedState=()=>JSON.stringify({rows:vault.state.rows.map(r=>Object.fromEntries(['id','url','imageUrl','imageAnalysis','reviewWorkflow','priorityV2','reviewOutcome','status','decision','confirmedIssue','note','reviewedAt','imageMatch','evidence','watch','needsRecheck','firstSeen','lastSeen'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))),monitor:vault.state.monitor,history:vault.state.history,config:vault.state.config,schedule:vault.state.schedule});
-  const before=protectedState();const result=await enrichPictures(vault.state,{limit:12});
-  if(before!==protectedState())throw Error('独立图片任务检测到非图片业务数据变动，停止写入以保护原台账');
-  await checkpoint();
-  await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
-  console.log('独立图片队列：'+JSON.stringify(result));if(result.systemErrors)process.exitCode=1;console.log('兼容性保护：线索标识、原图、历史图形记录、优先级、人工处理、监控事件和定时配置均保持一致。');return;
+  const localMinute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
+  if(localMinute>=530&&localMinute<585){console.log('日报截止与发布保护时段，独立图片队列稍后续查');return;}
+  const before=protectedState(),deadline=Date.now()+240000;let total=0;
+  for(let batch=0;batch<4&&Date.now()<deadline-5000;batch++){
+   const result=await enrichPictures(vault.state,{limit:12,priorityUrls:batch===0&&vault.state.rows.some(r=>r.url===env.FJD_IMAGE_URL)?[env.FJD_IMAGE_URL]:[],maxDurationMs:Math.min(90000,deadline-Date.now()-5000)});total+=result.attempted;
+   if(before!==protectedState())throw Error('独立图片任务检测到非图片业务数据变动，停止写入以保护原台账');
+   vault.state.visualSummary.backfill={version:1,total:vault.state.rows.length,processed:vault.state.rows.filter(r=>r.imageEvidence?.at).length,unprocessed:vault.state.rows.filter(r=>!r.imageEvidence?.at).length,restricted:vault.state.rows.filter(r=>r.imageEvidence?.pageError||r.imageEvidence?.failures?.length).length};
+   await checkpoint({imagesOnly:true});console.log('独立图片批次：'+JSON.stringify(result));
+   if(!result.attempted||!result.pending)break;
+  }
+  await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:false}),status:publicStatus()});
+  console.log('独立图片队列本次处理：'+total+'；兼容性保护：原台账业务字段、事件及定时配置均保持一致。');return;
  }
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){vault.state=mergeState(vault.state,payload.state);vault.lastError='';await checkpoint();}

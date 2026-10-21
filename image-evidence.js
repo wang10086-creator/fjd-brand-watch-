@@ -61,5 +61,12 @@ export function publicImageResult(value){
 }
 export function publicImageEvidence(value){
  if(!value)return undefined;
- return {...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated candidateCursor cloudPending requestedBy systemFailure'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 pixelEncoding width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
+ return {...(value.candidateNextUrl?{candidateNextUrl:publicURL(value.candidateNextUrl)}:{}),...(Array.isArray(value.candidateChecked)?{candidateChecked:value.candidateChecked.map(publicURL).filter(Boolean)}:{}),...pick(value,'version at fingerprint libraryVersion complete pageError nextRetryAt requestedAt candidateCount imagesTruncated candidateCursor candidatePoolKey cloudPending requestedBy systemFailure firstPass deepStatus retryCount'),images:(value.images||[]).map(im=>({...pick(im,'sha256 pixelSha256 pixelEncoding width height format capturedAt checkedLibraries'),url:publicURL(im.url),finalUrl:publicURL(im.finalUrl),...(/^data:image\/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$/.test(im.thumbnail||'')&&im.thumbnail.length<=40000?{thumbnail:im.thumbnail}:{})})),failures:(value.failures||[]).map(e=>({url:publicURL(e.url),reason:String(e.reason||'').slice(0,120)}))};
+}
+
+// First-pass and continuation are evidence lifecycle only, never review decisions.
+export function deferImageCheck(row,reason='首次核验时间预算已用完，已进入自动续查',{at=new Date().toISOString()}={}){
+ queueImageCheck(row,{at});
+ row.imageEvidence={...row.imageEvidence,firstPass:row.imageEvidence?.firstPass||{status:'deferred',at,reason},deepStatus:'queued',cloudPending:true};
+ for(const key of imageCategories)if(!imageMatches(row,key).length)row[key]=mergeImageResult(row[key],{version:2,at,status:'pending',complete:false,error:reason,matches:[]});
 }
