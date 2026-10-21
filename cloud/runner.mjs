@@ -1,4 +1,4 @@
-import {activateReportCycles,updateCycleDraft,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
+import {activateReportCycles,updateCycleDraft,confirmCycleDraft,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
 import {cycleAt,cycleForDay,bjDay,addDay} from '../report-cycle.js';
 import {applyImageUpdates} from './image-updates.js';
 import {refreshPriorities,applyPriorityUpdates} from '../priority.js';
@@ -45,6 +45,8 @@ async function checkpoint(){
   {path:'public-dashboard.json',value:publicSnapshot},
   {path:'status.json',value:publicStatus()}
  ]);
+ // Only a confirmed Git write before cutoff can become the formal report source.
+ confirmCycleDraft(vault.state);
 }
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');

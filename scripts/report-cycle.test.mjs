@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {REPORT_POLICY,cycleAt,cycleForDay,activityDay,nextScanSlot,mergeFormalReports} from '../report-cycle.js';
-import {activateReportCycles,freezeReport,updateCycleDraft,verifyFormal,syncFormalReceipts} from '../cloud/formal-reports.mjs';
+import {activateReportCycles,freezeReport,updateCycleDraft,confirmCycleDraft,verifyFormal,syncFormalReceipts} from '../cloud/formal-reports.mjs';
 import {dueActions} from '../cloud/automation.mjs';import {scan,mergeState} from '../cloud/scan.mjs';
 import {initMonitor,observe,recordRun,recordReview,mergeMonitors} from '../monitor.js';
 import {appendRun,chainFor} from '../report-chain.js';import {reportModel} from '../report-model.js';
@@ -27,7 +27,7 @@ test('delayed scheduled scan exits before configure/network or any state mutatio
  const s=fixture(),before=JSON.stringify(s);const r=await scan(s,{trigger:'schedule',now:()=>day+'T01:20:01Z',fetcher:()=>{throw Error('network forbidden')}});assert.equal(r.skipped,true);assert.equal(JSON.stringify(s),before);
 });
 test('immutable saved draft excludes post-cutoff edits, later scans, priority overrides and report chain appends',()=>{
- const s=fixture();updateCycleDraft(s,day+'T01:19:00Z');const original=JSON.stringify(s.monitor.observations),beforeChain=JSON.stringify(s.monitor.updateChain);
+ const s=fixture();updateCycleDraft(s,day+'T01:19:00Z');confirmCycleDraft(s,day+'T01:19:10Z');const original=JSON.stringify(s.monitor.observations),beforeChain=JSON.stringify(s.monitor.updateChain);
  adjustPriority(s.rows[0],'low','post cutoff',day+'T06:00:00Z');s.rows[0].title='later content';
  const r=freezeReport(s,day,day+'T01:30:00Z'),sha=r.checksum;assert.equal(r.report.cohort[0].snapshot.title,'FJDynamics AT2 for sale');assert.equal(r.report.cohort[0].frozenPriority.level,'high');
  s.monitor.updateChain.push({id:'later',day,at:day+'T06:00:00Z'});s.rows[0].status='cleared';
@@ -67,7 +67,14 @@ test('workflow scan/publish windows match Beijing policy and no legacy digest tr
 test('in-flight late response is retained outside the cutoff; no second request starts',async()=>{
  const s=fixture();s.rows=[];s.monitor=initMonitor(null,[],at);s.monitor.reportPolicy=policy;s.monitor.updateChain=[];s.selectedBrandIds=[];s.customAliases=['FJDynamics'];s.config={...defaults,regions:['CN'],platforms:['jd-cn','1688']};
  let clock=Date.parse(day+'T01:19:59Z'),calls=0;const now=()=>new Date(clock).toISOString();
- const run=await scan(s,{trigger:'schedule',budget:2,now,clock:()=>clock,wait:async()=>{},checkpoint:async()=>updateCycleDraft(s,now()),fetcher:async(u,o)=>{calls++;const domain=JSON.parse(o.body).include_domains[0];clock=Date.parse(day+'T01:20:01Z');return {ok:true,json:async()=>({results:[{url:'https://'+domain+'/late-item',title:'FJDynamics AT2 for sale',content:'Buy FJDynamics AT2 product'}]})}}});
+ const run=await scan(s,{trigger:'schedule',budget:2,now,clock:()=>clock,wait:async()=>{},checkpoint:async()=>{updateCycleDraft(s,now());confirmCycleDraft(s,now())},fetcher:async(u,o)=>{calls++;const domain=JSON.parse(o.body).include_domains[0];clock=Date.parse(day+'T01:20:01Z');return {ok:true,json:async()=>({results:[{url:'https://'+domain+'/late-item',title:'FJDynamics AT2 for sale',content:'Buy FJDynamics AT2 product'}]})}}});
  assert.equal(calls,1);assert.equal(run.attempted,1);assert.equal(s.monitor.observations[0].day,'2026-10-22');assert.equal(s.monitor.observations[0].at,day+'T01:20:01.000Z');
  assert.equal(freezeReport(s,day,day+'T01:30Z').report.fresh.length,0);assert.equal(s.rows.length,1);
+});
+
+test('a Git write confirmed after cutoff cannot replace the last saved draft',()=>{
+ const s=fixture();updateCycleDraft(s,day+'T01:10Z');confirmCycleDraft(s,day+'T01:10:10Z');
+ const late={url:'https://example.com/late-save',title:'FJDynamics for sale',snippet:'Buy FJDynamics AT2'};observe(s.monitor,[late],s.rows,{at:day+'T01:19:59Z',reportDay:day});s.rows.push(late);
+ updateCycleDraft(s,day+'T01:19:59Z');confirmCycleDraft(s,day+'T01:20:01Z');
+ assert.equal(freezeReport(s,day,day+'T01:30Z').report.fresh.length,1);assert.equal(s.rows.length,2);
 });

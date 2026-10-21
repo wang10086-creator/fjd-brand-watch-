@@ -677,3 +677,9 @@ post-cutoff manual operations, same-body retry, Notion response loss, bot uncert
 old/public merges, immutable export and desktop/mobile views. Production check must not
 send a test report or manufacture a historical cycle; first real overnight publication
 is observable only after the newly activated cycle ends.
+
+Cutoff persistence regression: candidate draft generation time is not proof of a saved
+Git checkpoint. Only successful writes acknowledged before 09:20 are confirmed;
+each candidate retains the prior confirmed draft for recovery. A late/ambiguous write
+cannot replace that confirmed version. The frozen body records `sourceSavedAt`.
+A sole unconfirmed draft blocks formal publication rather than claiming saved evidence.

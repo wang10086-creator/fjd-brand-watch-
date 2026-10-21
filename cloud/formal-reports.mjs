@@ -12,14 +12,15 @@ export function activateReportCycles(vault,at=new Date().toISOString()){
  vault.state.monitor.reportPolicy={...REPORT_POLICY,firstDay,activatedAt:at};
  vault.delivery.reportPolicy=structuredClone(vault.state.monitor.reportPolicy);return true;
 }
-export function snapshotPayload(r){return {version:r.version,day:r.day,cycle:r.cycle,generatedAt:r.generatedAt,report:r.report,overview:r.overview,chain:r.chain};}
+export function snapshotPayload(r){return {version:r.version,day:r.day,cycle:r.cycle,generatedAt:r.generatedAt,...(r.sourceSavedAt?{sourceSavedAt:r.sourceSavedAt}:{}),report:r.report,overview:r.overview,chain:r.chain};}
 export function verifyFormal(r){if(hash(snapshotPayload(r))!==r.checksum)throw Error('正式日报校验失败，停止发布');return true;}
 export function freezeReport(state,day,at=new Date().toISOString()){
  const m=state.monitor,policy=m.reportPolicy;if(!policy||day<policy.firstDay)throw Error('历史日报不适用新封版规则');
  if(m.formalReports?.[day]){verifyFormal(m.formalReports[day]);return m.formalReports[day]}
  const cycle=cycleForDay(day,policy),cutoff=Date.parse(cycle.cutoffAt);if(Date.parse(at)<cutoff)throw Error('检索周期尚未截止');
- const draft=m.reportDrafts?.[day];
- if(draft){const entry={...structuredClone(draft),generatedAt:at};entry.checksum=hash(snapshotPayload(entry));entry.status='pending';m.formalReports||={};m.formalReports[day]=entry;delete m.reportDrafts[day];return entry;}
+ const pending=m.reportDrafts?.[day],draft=pending?.savedAt&&Date.parse(pending.savedAt)<=cutoff?pending:pending?.confirmed;
+ if(pending&&!draft)throw Error('截止前草稿写入回执尚未确认，保留台账等待核实');
+ if(draft){const entry={...structuredClone(snapshotPayload(draft)),sourceSavedAt:draft.savedAt,generatedAt:at};entry.checksum=hash(snapshotPayload(entry));entry.status='pending';m.formalReports||={};m.formalReports[day]=entry;delete m.reportDrafts[day];return entry;}
  return buildReport(state,day,at,true);
 }
 function buildReport(state,day,at,save=false){
@@ -50,5 +51,10 @@ export function syncFormalReceipts(vault){for(const [day,r] of Object.entries(va
 export function updateCycleDraft(state,at=new Date().toISOString()){
  const m=state.monitor;if(!m.reportPolicy)return;
  const c=cycleAt(at,m.reportPolicy);if(!c.active||m.formalReports?.[c.day])return;
- m.reportDrafts||={};m.reportDrafts[c.day]=buildReport(state,c.day,at);
+ m.reportDrafts||={};const old=m.reportDrafts[c.day],confirmed=old?.savedAt?{...snapshotPayload(old),savedAt:old.savedAt}:old?.confirmed;
+ m.reportDrafts[c.day]={...buildReport(state,c.day,at),...(confirmed?{confirmed}: {})};
+}
+
+export function confirmCycleDraft(state,at=new Date().toISOString()){
+ for(const d of Object.values(state.monitor.reportDrafts||{}))if(!d.savedAt&&Date.parse(at)<Date.parse(d.cycle.cutoffAt))d.savedAt=at;
 }
