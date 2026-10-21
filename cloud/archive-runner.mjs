@@ -29,6 +29,6 @@ async function run(){
  if(useRelease)await publishReleaseMirrors(main,release,prior,index,changes,inventory);else await main.write(changes,'Update managed HTML mirrors and capacity index');
  await requestPagesBuild(main);
  console.log('镜像容量：'+JSON.stringify(index.mirrorStorage));
- console.log('页面存档：尝试 '+results.length+' 页，成功 '+index.lastBatch.captured+' 页，受限 '+index.lastBatch.restricted+' 页；复用历史 '+index.lastBatch.reused+' 页；已存档页面 '+Object.values(index.pages).filter(p=>p.path).length+' 页；HTML 副本 '+JSON.stringify(index.mirrorProgress)+'。仅处理线索命中 URL，不递归。');
+ console.log('页面存档：尝试 '+results.length+' 页，成功 '+index.lastBatch.captured+' 页，受限 '+index.lastBatch.restricted+' 页；复用历史 '+index.lastBatch.reused+' 页；已存档页面 '+Object.values(index.pages).filter(p=>p.path&&p.contentValidation?.status!=='access-gate').length+' 页；HTML 副本 '+JSON.stringify(index.mirrorProgress)+'。仅处理线索命中 URL，不递归。');
 }
 run().catch(error=>{console.error('镜像阶段错误类别：'+(error.status||error.name||'Error'));console.error('页面存档本批未完成，已有副本和检索台账保留；下批自动重试。');process.exitCode=1});

@@ -67,7 +67,7 @@ export function applyMirrors(feed,index,changes,results,{now=new Date().toISOStr
   const saved=savedPages[key],invalidSaved=accessGate(saved)&&!captured,page=captured&&!accessGate(r)?{...r,capturedAt:r.at||now}:!invalidSaved&&saved?.version===1&&archiveKey(saved.url)===key&&typeof saved.text==='string'&&saved.text.length>=80?saved:null;
   const originalHTML=captured&&!accessGate(r)&&r.mirrorHTML||'',type=originalHTML?'original':reconstructionType(row,page),old=meta.mirror?.state==='evicted'?null:meta.mirror;
   const invalidOld=invalidSaved&&old?.type==='content'&&old?.contentAt===saved.capturedAt;
-  if(invalidSaved){meta.contentValidation={status:'access-gate',at:meta.contentValidation?.at||now};meta.status='restricted';meta.message='历史响应为登录提示，未取得目标页面正文';meta.summary=leadSummary(row)}
+  if(invalidSaved){meta.title=row.title;meta.contentValidation={status:'access-gate',at:meta.contentValidation?.at||now};meta.status='restricted';meta.message='历史响应为登录提示，未取得目标页面正文';meta.summary=leadSummary(row)}
   const inputHash=hash(JSON.stringify({mirrorVersion,url:key,title:page?.title||row.title,text:page?.text||row.snippet||'',sourceHash:page?.sourceHash,images:page?.images||[],html:originalHTML,type}));
   // Never replace a higher-fidelity saved copy with a transient failure or weaker index.
   if(!old||invalidOld||rank[type]>rank[old.type]||rank[type]===rank[old.type]&&old.inputHash!==inputHash){
