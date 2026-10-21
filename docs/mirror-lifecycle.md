@@ -80,3 +80,7 @@ Pages 设置变更若被权限拒绝，旧分支发布及 Git 内容量限制继
 参见 `scripts/mirror-lifecycle.test.mjs`、`scripts/mirror-release.test.mjs`、
 ` scripts/mirror-lifecycle-browser-check.mjs`，以及原有镜像、采集与业务回归测试。
 最终实际运行数量、GitHub Actions 与部署回执在交付记录中单独列出。
+
+权限实测：首次工件工作流 39533523136 在修改 Pages Source 时返回 403；
+已改为只读检查该设置。管理员需在仓库 Settings → Pages 将 Source 切换为
+GitHub Actions。未完成前不会迁移正文资产；仍执行原有分支发布和容量限制。
