@@ -757,3 +757,45 @@ only the requested existing record. Normal scheduled jobs retain four bounded ba
 Deferred attempts clear stale completion and advance requestedAt without erasing valid
 historical matches; otherwise an old successful retry date could postpone unfinished
 work. A regression covers legacy imageAnalysis.status=compared plus a future retry date.
+
+## 2026-10-21 search recovery and confirmed persistence
+
+- Production path: scan -> cloudSearch -> independently budgeted primary/RSS/HTML;
+  inTarget and existing normalizeResults brand/context filters remain mandatory.
+  RSS Bing /ck/a a1-base64url and DuckDuckGo /l/ uddg are decoded locally only;
+  credentials, non-HTTP protocols, nested/unknown engine wrappers are rejected.
+- searchProviders.health separates source-wide transport/access faults from
+  domain-specific scope-unverified. Three scoped failures trigger 15 minutes,
+  exponential extension capped at 2 hours. Existing source access cooldowns
+  survive. Recovery probes are bounded by each task budget, not extra timers.
+- Source budgets primary20s/RSS12s/HTML15s share the existing 60s task signal and
+  report deadline; no retry loops for cloud 401/403/429. The existing 720/60
+  budget counts query tasks (as before); source attempts are recorded separately.
+- queryRotation stores per-plan alias-pair cursor/completion/retry reasons inside
+  the existing encrypted state. Two aliases rotate without deleting termRules,
+  model/exclusion constraints, or changing full-query brand relevance filters.
+  Completed combinations are skipped for that cycle; future cycles resume cursor.
+  Manual browser search uses rotation too; explicit manual repeats remain allowed.
+  Cloud restores its own scheduling state rather than trusting stale browser data.
+- New run items retain sourceTrace privately and outcome/combination counts in the
+  public projection. Current coverage states successful query != all aliases covered.
+  Old snapshots without combination details do not invent covered keyword counts.
+- Five-query intermediate checkpoint persists vault + status, without rebuilding
+  encrypted dashboard + both public copies. Final checkpoints keep old reader paths.
+  No historical log truncation, data split or destructive migration introduced.
+- Git blob422 is not a ref conflict even if branch moved. Only ref-update422 with
+  observed movement retries; verified uploaded blobs reused across ref retries.
+  Diagnostics allow stage, method, category, byte/encoded sizes, safe request ID,
+  standard machine code and confirmation; never bodies/private text/credentials.
+- Failed save halts more queries and external delivery. Best-effort status-only
+  failure notice does not acknowledge unsaved query counts. Restart reads prior
+  confirmed remote state. Finalizer cannot silently acknowledge a failed batch.
+- Formal reports require valid checksummed draft and pre-cutoff Git confirmation.
+  Small checksum-bound cycle-draft-receipts.json survives process restarts. Missing
+  or ambiguous legacy confirmation stays intact and blocked, never reconstructed
+  from live rows. Already formal snapshots keep their original checksum payload.
+  An unverifiable old report does not prevent scanning an independent new cycle.
+- Regression adds search-recovery / search-save-integrity and Git blob422 cases.
+  Browser fixed-report fixtures now explicitly construct a confirmed saved draft.
+  During browser regression a misplaced rotation call in public scan import caused
+  p-is-not-defined; removed before publication, retaining controls regression.

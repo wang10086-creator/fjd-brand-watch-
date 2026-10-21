@@ -7,19 +7,27 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 // Publish all checkpoint files in one commit. Retry against the latest branch,
 // preserving unrelated browser uploads; never force-update a ref or replace
 // a checkpoint that another writer changed while this process was running.
-export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{}}){
+export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{},onDiagnostic=()=>{}}){
  const root='https://api.github.com/repos/'+repository,observed=new Map(),retiredHeads=new Set();
  let queue=Promise.resolve(),cachedSnapshot=null;
- async function request(path,method='GET',body){
+ async function request(path,method='GET',body,metadata={}){
+  const stage=path==='/git/blobs'?'blob-upload':path==='/git/trees'?'tree-create':path==='/git/commits'?'commit-create':path.startsWith('/git/refs/')?'ref-update':'read';
+  const byteSize=stage==='blob-upload'&&body?.encoding==='base64'?Buffer.byteLength(body.content||'','base64'):undefined;
+  const diagnostic=(status,confirmation,requestId,machineCode)=>{const safe={stage,status,confirmation,operation:method,...metadata,...(byteSize!==undefined?{byteSize}:{}),...(requestId?{requestId}:{}),...(machineCode?{machineCode}:{})};onDiagnostic(safe);return safe};
+
   let response;
   try{response=await fetcher(root+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Cache-Control':'no-cache',...(body?{'Content-Type':'application/json'}:{})},cache:'no-store',body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(25000)});}
-  catch{const error=Error(`GitHub 云端台账网络响应未确认（${method} ${path.split('?')[0]}）`);error.status=0;throw error;}
+  catch{const error=Error(`GitHub 云端台账网络响应未确认（${method} ${path.split('?')[0]}）`);error.status=0;error.diagnostic=diagnostic(0,'unconfirmed');throw error;}
   if(!response.ok){
    const error=Error(`GitHub 云端台账 HTTP ${response.status}（${method} ${path.split('?')[0]}）`);
    error.status=response.status;
    // Never include the request body, raw API errors, credentials or upload data.
    const id=response.headers?.get('x-github-request-id');
-   if(id&&/^[a-z0-9:-]{1,100}$/i.test(id))error.message+='；请求编号 '+id;
+   const safeId=id&&/^[a-z0-9:-]{1,100}$/i.test(id)?id:undefined;
+   if(safeId)error.message+='；请求编号 '+safeId;
+   let machineCode='unclassified';try{const payload=await response.json();const known=new Set(['invalid','missing','missing_field','already_exists','unprocessable','custom']);const codes=(payload.errors||[]).map(x=>x?.code).filter(x=>known.has(x));if(codes.length)machineCode=[...new Set(codes)].join(',')}catch{}
+   error.diagnostic=diagnostic(response.status,'rejected',safeId,machineCode);
+   if(stage==='blob-upload')error.message+='；阶段 blob-upload；字节 '+byteSize+'；请求已拒绝，未确认提交';
    throw error;
   }
   return response.status===204?null:response.json();
@@ -54,7 +62,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
   const operation=queue.then(()=>commit(changes,message));queue=operation.catch(()=>{});return operation;
  }
  async function commit(changes,message){
-  let expected=null;
+  let expected=null;const uploaded=new Set();
   for(let attempt=0;;attempt++){
    let current;
    try{
@@ -69,7 +77,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     for(const e of changes){
      if(e.sha===(current.files.get(e.path)||null))continue;
      if(e.remove)tree.push({path:e.path,mode:'100644',type:'blob',sha:null});
-     else if(e.bytesInput||e.bytes.length>512*1024){const blob=await request('/git/blobs','POST',{encoding:'base64',content:e.bytes.toString('base64')});if(blob.sha!==e.sha)throw Error('GitHub 文件校验未通过，停止提交以保护原台账');tree.push({path:e.path,mode:'100644',type:'blob',sha:blob.sha});}
+     else if(e.bytesInput||e.bytes.length>512*1024){if(!uploaded.has(e.sha)){const content=e.bytes.toString('base64'),fileCategory=e.path==='vault.json'?'encrypted-ledger':e.path==='dashboard.json'?'encrypted-dashboard':e.path.startsWith('public-dashboard.')?'public-dashboard':e.path.startsWith('reports/')?'report-asset':'other';const blob=await request('/git/blobs','POST',{encoding:'base64',content},{fileCategory,encodedBytes:Buffer.byteLength(content)});if(blob.sha!==e.sha)throw Error('GitHub 文件校验未通过，停止提交以保护原台账');uploaded.add(e.sha);}tree.push({path:e.path,mode:'100644',type:'blob',sha:e.sha});}
      else tree.push({path:e.path,mode:'100644',type:'blob',content:e.bytes.toString('utf8')});
     }
     const nextTree=await request('/git/trees','POST',{base_tree:current.tree,tree});
@@ -83,7 +91,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     // GitHub uses 422 for a non-fast-forward ref update, but also for invalid
     // requests. Only retry 422 when the branch really moved in the meantime.
     let retry=transient(error);
-    if(error.status===422&&current){const ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());retry=ref.object.sha!==current.sha;}
+    if(error.status===422&&error.diagnostic?.stage==='ref-update'&&current){const ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());retry=ref.object.sha!==current.sha;}
     if(!retry||attempt>=retries)throw error;
     await backoff(error,attempt,'保存快照');
    }

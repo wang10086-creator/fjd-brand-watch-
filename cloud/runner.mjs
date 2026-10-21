@@ -1,4 +1,4 @@
-import {activateReportCycles,updateCycleDraft,confirmCycleDraft,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
+import {activateReportCycles,updateCycleDraft,persistDraftProofs,restoreCycleDrafts,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
 import {cycleAt,cycleForDay,bjDay,addDay} from '../report-cycle.js';
 import {applyImageUpdates} from './image-updates.js';
 import {refreshPriorities,applyPriorityUpdates} from '../priority.js';
@@ -25,28 +25,28 @@ import {appendRun} from '../report-chain.js';
 import {createGithubStore} from './github-store.mjs';
 const config=JSON.parse(await readFile(new URL('./config.json',import.meta.url),'utf8'));
 const env=process.env,password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEISHU_APP_SECRET;
-let vault,revision=0,child,checkpointChain=Promise.resolve();
-const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
+let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve();
+const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
-function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},bot:{kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
+function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{sourceHealth:['primary','rss','web'].map(source=>{const h=vault.state.searchProviders?.health?.[source]||{};return {source,lastSuccessAt:h.global?.lastSuccessAt||null,consecutive:h.global?.consecutive||0,errorKind:h.global?.kind||null,cooldownUntil:vault.state.searchProviders?.[source+'Until']||0,scopeCooling:Object.values(h.domains||{}).filter(d=>d.until>Date.now()).length}}),coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},bot:{kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function dashboard(){return {version:2,state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
-async function checkpoint({imagesOnly=false}={}){
+async function checkpoint({imagesOnly=false,progressOnly=false}={}){
+ if(saveBlocked)throw saveBlocked;
+ try{
  if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
+ const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
- const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
- await store.write([
-  {path:'public-dashboard.json.gz',bytes:gzipSync(Buffer.from(JSON.stringify(publicSnapshot))),bytesInput:true},
-  {path:'vault.json',value:cipher},
-  {path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')},
-  {path:'public-dashboard.json',value:publicSnapshot},
-  {path:'status.json',value:publicStatus()}
- ]);
- // Only a confirmed Git write before cutoff can become the formal report source.
- if(!imagesOnly)confirmCycleDraft(vault.state);
+ const entries=[{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
+ if(!progressOnly){const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
+ entries.push({path:'public-dashboard.json.gz',bytes:gzipSync(Buffer.from(JSON.stringify(publicSnapshot))),bytesInput:true},{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')},{path:'public-dashboard.json',value:publicSnapshot});}
+ const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
+ if(!imagesOnly)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
+ }catch(e){saveBlocked=e;vault.runtime={...vault.runtime,phase:'failed',persistence:'unconfirmed',lastError:'保存未确认，停止后续查询；下次从远端确认版本恢复'};try{await put('status.json',{...(lastConfirmedStatus||{version:3,configured:true}),updatedAt:new Date().toISOString(),runtime:vault.runtime})}catch{}throw e;}
+
 }
 async function delivery(operation){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
@@ -112,6 +112,7 @@ async function main(){
  vault.version=2;if(op!=='images')upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};
  // One-time policy activation starts the next complete evening cycle; no historical rebucketing.
  activateReportCycles(vault);
+ draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
  if(op==='images'){
   const protectedState=()=>JSON.stringify({rows:vault.state.rows.map(r=>Object.fromEntries(['id','url','imageUrl','imageAnalysis','reviewWorkflow','priorityV2','reviewOutcome','status','decision','confirmedIssue','note','reviewedAt','imageMatch','evidence','watch','needsRecheck','firstSeen','lastSeen'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))),monitor:vault.state.monitor,history:vault.state.history,config:vault.state.config,schedule:vault.state.schedule});
@@ -143,7 +144,7 @@ async function main(){
    const due=dueActions(vault);
    // Freeze and durably checkpoint before charts or external mutations.
    const publishDay=due.digestDay;
-   if(publishDay&&['auto','digest','sync'].includes(op)){freezeReport(vault.state,publishDay);vault.delivery.digestDay=publishDay;await checkpoint();await delivery('digest');}
+   if(publishDay&&['auto','digest','sync'].includes(op)){try{freezeReport(vault.state,publishDay,new Date().toISOString());vault.delivery.digestDay=publishDay;await checkpoint();await delivery('digest');}catch(e){if(saveBlocked)throw e;vault.runtime.reportWarning=e.message;vault.lastError='日报待核实：'+e.message;}}
    else if(op==='digest')console.log('当前没有到期且允许发送的正式日报；保留已有回执');
    if(['scan','site-retry','verify'].includes(op)||(['auto','schedule'].includes(op)&&due.scan)){
     const already=false;
@@ -159,7 +160,7 @@ async function main(){
    vault.lastError=error.message||'云端操作失败，原记录保留';
    // Saved results can still be archived after a search failure. Atomic checkpoints
    // retain the conflict guards if another ledger writer has intervened.
-   try{await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
+   try{if(!saveBlocked)await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
  finally{vault.runtime={...vault.runtime,currentSite:null,lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
  try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');}catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}

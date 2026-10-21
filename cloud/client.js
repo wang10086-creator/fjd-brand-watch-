@@ -1,4 +1,4 @@
-import {continuationInfo} from '../execution-progress.js?v=20261021-cycle-r2';
+import {continuationInfo} from '../execution-progress.js?v=20261021-search-recovery';
 import {pendingImageUpdates} from './image-updates.js?v=20261021-first-pass';
 import {pendingPriorityUpdates} from '../priority.js?v=20261021-cycle-r2';
 import {readPublicFile} from './public-reader.js?v=20261020-review';

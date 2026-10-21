@@ -91,3 +91,14 @@ test('a lagging ref read after our own commit is retried without a false competi
  repo.intercept=({path,method,response})=>{if(path==='/git/ref/heads/data-cloud'&&method==='GET'&&once){once=false;return response(200,{object:{sha:old}})}};
  await store.write([{path:'status.json',value:{phase:'ready'}},{path:'public-dashboard.json',value:{revision:4}}]);assert.equal(JSON.parse(repo.value('status.json')).phase,'ready');assert.equal(JSON.parse(repo.value('public-dashboard.json')).revision,4);
 });
+
+test('blob 422 with concurrent ref advance is not a ref conflict; safe diagnostic only',async()=>{
+ const repo=repository({'vault.json':'old'}),diagnostics=[],retry=[],store=storeFor(repo,{onDiagnostic:d=>diagnostics.push(d),onRetry:d=>retry.push(d)});
+ repo.intercept=({path,method,response,external})=>{if(path==='/git/blobs'&&method==='POST'){external('inbox/keep','preserve');return response(422,{errors:[{code:'invalid',message:'PRIVATE'}]})}};
+ await assert.rejects(store.putJSON('vault.json',{secret:'PRIVATE'.repeat(100000)}),/422/);
+ assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,1);assert.equal(retry.length,0);assert.equal(repo.value('vault.json'),'old');assert.equal(diagnostics[0].stage,'blob-upload');assert.equal(diagnostics[0].fileCategory,'encrypted-ledger');assert.ok(diagnostics[0].encodedBytes>diagnostics[0].byteSize);assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));
+});
+test('verified uploaded blobs are reused after unrelated ref conflict',async()=>{
+ const repo=repository(),store=storeFor(repo);let once=true;repo.intercept=({method,response,external})=>{if(method==='PATCH'&&once){once=false;external('inbox/new','keep');return response(422,{})}};
+ await store.putJSON('vault.json',{data:'x'.repeat(600000)});assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,1);assert.equal(repo.value('inbox/new'),'keep');
+});
