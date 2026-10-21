@@ -573,3 +573,41 @@ form is replaced, and no processing/review events are created.
 # 2026-10-21 复核证据入口与地域提示
 
 影响清单与证据内容对照见 `docs/evidence-territory-delivery.md`。视图派生地域提示不写回台账；逐品牌查清单，实际经营地必须有依据，否则注明查询目标。详情仅补入缺少的查询记录和访问说明；保留 evidence.html 的历史公开协议及所有原报告链接。复核表单、优先级、图片比对、归档、同步与历史事件数据保持原实现。上线前增加地域边界、原 URL 安全、历史查询日期、响应式及只读不变性回归。
+
+## 2026-10-21: bounded mirror lifecycle (incremental)
+
+Impact: monitor.observe future query provenance -> public projection -> mirrorHits ->
+archiveBatch/applyMirrors -> actual-byte capacity planner -> atomic index/payload publish ->
+Pages assembly -> existing evidence readers. No row, review, priority, report checksum,
+Notion or Feishu mutation. Source evidence JSON and legacy PDF assets remain outside rotation.
+Fixed inclusion boundary is 2026-10-19T16:00:00Z, based on search observations / indexed
+watch checks, not row edit timestamps or report-day labels. Optional query `method` fixes
+mixed manual/search observations without rewriting historical events.
+
+Storage: preserve old paths; version HTML holds the body, stable HTML is a small redirect.
+500 MiB upper / 400 MiB target, >=7-day protection, pins via storage config or existing
+mirror.pinned. Inventory checks real blob/asset byte lengths, includes old versions and
+shared resource references; unknown unreferenced files are not guessed eligible for deletion.
+Capacity eviction leaves a lightweight tombstone; a later actual hit (not an edit) permits
+regeneration. Reject oversized additions while keeping protected previous bodies.
+
+Sustainable storage: new HTML assets stored by SHA-256 in a dedicated GitHub Release;
+Git stores only the manifest. Pages artifact deploy overlays these assets at the SAME paths.
+One-time migration copies existing mirror files with digest verification before removing
+tracked copies; no Git history rewrite. Saved page JSON, PDFs, source and live data stay put.
+Asset GC occurs only after a successful deployment and rechecks the current manifest;
+unreferenced fresh assets get a 7-day grace to protect interrupted uploads. Deployment
+failure leaves previous online artifact intact. Legacy Pages remains supported until
+workflow deployment activation succeeds. The public-snapshot publisher dispatches the
+appropriate build mechanism so cloud updates still reach the website.
+
+Optional HTTPS collection nodes accept only public URL tasks using the SAME collector;
+no secrets or internal lead fields sent. Default Actions remains operative without them.
+Only typed connectivity failures permit another node; explicit 401/403/429, CAPTCHA,
+robots/noarchive never fail over. Remote HTML is sanitized again before publication.
+No existing self-hosted runners or external nodes were claimed as available.
+
+Regression scope: timestamp boundary, manual edits, re-hits, mixed provenance, capacity
+ordering/rollback/protection, shared resources, tombstone reopening, no dead previews,
+node restrictions, digest-checked release publish, legacy/workflow Pages builds, existing
+Node + Python suites, desktop/mobile review and mirror readers, real Actions/Pages receipts.

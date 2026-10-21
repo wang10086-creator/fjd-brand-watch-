@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "maxBytes": 524288000,
+  "targetBytes": 419430400,
+  "protectDays": 7,
+  "backend": "release",
+  "releaseTag": "mirror-storage-v1",
+  "pagesBudgetBytes": 943718400,
+  "pinnedURLs": []
+}

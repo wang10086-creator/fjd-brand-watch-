@@ -1,5 +1,5 @@
 import {archiveKey,archivePath} from './archive-model.js?v=20261020-mirrors';
-import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261020-mirrors';
+import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261021-lifecycle';
 let cache;
 async function boundedJSON(response,gzip=false){
  if(!response.ok)throw Error('存档读取 HTTP '+response.status);
@@ -20,6 +20,7 @@ export async function readArchivePage(record,url,{fetcher=fetch}={}){
 // Retired public API retained for old import compatibility; performs no PDF requests.
 export async function verifiedPDF(){return null}
 export async function verifiedMirror(record,url,{fetcher=fetch}={}){
+ if(record?.mirror?.state==='evicted')return null;
  const path=mirrorPath(record?.mirror?.versionPath)||mirrorPath(record?.mirror?.path);if(!path)return null;
  try{const target=new URL('./'+path,import.meta.url);target.searchParams.set('v',record.mirror.sha256||'current');const r=await fetcher(target,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(10000)});
   if(!r.ok)throw Error();const reader=r.body.getReader(),chunks=[];let size=0;

@@ -25,7 +25,7 @@ export function observe(m,rows,existing,{at=new Date().toISOString(),runId='manu
   const snap=snapshot(merged),queryKey=query||row.query||'',comparable=known?.variants?.[queryKey],signals=x=>{const z=risk({title:clean(x.title),snippet:clean(x.snippet)});return [z.claims,z.imitation,z.relabel].join('|')};
   const comparison=comparable||before,changed=!!comparison&&(clean(comparison.title)!==clean(snap.title)||signals(comparison)!==signals(snap)||(!!comparable&&fingerprint(comparable)!==fingerprint(snap))),isNew=!before;
   const day=reportDay||dayOf(at),id='observation|'+day+'|'+key;let event=m.observations.find(e=>e.id===id);const previousKind=event?.kind;
-  const provenance={query:query||row.query||'',searchUrl:searchUrl||row.searchUrl||'',runId,at};
+  const provenance={query:query||row.query||'',searchUrl:searchUrl||row.searchUrl||'',runId,at,method};
   if(!event){event={id,key,day,at,lastAt:at,kind:isNew?'new':changed?'changed':'repeat',method,before:changed?comparison:null,snapshot:snap,queries:[],hits:0};m.observations.push(event);}
   else if(changed&&event.kind==='repeat'){event.kind='changed';event.before=comparison;}
   if(changed&&event.kind==='changed'){

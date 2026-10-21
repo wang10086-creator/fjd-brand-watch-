@@ -7,7 +7,22 @@ export const mirrorVersion='html-2';
 export const mirrorSince='2026-10-20';
 export const mirrorPath=p=>/^archives\/mirrors\/[a-f0-9]{24}(?:-[a-f0-9]{16})?\.html$/.test(p||'')?p:'';
 export const mirrorRoute=url=>'./mirror.html#'+new URLSearchParams({url});
-export function mirrorEligible(row){const times=[row.lastSeen,row.checkedAt,row.firstSeen].filter(t=>Number.isFinite(Date.parse(t)));return !!archiveKey(row.url)&&times.some(t=>new Date(Date.parse(t)+8*3600000).toISOString().slice(0,10)>=mirrorSince)}
+export const mirrorSinceAt=Date.parse('2026-10-20T00:00:00+08:00');
+// Only actual search observations qualify. Report labels and row edit dates are not hit times.
+export function mirrorHits(feed){
+ const hits=new Map(),put=(url,at)=>{const key=archiveKey(url),time=Date.parse(at);if(key&&Number.isFinite(time)&&time>=mirrorSinceAt&&time>(Date.parse(hits.get(key))||0))hits.set(key,new Date(time).toISOString())};
+ for(const event of feed?.monitor?.observations||[]){
+  if(!['new','changed','repeat'].includes(event.kind))continue;
+  const url=event.key||event.snapshot?.url;
+  if(event.method==='search'&&!(event.queries||[]).some(q=>q.method&&q.method!=='search')){put(url,event.at);put(url,event.lastAt)}
+  for(const q of event.queries||[])if(q.method==='search'||!q.method&&event.method==='search')put(url,q.at);
+ }
+ for(const check of feed?.monitor?.checks||[])if(check.result==='indexed')put(check.url||check.key,check.at);
+ return hits;
+}
+export function mirrorEligible(row,feed){return (feed instanceof Map?feed:mirrorHits(feed)).has(archiveKey(row.url))}
+export function mirrorRetired(record,hit){return record?.mirror?.state==='evicted'&&!(Date.parse(hit)>Date.parse(record.mirror.evictedAt))}
+
 export const escapeHTML=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const mirrorCSP="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; frame-src 'self' about:; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'";
 export function reconstructionType(row,page){return page?.text?.length>=80?'content':String(row.snippet||'').trim()?'search':'basic'}

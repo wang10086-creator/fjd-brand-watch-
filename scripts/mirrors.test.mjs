@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
 import {canonical} from '../core.js';import {archiveKey} from '../archive-model.js';import {mirrorDocument,mirrorEligible,mirrorPath} from '../mirror-model.js';import {applyArchiveBatch,applyMirrors,archiveBatch,renderArchivePDFs} from '../cloud/page-archives.mjs';import {verifiedMirror,verifiedPDF} from '../archive-data.js';
-const at='2026-10-20T05:00:00Z',url='https://public.example/a',key=archiveKey(url),row={url,title:'FJDynamics AT2',snippet:'A real search excerpt for FJDynamics AT2 equipment for sale.',lastSeen:at,note:'PRIVATE',reviewWorkflow:{stage:'closed'}},feed={rows:[row]},task={url};
+const at='2026-10-20T05:00:00Z',url='https://public.example/a',key=archiveKey(url),row={url,title:'FJDynamics AT2',snippet:'A real search excerpt for FJDynamics AT2 equipment for sale.',lastSeen:at,note:'PRIVATE',reviewWorkflow:{stage:'closed'}},hitFeed=rows=>({rows,monitor:{observations:rows.map(r=>({key:archiveKey(r.url),at:r.lastSeen,method:'search',kind:'repeat'}))}}),feed=hitFeed([row]),task={url};
 function run(results=[],prior=null,savedPages={}){const a=applyArchiveBatch(feed,prior,[task],results,{now:at,savedPages});applyMirrors(feed,a.index,a.changes,results,{now:at,savedPages});return a}
 test('four honest levels produce independent HTML pages with source, content and strict CSP',()=>{
  for(const [type,p,r] of [['basic',null,{...row,snippet:''}],['search',null,row],['content',{text:'Actual original body '.repeat(8),url,capturedAt:at,images:[]},row],['original',{text:'Actual original body '.repeat(8),url,capturedAt:at},row]]){
@@ -10,17 +10,17 @@ test('four honest levels produce independent HTML pages with source, content and
  assert.throws(()=>mirrorDocument(row,null,{type:'original'}));
 });
 test('scope starts Beijing Oct20 including rediscoveries; no old history or missing PDF backfill',()=>{
- assert.ok(!mirrorEligible({...row,lastSeen:'2026-10-19T15:59:59Z'}));assert.ok(mirrorEligible({...row,lastSeen:'2026-10-19T16:00:00Z'}));
+ assert.ok(!mirrorEligible(row,hitFeed([{...row,lastSeen:'2026-10-19T15:59:59Z'}])));assert.ok(mirrorEligible(row,hitFeed([{...row,lastSeen:'2026-10-19T16:00:00Z'}])));
  assert.equal(archiveBatch({rows:[{...row,lastSeen:'2026-10-18'}]},{pages:{}}).length,0);
  const a=run();assert.equal(a.index.mirrorProgress.eligible,1);assert.equal(a.index.mirrorProgress.search,1);assert.equal(a.index.mirrorProgress.missing,0);
  assert.deepEqual(archiveBatch(feed,{pages:{[key]:{at,status:'captured',path:'archives/pages/'+'a'.repeat(24)+'.json.gz'}}},{now:Date.parse(at)+1000}),[]);
 });
 test('different URL paths and product query IDs remain distinct while tracking duplicates reuse stable identity',()=>{
- const rows=[row,{...row,url:url+'/two'},{...row,url:url+'?product=2'},{...row,url:url+'?utm_campaign=x'}],a=applyArchiveBatch({rows},null,[],[],{now:at});applyMirrors({rows},a.index,a.changes,[],{now:at});assert.equal(a.index.mirrorProgress.eligible,3);assert.equal(new Set(Object.values(a.index.pages).map(p=>p.mirror.path)).size,3);
+ const rows=[row,{...row,url:url+'/two'},{...row,url:url+'?product=2'},{...row,url:url+'?utm_campaign=x'}],a=applyArchiveBatch(hitFeed(rows),null,[],[],{now:at});applyMirrors(hitFeed(rows),a.index,a.changes,[],{now:at});assert.equal(a.index.mirrorProgress.eligible,3);assert.equal(new Set(Object.values(a.index.pages).map(p=>p.mirror.path)).size,3);
 });
 test('partial capture, indexed and title-only leads all get pages even if source collector fails',()=>{
  const original=JSON.stringify(feed),a=run();assert.equal(a.index.pages[key].mirror.type,'search');assert.equal(a.index.pages[key].status,'pending');assert.ok(a.changes.some(c=>c.path.endsWith('.html')));assert.equal(JSON.stringify(feed),original);
- const b=run([{url,status:'restricted',httpStatus:403}]);assert.equal(b.index.pages[key].mirror.type,'search');assert.equal(b.index.pages[key].status,'restricted');assert.ok(b.changes.find(c=>c.path.endsWith('.html')).bytes.toString().includes('HTTP 403'));
+ const b=run([{url,status:'restricted',httpStatus:403}]);assert.equal(b.index.pages[key].mirror.type,'search');assert.equal(b.index.pages[key].status,'restricted');assert.ok(b.changes.find(c=>c.path===b.index.pages[key].mirror.versionPath).bytes.toString().includes('HTTP 403'));
 });
 test('historical body is reused, not refetched; private fields and source active content cannot escape sandbox',()=>{
  const page={version:1,url,text:'Actually saved evidence '.repeat(10),capturedAt:'2026-10-19',sourceHash:'historic',images:[]},a=run([{url,status:'restricted',httpStatus:403}],null,{[key]:page});assert.equal(a.index.pages[key].mirror.type,'content');assert.equal(a.index.pages[key].mirror.contentAt,'2026-10-19');assert.ok(a.changes.some(c=>c.path.endsWith('.html')));assert.ok(!JSON.stringify(a.index).includes('PRIVATE'));

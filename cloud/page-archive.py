@@ -178,7 +178,9 @@ def capture(url,deadline):
             except Exception:pass
     except PermissionError:result.update(status='restricted',message='原站采集或存档规则限制读取')
     except urllib.error.HTTPError as e:result.update(status='restricted' if e.code in (401,403,429) else 'unavailable',httpStatus=e.code,message='公开访问返回 HTTP '+str(e.code))
-    except Exception:result['message']='公开读取未完成：网络、采集规则或页面格式受限'
+    except (urllib.error.URLError,TimeoutError,ConnectionError) as e:
+        result.update(failureKind='network',message='公开读取网络连接未完成')
+    except Exception:result['message']='公开读取未完成：采集规则或页面格式受限'
     return result
 
 if __name__=='__main__':

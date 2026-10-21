@@ -1,5 +1,5 @@
-import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261020-mirrors';
-import {readArchiveIndex,readArchivePage,verifiedMirror} from './archive-data.js?v=20261020-mirrors';
+import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261021-lifecycle';
+import {readArchiveIndex,readArchivePage,verifiedMirror} from './archive-data.js?v=20261021-lifecycle';
 import {leadSummary} from './lead-summary.js?v=20261020-mirrors';
 import {archiveKey,archiveUrl,archivePath,archiveLabels,sameArchiveSite} from './archive-model.js?v=20261020-mirrors';
 import {safePublicUrl,evidenceUrl,accessLinks} from './lead-access.js?v=20261020-review';

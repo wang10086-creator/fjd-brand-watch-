@@ -1,4 +1,4 @@
-import {mirrorDocument} from './mirror-model.js?v=20261020-mirrors';
+import {mirrorDocument} from './mirror-model.js?v=20261021-lifecycle';
 // No new database; the owning lead view supplies the current row. Private fields
 // are never serialized. This blob is explicitly temporary, never a cloud receipt.
 export function bindMirrorLinks(root,row,data={}){
