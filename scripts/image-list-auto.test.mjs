@@ -4,8 +4,8 @@ import {imageMatchBadges,imageMatchEvidence} from '../image-match-view.js';
 import {enrichPictures} from '../cloud/visual-enrichment.mjs';
 import {dualImageRows} from './fixtures/dual-images.mjs';
 test('list pending and failed categories are distinct from confirmed evidence',()=>{
- assert.match(imageMatchBadges({}),/商标图·待匹配/);
- assert.match(imageMatchBadges(dualImageRows()[6]),/商标图·暂无法判断/);
+ assert.match(imageMatchBadges({}),/尚无图片核验记录/);
+ assert.match(imageMatchBadges(dualImageRows()[6]),/图片核验受限/);
  for(const [i,t,p] of [[0,1,0],[1,0,1],[2,1,1]]){const html=imageMatchBadges(dualImageRows()[i]);assert.equal(+html.includes('>商标图匹配<'),t);assert.equal(+html.includes('>产品图匹配<'),p)}
 });
 test('detail resolves matching catalog identifiers and retains exact official page',()=>{

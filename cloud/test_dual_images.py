@@ -180,5 +180,42 @@ class DualImages(unittest.TestCase):
             second=collect(first,self.libraries,versions,Transport(),10)
         self.assertEqual(second['productImageMatch']['status'],'confirmed');self.assertEqual(len(second['imageEvidence']['images']),1)
 
+    def test_fast_pass_uses_real_exact_bytes_and_never_claims_full_negative(self):
+        class Transport:
+            def get(s,url,*args,**kwargs):
+                if url.endswith('/page'):return b'<img src="/logo.jpg"><img src="/product.png">','text/html',url
+                return (self.logo_raw if url.endswith('logo.jpg') else self.raw),'image/png',url
+        row={'url':'https://example.com/page'}
+        result=collect(row,self.libraries,{'trademark':'t','product':'p'},Transport(),time.monotonic()+20,quick=True)
+        self.assertEqual(result['productImageMatch']['status'],'confirmed')
+        self.assertEqual(result['trademarkImageMatch']['status'],'confirmed')
+        self.assertEqual(result['imageEvidence']['firstPass']['status'],'completed')
+        self.assertFalse(result['imageEvidence']['complete'])
+        self.assertEqual(result['imageEvidence']['deepStatus'],'queued')
+        self.assertTrue(all(im['checkedLibraries'].get('mode')=='quick' for im in result['imageEvidence']['images']))
+
+    def test_fast_pass_403_is_unavailable_not_infinite_pending(self):
+        class Transport:
+            def get(s,*args,**kwargs):raise PermissionError('HTTP 403')
+        result=collect({'url':'https://example.com/page'},self.libraries,{},Transport(),time.monotonic()+20,quick=True)
+        self.assertEqual(result['productImageMatch']['status'],'unavailable')
+        self.assertEqual(result['trademarkImageMatch']['status'],'unavailable')
+        self.assertEqual(result['imageEvidence']['firstPass']['status'],'unavailable')
+        self.assertFalse(result['imageEvidence']['complete'])
+
+    def test_ninth_candidate_runs_after_first_eight_failed_without_false_negative(self):
+        class Transport:
+            def get(s,url,*args,**kwargs):
+                if url.endswith('/page'):return ''.join(f'<img src="/{i}.png">' for i in range(9)).encode(),'text/html',url
+                if not url.endswith('/8.png'):raise PermissionError('HTTP 403')
+                return self.raw,'image/png',url
+        first=collect({'url':'https://example.com/page'},self.libraries,{},Transport(),time.monotonic()+30)
+        self.assertEqual(first['imageEvidence']['candidateCursor'],8)
+        self.assertEqual(first['productImageMatch']['status'],'unavailable')
+        second=collect(first,self.libraries,{},Transport(),time.monotonic()+30)
+        self.assertEqual(second['productImageMatch']['status'],'confirmed')
+        self.assertFalse(second['imageEvidence']['complete'])
+        self.assertEqual(second['imageEvidence']['candidateCount'],9)
+
 
 if __name__=='__main__':unittest.main()

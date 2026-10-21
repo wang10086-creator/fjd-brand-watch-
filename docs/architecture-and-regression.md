@@ -709,3 +709,39 @@ Regression: scripts/image-list-auto.test.mjs and
 scripts/image-auto-refresh-browser-check.mjs (real reference image bytes, mocked public
 transport, desktop/390px, independent badges, automatic merge, preserved form draft,
 refresh persistence). This is controlled integration evidence, not production execution.
+
+## 2026-10-21 — bounded first image pass and resumable continuation
+
+Search result normalization retains genuine per-result image URLs. cloud/scan.mjs
+runs firstImagePass before observation/merge/checkpoint visibility: max 20s per result
+set, max 90s per scan, bounded by the existing scan/cycle deadline. Rows beyond the
+24-row worker or time budget receive explicit deferred reasons and remain queued.
+Fast mode verifies exact bytes/decoded pixels using verified reference manifests;
+it never declares a complete negative. Deep matching retains existing thresholds.
+Python emits completed rows incrementally so a later timeout retains earlier facts.
+Browser scans and manual collection use the same bounded-first-pass semantics;
+CORS/403 failures are unavailable, not a default unending pair of pending badges.
+
+Independent images jobs run hourly at UTC :20 except hour 01 (Beijing 09), plus the
+existing weekly library refresh. Late jobs in Beijing 08:50–09:45 exit without work.
+Each invocation has a 240s processing budget, at most four 12-row batches, and saves
+after each batch. No query budget, report schedule, Notion or Feishu invocation is
+added. images-only checkpoints do not refresh priorities/drafts/formal reports.
+Per-row evidence is the durable queue: fingerprint/library versions, attempted time,
+firstPass, deepStatus, candidate cursor, retry clock and retryCount. Unchanged complete
+results are reused; failures back off from 30 minutes up to 24 hours. New deferred
+first passes precede historical work; platform fairness remains. Indexing the full
+candidate pool fixes the prior first-eight-only truncation. Failed comparisons do not
+populate successful comparison caches. Only confirmed evidence yields success badges.
+
+Public projection retains first-pass/cursor metadata. Equal public revisions can still
+merge demonstrably newer image timestamps; older revisions remain rejected. Valid
+historical confirmations survive later failures. Private review fields and immutable
+report events are not part of image updates. UI describes unavailable, fast-only and
+deferred states, and does not imply queued work is already running.
+
+Tests: image-first-pass.test.mjs, test_dual_images.py, image-auto-refresh-browser-check,
+dual-images-browser-check, workflow-browser-check and report-cycle-browser-check.
+Live read-only first pass also obtained real official image bytes with SHA-256 equality;
+the requested Mercado Libre FV2000 page returned HTTP 403 with zero acquired images.
+That case must remain unavailable unless a later authorized fetch actually succeeds.
