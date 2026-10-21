@@ -630,3 +630,13 @@ had contents/pages write, not Actions write; bot commits do not trigger push bui
 Grant Actions write to both existing cloud publishers (monitor and images), with a
 regression assertion. No credential changes, event/schema edits, schedules or message
 behavior changes. Archive-only execution skips Notion/Feishu and normal searches.
+
+Activation receipts: archive run 39535804538 completed the actual mirror step with
+no error, explicitly dispatched Pages run 39535860776, and assemble/deploy/GC checks
+all succeeded. 38 paths served with verified lengths and SHA-256, represented by
+36 Release assets (149695 physical bytes, 159354 assembled bytes). Seven current
+search-evidence pages retain their prior content hashes. Source captures remain
+restricted; no original mirror success inferred from a successful workflow.
+Local Node 269 / Python 81 passed; CI 39535758020 success. Live desktop/mobile
+readers and storage card verified without overflow/errors or source-site requests.
+Published monitoring snapshot identical to pre-activation (215 rows).
