@@ -49,3 +49,7 @@ test('localized terms, exclusions and manual save status remain explicit',async(
  const q=simplifiedQuery({...plan,terms:['venta','comprar'],models:['AT2'],excluded:['jobs'],aliasOffset:2});for(const term of ['RTK','venta','comprar','AT2','-"jobs"'])assert.ok(q.includes(term));
  const {continuationInfo}=await import('../execution-progress.js');const {REPORT_POLICY}=await import('../report-cycle.js');const c=continuationInfo({enabled:true,policy:REPORT_POLICY},{persistence:'unconfirmed'},now);assert.equal(c.status,'save-unconfirmed');assert.match(c.reason,/保存未确认/);
 });
+test('server Retry-After is not shortened by recovery cap and one successful pair cannot hide another failure',async()=>{
+ const {recordHealth}=await import('../cloud/search-health.mjs');const providers={};recordHealth(providers,'rss',plan.domain,'source-unavailable',now,{code:429,retryAfter:24*3600000});assert.equal(providers.rssUntil,now+24*3600000);
+ const base={plan,domain:plan.domain,platform:plan.platform,at:new Date(now).toISOString(),keywordCombinationCount:3};const c=siteCoverage([plan],{runs:[{reportDay:'2026-10-22',items:[{...base,keywordCombination:0,status:'失败'},{...base,keywordCombination:1,status:'成功'}]}]},'2026-10-22');assert.equal(c.rows[0].pendingFailed,1);assert.equal(c.rows[0].keywordCompleted,1);
+});

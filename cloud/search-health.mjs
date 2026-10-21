@@ -7,7 +7,7 @@ export function recordHealth(providers,name,domain,result,now,error={}){
  if(result==='hit'||result==='zero'){for(const s of [h.local,h.global])Object.assign(s,{consecutive:0,until:0,lastSuccessAt:new Date(now).toISOString(),probeResult:'recovered',extensions:0});providers[name+'Until']=0;return}
  slot.lastFailureAt=new Date(now).toISOString();slot.consecutive=slot.kind===result?(slot.consecutive||0)+1:1;slot.kind=result;
  const limited=[401,403,429,503].includes(error.code)||result==='access-challenge';
- if(limited||slot.consecutive>=3){slot.extensions=(slot.extensions||0)+1;slot.until=now+Math.min(2*3600000,Math.max(error.retryAfter||0,(scope?15:20)*60000)*2**Math.min(3,slot.extensions-1));slot.probeResult='failed';if(!scope)providers[name+'Until']=slot.until;}
+ if(limited||slot.consecutive>=3){slot.extensions=(slot.extensions||0)+1;slot.until=now+Math.max(error.retryAfter||0,Math.min(2*3600000,(scope?15:20)*60000*2**Math.min(3,slot.extensions-1)));slot.probeResult='failed';if(!scope)providers[name+'Until']=slot.until;}
 }
 export async function withSourceBudget(fn,parent,ms){
  if(parent?.aborted)throw Object.assign(Error('请求已取消'),{name:'AbortError'});
