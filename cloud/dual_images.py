@@ -62,6 +62,9 @@ def page_candidates(text,base):
     doc=dom.fromstring(text)
     if doc.xpath('//meta[contains(translate(@name,"ROBOTS","robots"),"robots") and contains(translate(@content,"NOARCHIVE","noarchive"),"noarchive")]'):raise PermissionError('原站禁止存档')
     title=' '.join(doc.xpath('//title/text()')).strip()
+    if re.search(r'/(?:gz/account-verification|login|signin|captcha)(?:[/?]|$)',urllib.parse.urlsplit(base).path,re.I):raise PermissionError('原页面跳转至登录或身份验证')
+    if re.search(r'^(?:ingres[aá]|inici[aá] sesi[oó]n|verific[aá]|confirm[aá].*(?:identidad|humano))',title,re.I):raise PermissionError('页面要求登录或身份验证')
+    if doc.xpath('//input[@type="password"]') and re.search(r'ingres[aá]|iniciar sesi[oó]n|sign in|log in',title,re.I):raise PermissionError('页面要求登录')
     if re.match(r'^(?:sign in|log in|登录|请登录|403|access denied|just a moment)\b',title,re.I):raise PermissionError('页面要求登录或访问受限')
     candidates=[]
     # Structured product images are public source evidence, not executable scripts.
@@ -115,17 +118,21 @@ def compare_picture(picture,libraries,at,quick=False):
 
 
 def collect(row,libraries,versions,transport,deadline,quick=False):
-    at=stamp();result={'url':row['url'],'pictures':[]};candidates=[];failures=[];images=[];matches={'trademark':[],'product':[]};page_error=''
+    at=stamp();result={'url':row['url'],'pictures':[]};candidates=[];failures=[];images=[];matches={'trademark':[],'product':[]};page_error='';page_final='';page_title='';blocked=False
     if row.get('imageUrl'):candidates.append(row['imageUrl'])
     candidates.extend(u for u in row.get('imageUrls',[]) if isinstance(u,str))
     if not (quick and candidates):
         try:
-            raw,kind,final=transport.get(row['url'],1_500_000,ttl=86400)
+            raw,kind,final=transport.get(row['url'],1_500_000,ttl=86400);page_final=final
+            if 'html' in kind:
+                titles=dom.fromstring(raw.decode('utf-8','replace')).xpath('//title/text()');page_title=' '.join(titles).strip()[:200]
             if kind.startswith('image/'):candidates.append(final)
             elif 'html' in kind:candidates.extend(page_candidates(raw.decode('utf-8','replace'),final))
             else:raise ValueError('不是可解析的公开网页')
-        except Exception as e:page_error=failure(e)
+        except Exception as e:page_error=failure(e);blocked=isinstance(e,PermissionError)
     unique=list(dict.fromkeys(candidates));seen=set();evidence=row.get('imageEvidence') or {}
+    if unique and all('/frontend-assets/ui-navigation/' in u for u in unique):
+        page_error='仅取得平台导航图片，未取得商品或正文图片';blocked=True
     cursor=evidence.get('candidateCursor',0)
     cursor=cursor%len(unique) if unique and isinstance(cursor,int) and not isinstance(cursor,bool) else 0
     next_url=evidence.get('candidateNextUrl')
@@ -164,9 +171,9 @@ def collect(row,libraries,versions,transport,deadline,quick=False):
     next_cursor=(cursor+attempted)%len(unique) if unique else 0
     for category,key in [('trademark','trademarkImageMatch'),('product','productImageMatch')]:
         found=matches[category];confirmed=any(not m.get('suspected') for m in found)
-        status='confirmed' if confirmed else 'no_reference' if not libraries[category] else 'suspected' if found else 'unavailable' if not images and (failures or page_error) else 'pending' if not complete or (images and (failures or page_error)) else 'no_images' if not images else 'not_found'
+        status='confirmed' if confirmed else 'no_reference' if not libraries[category] else 'suspected' if found else 'unavailable' if blocked or not images and (failures or page_error) else 'pending' if not complete or (images and (failures or page_error)) else 'no_images' if not images else 'not_found'
         result[key]={'version':2,'algorithmVersion':VERSION,'at':at,'status':status,'checkedImages':len(images),'failedImages':len(failures),'referenceCount':len(libraries[category]),'libraryVersion':versions.get(category,'empty'),'complete':complete and not failures,'matches':found,'error':page_error}
-    result['imageEvidence']={'version':2,'at':at,'complete':complete and not failures and not page_error,'libraryVersion':versions,'images':images,'failures':failures,'pageError':page_error,'candidateCount':len(dict.fromkeys(candidates)),'imagesTruncated':len(dict.fromkeys(candidates))>8,'candidateCursor':next_cursor,'candidateNextUrl':unique[next_cursor] if unique else '', 'candidatePoolKey':pool_key,'candidateChecked':[u for u in unique if u in checked], 'deepStatus':'completed' if complete else 'queued'}
+    result['imageEvidence']={'version':2,'at':at,'complete':complete and not failures and not page_error,'libraryVersion':versions,'images':images,'failures':failures,'pageError':page_error,'pageFinalUrl':page_final,'pageTitle':page_title,'candidateCount':len(dict.fromkeys(candidates)),'imagesTruncated':len(dict.fromkeys(candidates))>8,'candidateCursor':next_cursor,'candidateNextUrl':unique[next_cursor] if unique else '', 'candidatePoolKey':pool_key,'candidateChecked':[u for u in unique if u in checked], 'deepStatus':'completed' if complete else 'queued'}
     if quick:result['imageEvidence']['firstPass']={'status':'completed' if images else 'unavailable','at':at,'checkedImages':len(images),'reason':page_error or (failures[0]['reason'] if failures else '首次图片核验已执行；其他图片及局部特征待深度核验')}
     return result
 

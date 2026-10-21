@@ -745,3 +745,10 @@ dual-images-browser-check, workflow-browser-check and report-cycle-browser-check
 Live read-only first pass also obtained real official image bytes with SHA-256 equality;
 the requested Mercado Libre FV2000 page returned HTTP 403 with zero acquired images.
 That case must remain unavailable unless a later authorized fetch actually succeeds.
+
+Live backfill follow-up: the GitHub node returned only Mercado Libre navigation
+artwork for the requested FV2000 URL. A navigation-only candidate set cannot prove
+product-image coverage. Such sets now remain unavailable/incomplete and retry; Spanish
+login titles and account-verification redirects are also restricted. Public evidence
+retains final page URL/title for diagnosis. Previously completed navigation-only
+records are revalidated without altering their source URL or manual review history.
