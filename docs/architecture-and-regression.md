@@ -689,3 +689,23 @@ Added the cycle business date, budget remaining, next slot and cutoff to its exi
 cloud status panel, with a regression assertion; no new standalone page. Before the
 first new cycle starts, show the planned first report date. Manual activity after
 activation and before 18:00 also targets that first new report, preserving old dates.
+
+
+## 2026-10-21 — automatic image evidence in review list
+
+The existing browser/cloud collectors still write independent trademarkImageMatch and
+productImageMatch fields; no change to confidence rules, originals, review workflow,
+priority or schedule. List badges now expose pending/failed categories without treating
+missing evidence as a negative. Details resolve catalog names by saved brand IDs and
+retain actual official sourcePage URLs. Public sync refreshes only the image evidence
+slot inside an open dialog, preserving unsaved review/priority forms. Existing 30-second
+public refresh updates list badges and persists through the normal local storage path.
+Cloud batch selection prefers the oldest image attempt within existing eligibility and
+platform fairness tiers, after explicit manual requests, so recurring failures do not
+continually displace unattempted historical leads. No independent data store or new
+scheduled workflow was added. Existing weekly image task and post-scan enrichment remain.
+
+Regression: scripts/image-list-auto.test.mjs and
+scripts/image-auto-refresh-browser-check.mjs (real reference image bytes, mocked public
+transport, desktop/390px, independent badges, automatic merge, preserved form draft,
+refresh persistence). This is controlled integration evidence, not production execution.
