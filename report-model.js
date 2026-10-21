@@ -1,7 +1,7 @@
 import {cycleForDay} from './report-cycle.js';
 import {siteCoverage} from './coverage.js?v=20261020-review';
 import {outcomeOf,workflowOf} from './review.js?v=20261020-review';
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261021-cycle-r1';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261021-cycle-r2';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){
@@ -10,7 +10,7 @@ export function reportModel(m,day){
  const d=dayReport(m,day),cutoff=m.reportPolicy&&day>=m.reportPolicy.firstDay?cycleForDay(day,m.reportPolicy).cutoffAt:day+'T23:59:59.999+08:00';
  const cohort=[...d.fresh,...d.changed].map(e=>{
   const lastChange=e.changedAt||e.at;
-  const review=m.reviews.filter(r=>r.key===e.key&&Date.parse(r.at)<=Date.parse(cutoff)&&(statsVersion===2||Date.parse(r.at)>=Date.parse(lastChange))).sort((a,b)=>b.at.localeCompare(a.at))[0];
+  const review=m.reviews.filter(r=>r.key===e.key&&(!m.reportPolicy||r.day<=day)&&Date.parse(r.at)<=Date.parse(cutoff)&&(statsVersion===2||Date.parse(r.at)>=Date.parse(lastChange))).sort((a,b)=>b.at.localeCompare(a.at))[0];
   if(statsVersion===2){const assessment=review?.after||e.snapshot,w=workflowOf(assessment);return {...e,reviewStage:w.stage,reviewWorkflow:w,reviewStatus:{initial:'pending',ip:'reviewing',handling:'escalated',closed:'cleared'}[w.stage],reviewOutcome:outcomeOf(assessment),reviewNote:review?.after.note||''}}
   return {...e,reviewStatus:review?.after.status||'pending',reviewOutcome:outcomeOf(review?.after||{status:'pending'}),reviewNote:review?.after.note||''};
  });

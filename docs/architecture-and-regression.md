@@ -683,3 +683,9 @@ Git checkpoint. Only successful writes acknowledged before 09:20 are confirmed;
 each candidate retains the prior confirmed draft for recovery. A late/ambiguous write
 cannot replace that confirmed version. The frozen body records `sourceSavedAt`.
 A sole unconfirmed draft blocks formal publication rather than claiming saved evidence.
+
+Live UI validation found the runtime center had no batch progress container when idle.
+Added the cycle business date, budget remaining, next slot and cutoff to its existing
+cloud status panel, with a regression assertion; no new standalone page. Before the
+first new cycle starts, show the planned first report date. Manual activity after
+activation and before 18:00 also targets that first new report, preserving old dates.

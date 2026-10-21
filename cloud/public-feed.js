@@ -1,10 +1,10 @@
 import {imageCategories,publicImageResult,publicImageEvidence,mergeImageResult,mergeImageEvidence} from '../image-evidence.js?v=20261020-images-r3';
-import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261021-cycle-r1';
+import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261021-cycle-r2';
 import {publicWorkflow} from '../review.js?v=20261020-review';
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js?v=20261021-cycle-r1';
+import {mergeMonitors} from '../monitor.js?v=20261021-cycle-r2';
 import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-images-r3';
-import {applyRecordPolicy} from '../record-policy.js?v=20261021-cycle-r1';
+import {applyRecordPolicy} from '../record-policy.js?v=20261021-cycle-r2';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
 const visual=v=>({...pick(v,'version method at status checkedImages failedImages referenceCount message'),...(v.match?{match:pick(v.match,'score referenceFile brandIds candidateUrl')}:{})});

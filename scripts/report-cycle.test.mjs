@@ -78,3 +78,15 @@ test('a Git write confirmed after cutoff cannot replace the last saved draft',()
  updateCycleDraft(s,day+'T01:19:59Z');confirmCycleDraft(s,day+'T01:20:01Z');
  assert.equal(freezeReport(s,day,day+'T01:30Z').report.fresh.length,1);assert.equal(s.rows.length,2);
 });
+
+test('activation afternoon manual actions target first new report, preserving the old published date',()=>{
+ const s=fixture();s.monitor.reportPolicy={...REPORT_POLICY,activatedAt:'2026-10-21T07:00:00Z'};
+ assert.equal(activityDay(s.monitor,'2026-10-21T08:00:00Z','2026-10-21'),'2026-10-22');
+ assert.equal(activityDay(s.monitor,'2026-10-21T06:00:00Z','2026-10-21'),'2026-10-21');
+});
+
+test('runtime center exposes cycle date, remaining budget and deadline without opening batch details',async()=>{
+ const {cloudPanel}=await import('../cloud/client.js');const {continuationInfo}=await import('../execution-progress.js');const at=Date.parse('2026-10-21T07:00:00Z'),a={policy:REPORT_POLICY,enabled:true,todayScheduled:[]};
+ const c=continuationInfo(a,{},at);assert.equal(c.day,'2026-10-22');assert.equal(c.remainingBudget,720);assert.match(c.cutoffAt,/2026-10-22T09:20/);
+ const html=cloudPanel({automation:a,monitor:{updateChain:[]}});assert.match(html,/data-cycle-status/);assert.match(html,/日报归属/);assert.match(html,/剩余/);assert.match(html,/截止/);
+});

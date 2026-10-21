@@ -13,7 +13,7 @@ export function continuationInfo(automation={},runtime={},now=Date.now()){
 }
 
 function cycleContinuation(a,runtime,now){
- const c=cycleAt(now,a.policy),runs=(a.todayScheduled||[]).filter(r=>(r.reportDay||cycleAt(r.startedAt,a.policy).day)===c.day),attempted=runs.reduce((n,r)=>n+(r.attempted||0),0),budget=a.queryBudget||720,cooldown=Date.parse(a.cooldownUntil)||0;
+ const current=cycleAt(now,a.policy),c=current.day<a.policy.firstDay?{...cycleForDay(a.policy.firstDay,a.policy),active:false}:current,runs=(a.todayScheduled||[]).filter(r=>(r.reportDay||cycleAt(r.startedAt,a.policy).day)===c.day),attempted=runs.reduce((n,r)=>n+(r.attempted||0),0),budget=a.queryBudget||720,cooldown=Date.parse(a.cooldownUntil)||0;
  const exhausted=attempted>=budget,last=runs.at(-1),after=Math.max(now,cooldown,(Date.parse(last?.endedAt||last?.startedAt)||0)+900000);
  const next=exhausted?cycleForDay(addDay(c.day,1)).startAt:nextScanSlot(after),stale=runtime.phase==='running'&&now-Date.parse(runtime.startedAt)>25*60000;
  const status=a.enabled!==true?'disabled':stale?'unconfirmed':runtime.phase==='running'?'running':exhausted?'budget':!c.active?'overnight':cooldown>now?'cooldown':'scheduled';

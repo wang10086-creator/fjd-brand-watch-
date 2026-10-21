@@ -1,4 +1,4 @@
-import {continuationInfo} from '../execution-progress.js?v=20261021-cycle-r1';
+import {continuationInfo} from '../execution-progress.js?v=20261021-cycle-r2';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'尚无记录';
 export function cloudProgressView(state,now=Date.now()){
