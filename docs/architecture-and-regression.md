@@ -619,3 +619,14 @@ current mirrors fall back to real search evidence; no product capture success is
 Regression covers this real response and ensures incidental account navigation in long
 product content is not misclassified. Browser regression also exposed an empty public-scan
 seed crash; import now ignores an empty batch instead of dereferencing its absent last item.
+
+
+### 2026-10-21 Pages activation permission regression
+
+User changed Pages Source to GitHub Actions; read API confirmed `build_type=workflow`.
+Mirror-only run 39535290718 uploaded and verified Release assets and atomically migrated
+38 paths (commit 82c9899e), but final Pages dispatch returned HTTP 403. The cloud workflows
+had contents/pages write, not Actions write; bot commits do not trigger push builds.
+Grant Actions write to both existing cloud publishers (monitor and images), with a
+regression assertion. No credential changes, event/schema edits, schedules or message
+behavior changes. Archive-only execution skips Notion/Feishu and normal searches.

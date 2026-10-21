@@ -73,3 +73,15 @@ test('Release rotation publishes cleanup before new uploads to avoid a transient
  const {index,inventory}=fixture(),prior=structuredClone(index),fresh='archives/mirrors/'+'f'.repeat(24)+'.html';index.pages.fresh={url:'https://example.com/fresh',mirror:{type:'search',at:now,path:fresh,state:'saved'}};const changes=[{path:fresh,bytes:Buffer.alloc(100)}];
  const out=manageMirrorCapacity(prior,index,changes,inventory,{now,maxBytes:600,targetBytes:400,deferUploadsOnCleanup:true});assert.ok(out.deleted.length);assert.ok(out.blocked.includes('fresh'));assert.ok(!changes.some(c=>c.path===fresh));assert.equal(index.pages.fresh.mirror,undefined);
 });
+
+// GITHUB_TOKEN bot commits do not trigger push workflows. Every cloud publisher
+// must be able to explicitly dispatch the artifact deployment after writing data.
+test('cloud publishers grant the Actions permission required by Pages dispatch',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ for(const name of ['fjd-cloud.yml','fjd-images.yml']){
+  const yaml=await readFile(new URL('../.github/workflows/'+name,import.meta.url),'utf8');
+  const permissions=yaml.split('permissions:\n')[1]?.split(/\n[^ \n]/)[0];
+  assert.match(permissions,/^  actions: write(?: |$)/m);
+  assert.match(permissions,/^  contents: write$/m);
+ }
+});

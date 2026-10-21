@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   pages: write
+  actions: write # Dispatch the Pages artifact workflow after bot commits.
 concurrency:
   group: fjd-cloud-monitor
   cancel-in-progress: false
