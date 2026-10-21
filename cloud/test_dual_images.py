@@ -217,5 +217,20 @@ class DualImages(unittest.TestCase):
         self.assertFalse(second['imageEvidence']['complete'])
         self.assertEqual(second['imageEvidence']['candidateCount'],9)
 
+    def test_marketplace_navigation_shell_is_not_a_complete_negative(self):
+        class Transport:
+            def get(s,url,*args,**kwargs):
+                if url.endswith('/page'):return b'<title>Mercado Libre</title><img src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5/logo.png">','text/html',url
+                return self.logo_raw,'image/png',url
+        result=collect({'url':'https://example.com/page'},self.libraries,{},Transport(),time.monotonic()+20)
+        self.assertFalse(result['imageEvidence']['complete'])
+        self.assertEqual(result['productImageMatch']['status'],'unavailable')
+        self.assertIn('导航',result['imageEvidence']['pageError'])
+        self.assertEqual(result['imageEvidence']['pageTitle'],'Mercado Libre')
+
+    def test_spanish_login_or_identity_redirect_is_restricted(self):
+        with self.assertRaises(PermissionError):page_candidates('<title>Ingresá a tu cuenta</title><img src="/logo.png">','https://example.com/item')
+        with self.assertRaises(PermissionError):page_candidates('<title>Mercado Libre</title>','https://example.com/gz/account-verification')
+
 
 if __name__=='__main__':unittest.main()
