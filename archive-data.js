@@ -1,5 +1,6 @@
+import {accessGate} from './page-access.js?v=20261021-lifecycle-r2';
 import {archiveKey,archivePath} from './archive-model.js?v=20261020-mirrors';
-import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261021-lifecycle';
+import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261021-lifecycle-r2';
 let cache;
 async function boundedJSON(response,gzip=false){
  if(!response.ok)throw Error('存档读取 HTTP '+response.status);
@@ -15,6 +16,7 @@ export async function readArchiveIndex({fetcher=fetch,refresh=false}={}){
 export async function readArchivePage(record,url,{fetcher=fetch}={}){
  const path=archivePath(record?.path);if(!path)return null;
  const r=await fetcher(new URL('./'+path+'?v='+encodeURIComponent(record.contentAt||''),import.meta.url),{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(8000)}),p=await boundedJSON(r,true);
+ if(accessGate(p))throw Error('历史存档是登录提示，未取得目标页面正文；保留原响应供追溯');
  if(p.version!==1||archiveKey(p.url)!==archiveKey(url)||typeof p.text!=='string'||p.text.length<80)throw Error('存档正文或地址校验未通过');return p;
 }
 // Retired public API retained for old import compatibility; performs no PDF requests.

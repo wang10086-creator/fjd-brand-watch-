@@ -611,3 +611,11 @@ Regression scope: timestamp boundary, manual edits, re-hits, mixed provenance, c
 ordering/rollback/protection, shared resources, tombstone reopening, no dead previews,
 node restrictions, digest-checked release publish, legacy/workflow Pages builds, existing
 Node + Python suites, desktop/mobile review and mirror readers, real Actions/Pages receipts.
+
+Actual Actions capture exposed Portuguese HTTP-200 sign-in interstitials mistaken for
+product body text. Added bounded multilingual access-gate checks at capture and read time.
+Previously saved raw responses stay intact, but their content validation is flagged and
+current mirrors fall back to real search evidence; no product capture success is claimed.
+Regression covers this real response and ensures incidental account navigation in long
+product content is not misclassified. Browser regression also exposed an empty public-scan
+seed crash; import now ignores an empty batch instead of dereferencing its absent last item.

@@ -58,3 +58,18 @@ test('source deny from alternate node terminates further attempts; undeclared no
 test('snapshot publishing preserves legacy Pages and supports asset-overlay deployments',async()=>{
  for(const type of ['legacy','workflow']){const calls=[],store={request:async(p,m)=>{calls.push([p,m]);return {build_type:type}}};await requestPagesBuild(store);assert.equal(calls[1][0],type==='legacy'?'/pages/builds':'/actions/workflows/fjd-pages.yml/dispatches')}
 });
+
+test('HTTP 200 Portuguese login interstitial is not target content; prior raw evidence is preserved but reclassified',async()=>{
+ const {accessGate}=await import('../page-access.js'),{applyArchiveBatch}=await import('../cloud/page-archives.mjs');
+ const text='Mercado Libre\nOlá! Para continuar, acesse\nsua conta\nSou novo Já tenho conta\nUsamos cookies para melhorar sua experiência no Mercado Livre. Consulte nossa Central de privacidade.';
+ assert.equal(accessGate({text}),true);assert.equal(accessGate({text:'FJDynamics AT2 product specifications. Sign in to your account. '+ 'Actual product information '.repeat(100)}),false);
+ const feed={rows:[{url,title:'Actual indexed FJDynamics product',snippet:'Original indexed product excerpt'}],monitor:{observations:[observation('2026-10-21')]}},oldPath='archives/pages/'+'a'.repeat(24)+'.json.gz',saved={version:1,url,text,capturedAt:'2026-10-21T02:33:00Z'},prior={version:1,pages:{[key]:{url,path:oldPath,contentAt:saved.capturedAt,status:'captured',mirror:{type:'content',at:saved.capturedAt,contentAt:saved.capturedAt,path:'archives/mirrors/'+'a'.repeat(24)+'.html',versionPath:'archives/mirrors/'+'a'.repeat(24)+'-'+'b'.repeat(16)+'.html',history:[]}}}};
+ const a=applyArchiveBatch(feed,prior,[],[],{now,savedPages:{[key]:saved}});applyMirrors(feed,a.index,a.changes,[],{now,savedPages:{[key]:saved}});
+ assert.equal(a.index.pages[key].mirror.type,'search');assert.equal(a.index.pages[key].status,'restricted');assert.equal(a.index.pages[key].path,oldPath);assert.equal(a.index.pages[key].mirror.history[0].validation,'access-gate');assert.ok(!a.changes.some(c=>c.path===oldPath));assert.equal(saved.text,text);
+ const b=applyArchiveBatch(feed,null,[{url}],[{url,status:'captured',text}]);assert.equal(b.index.pages[key].status,'restricted');assert.ok(!b.changes.some(c=>c.path.endsWith('.gz')));
+});
+
+test('Release rotation publishes cleanup before new uploads to avoid a transient capacity overrun',()=>{
+ const {index,inventory}=fixture(),prior=structuredClone(index),fresh='archives/mirrors/'+'f'.repeat(24)+'.html';index.pages.fresh={url:'https://example.com/fresh',mirror:{type:'search',at:now,path:fresh,state:'saved'}};const changes=[{path:fresh,bytes:Buffer.alloc(100)}];
+ const out=manageMirrorCapacity(prior,index,changes,inventory,{now,maxBytes:600,targetBytes:400,deferUploadsOnCleanup:true});assert.ok(out.deleted.length);assert.ok(out.blocked.includes('fresh'));assert.ok(!changes.some(c=>c.path===fresh));assert.equal(index.pages.fresh.mirror,undefined);
+});

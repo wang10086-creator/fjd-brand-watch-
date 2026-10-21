@@ -1,4 +1,4 @@
-import {readArchiveIndex} from './archive-data.js?v=20261021-lifecycle';
+import {readArchiveIndex} from './archive-data.js?v=20261021-lifecycle-r2';
 const mib=n=>(Number(n||0)/1024**2).toFixed(2)+' MiB';
 export function mirrorStorageView(index){
  const s=index.mirrorStorage;if(!s)return '<p class="helper">镜像容量尚未完成首次核算；已有线索与存档仍可正常读取。</p>';

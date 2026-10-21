@@ -138,6 +138,11 @@ def browser_content(url,deadline):
             return rendered,final
     except Exception:return None
 
+def access_gate(text):
+    text=' '.join(str(text or '').split())
+    if not text or len(text)>2500:return False
+    return bool(re.search(r'para continuar[,!]?\s+acesse\s+sua conta|para continuar[,!]?\s+(?:ingresa|inicia sesi[oó]n|accede)\s+(?:a |en )?tu cuenta|(?:sign in|log in) to continue|please (?:sign in|log in) to (?:continue|view)|请先登录|登录后继续|登录后查看|請先登入|登入後繼續',text,re.I))
+
 def capture(url,deadline):
     at=datetime.datetime.now(datetime.timezone.utc).isoformat();result={'url':url,'at':at,'status':'unavailable','images':[]}
     try:
@@ -150,14 +155,14 @@ def capture(url,deadline):
             return {**result,'status':'restricted','httpStatus':200,'message':'原站返回验证或拦截页面'}
         parser=Content(final);parser.feed(html);page=parser.result()
         if parser.noarchive:return {**result,'status':'restricted','message':'原站标记不允许存档'}
-        if blocked(html,page['title']):
+        if blocked(html,page['title']) or access_gate(page['text']):
             return {**result,'status':'restricted','httpStatus':200,'message':'原站返回登录、验证或拒绝访问页面'}
         method='public-html'
         if len(page['text'])<80:
             rendered=browser_content(final,deadline)
             if rendered:
                 html,final=rendered;parser=Content(final);parser.feed(html);page=parser.result();method='public-browser'
-                if blocked(html,page['title']) or parser.noarchive:return {**result,'status':'restricted','httpStatus':200,'message':'动态页面返回登录、验证或采集限制'}
+                if blocked(html,page['title']) or parser.noarchive or access_gate(page['text']):return {**result,'status':'restricted','httpStatus':200,'message':'动态页面返回登录、验证或采集限制'}
             if len(page['text'])<80:return {**result,'message':'公开正文不足；正常渲染亦未取得足够内容，保留索引摘要'}
         result.update(page,status='captured',captureMethod=method,httpStatus=200,finalUrl=final,sourceHash=hashlib.sha256(raw).hexdigest())
         if method=='public-browser':result['renderedHash']=hashlib.sha256(html.encode()).hexdigest()

@@ -1,3 +1,4 @@
+import {accessGate} from '../page-access.js';
 import {createHash} from 'node:crypto';import {gzipSync} from 'node:zlib';import {spawn} from 'node:child_process';
 import {archiveKey,sameArchiveSite,archivePath} from '../archive-model.js';
 import {mirrorEligible,mirrorHits,mirrorRetired,mirrorDocument,mirrorPath,reconstructionType,mirrorSince,mirrorVersion} from '../mirror-model.js';
@@ -33,23 +34,25 @@ export function applyArchiveBatch(feed,prior,batch,results,{now=new Date().toISO
  for(const task of batch){const key=archiveKey(task.url),row=roots.get(key);if(!row)continue;
   const result=results.find(x=>archiveKey(x.url)===key),old=index.pages[key]||{};if(!result&&task.mode!=='history')continue;
   const meta={...old,url:task.url,root:key,depth:0};let page=savedPages[key]||null;
+  if(page&&accessGate(page)){page=null;meta.contentValidation={status:'access-gate',at:now};meta.status='restricted';meta.message='历史响应为登录提示，未取得目标页面正文'}
   if(page&&(page.version!==1||archiveKey(page.url)!==key||typeof page.text!=='string'||page.text.length<80))page=null;
   if(result){Object.assign(meta,{at:result.at||now,status:result.status,httpStatus:result.httpStatus||null,message:String(result.message||'').slice(0,200),captureAttempts:result.captureAttempts||[],captureNode:result.node||'default'});
-   if(result.status==='captured'&&typeof result.text==='string'&&result.text.length>=80){
+   if(result.status==='captured'&&typeof result.text==='string'&&result.text.length>=80&&!accessGate(result)){
     const links=(result.links||[]).filter(l=>sameArchiveSite(task.url,l.url)).slice(0,80).map(l=>({url:l.url,label:String(l.label||l.url).slice(0,160)}));
+    delete meta.contentValidation;
     page={version:1,url:task.url,finalUrl:result.finalUrl||task.url,title:String(result.title||'').slice(0,300),capturedAt:result.at||now,sourceHash:result.sourceHash,...(result.renderedHash?{renderedHash:result.renderedHash}:{}),text:result.text.slice(0,30000),textTruncated:!!result.textTruncated,linksTruncated:!!result.linksTruncated,links,images:(result.images||[]).filter(i=>/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(i.data||'')&&i.data.length<85000).slice(0,2).map(i=>({url:i.url,data:i.data})),captureMethod:result.captureMethod||'public-html'};
     page.productFacts=(result.productFacts||[]).filter(p=>p.type==='sales-entry'&&typeof p.text==='string'&&p.text.length<80).slice(0,5);
     meta.path='archives/pages/'+hash(key).slice(0,24)+'.json.gz';meta.contentAt=page.capturedAt;meta.title=page.title;meta.linksCount=links.length;
     changes.push({path:meta.path,bytes:gzipSync(Buffer.from(JSON.stringify(page))),bytesInput:true});
-   }else if(result.status==='captured'){meta.status='unavailable';meta.message='返回内容未达到真实正文保存条件'}
+   }else if(result.status==='captured'){meta.status=accessGate(result)?'restricted':'unavailable';meta.message=accessGate(result)?'返回登录提示，未取得目标页面正文':'返回内容未达到真实正文保存条件'}
   }
   if(!meta.status)meta.status='pending';
   // A failed history read must not downgrade the stored full-page summary/PDF.
-  meta.summary=page?leadSummary(row,page):meta.path&&old.summary?.source==='page'?old.summary:leadSummary(row);
+  meta.summary=page?leadSummary(row,page):meta.contentValidation?.status==='access-gate'?leadSummary(row):meta.path&&old.summary?.source==='page'?old.summary:leadSummary(row);
   if(page)meta.finalUrl=page.finalUrl||page.url;
   index.pages[key]=meta;
  }
- index.updatedAt=now;index.lastBatch={attempted:results.length,captured:results.filter(r=>r.status==='captured').length,restricted:results.filter(r=>r.status==='restricted').length,reused:batch.filter(t=>t.mode==='history').length};
+ index.updatedAt=now;index.lastBatch={attempted:results.length,captured:results.filter(r=>r.status==='captured'&&!accessGate(r)).length,restricted:results.filter(r=>r.status==='restricted'||accessGate(r)).length,reused:batch.filter(t=>t.mode==='history').length};
  index.policy={pagesPerBatch:6,target:'exact-lead-url',recursive:false,maxDepth:0,refreshDays:7,retryHours:24,mirrorSince,format:'html',pdfGeneration:false};
  return {index,changes,pdfTasks:[]};
 }
@@ -60,17 +63,19 @@ export function applyMirrors(feed,index,changes,results,{now=new Date().toISOStr
  const hits=mirrorHits(feed),eligible=[...liveRoots(feed)].filter(([,row])=>mirrorEligible(row,hits)),counts={original:0,content:0,search:0,basic:0,missing:0};
  for(const [key,row] of eligible){
   if(mirrorRetired(index.pages[key],hits.get(key))){counts.missing++;continue}
-  const meta=index.pages[key]||{url:row.url,root:key,depth:0,status:'pending'},r=results.find(r=>archiveKey(r.url)===key),captured=r?.status==='captured'&&r.text?.length>=80;
-  const saved=savedPages[key],page=captured?{...r,capturedAt:r.at||now}:saved?.version===1&&archiveKey(saved.url)===key&&typeof saved.text==='string'&&saved.text.length>=80?saved:null;
-  const originalHTML=captured&&r.mirrorHTML||'',type=originalHTML?'original':reconstructionType(row,page),old=meta.mirror?.state==='evicted'?null:meta.mirror;
+  const meta=index.pages[key]||{url:row.url,root:key,depth:0,status:'pending'},r=results.find(r=>archiveKey(r.url)===key),captured=r?.status==='captured'&&r.text?.length>=80&&!accessGate(r);
+  const saved=savedPages[key],invalidSaved=accessGate(saved)&&!captured,page=captured&&!accessGate(r)?{...r,capturedAt:r.at||now}:!invalidSaved&&saved?.version===1&&archiveKey(saved.url)===key&&typeof saved.text==='string'&&saved.text.length>=80?saved:null;
+  const originalHTML=captured&&!accessGate(r)&&r.mirrorHTML||'',type=originalHTML?'original':reconstructionType(row,page),old=meta.mirror?.state==='evicted'?null:meta.mirror;
+  const invalidOld=invalidSaved&&old?.type==='content'&&old?.contentAt===saved.capturedAt;
+  if(invalidSaved){meta.contentValidation={status:'access-gate',at:meta.contentValidation?.at||now};meta.status='restricted';meta.message='历史响应为登录提示，未取得目标页面正文';meta.summary=leadSummary(row)}
   const inputHash=hash(JSON.stringify({mirrorVersion,url:key,title:page?.title||row.title,text:page?.text||row.snippet||'',sourceHash:page?.sourceHash,images:page?.images||[],html:originalHTML,type}));
   // Never replace a higher-fidelity saved copy with a transient failure or weaker index.
-  if(!old||rank[type]>rank[old.type]||rank[type]===rank[old.type]&&old.inputHash!==inputHash){
+  if(!old||invalidOld||rank[type]>rank[old.type]||rank[type]===rank[old.type]&&old.inputHash!==inputHash){
    const content=mirrorDocument(row,page,{type,originalHTML,generatedAt:now,access:{...meta,mirrorDetails:r?.mirrorDetails}}),sha256=hash(content),id=hash(key).slice(0,24),path='archives/mirrors/'+id+'.html',versionPath='archives/mirrors/'+id+'-'+sha256.slice(0,16)+'.html';
    // Stable link is a small redirect; the immutable body is stored only once.
    const target=versionPath.split('/').pop(),redirect=`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'"><meta http-equiv="refresh" content="0;url=${target}"><a href="${target}">打开网页副本</a>`;
    changes.push({path,bytes:Buffer.from(redirect),bytesInput:true},{path:versionPath,bytes:Buffer.from(content),bytesInput:true});
-   const history=[...(old?.history||[])];if(old?.versionPath&&!history.some(x=>x.path===old.versionPath))history.push({path:old.versionPath,type:old.type,at:old.at,contentAt:old.contentAt,sha256:old.sha256});
+   const history=[...(old?.history||[])];if(old?.versionPath&&!history.some(x=>x.path===old.versionPath))history.push({path:old.versionPath,type:old.type,at:old.at,contentAt:old.contentAt,sha256:old.sha256,...(invalidOld?{validation:'access-gate'}:{})});
    delete meta.mirrorCapacityBlocked;
    meta.mirror={version:1,state:'saved',lastHitAt:hits.get(key),...(meta.mirror?.pinned?{pinned:true}:{}),...(meta.mirror?.evictedAt?{previousEviction:{at:meta.mirror.evictedAt,type:meta.mirror.type}}:{}),path,versionPath,type,at:now,contentAt:page?.capturedAt||row.checkedAt||row.lastSeen||row.firstSeen||null,sourceHash:page?.sourceHash||null,sha256,size:Buffer.byteLength(content),inputHash,history,...(type==='original'?{capture:r.mirrorDetails||{}}:{})};
   }
