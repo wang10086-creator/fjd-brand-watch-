@@ -1,13 +1,15 @@
 name: 丰疆云端监控
 on:
   schedule:
-    - cron: '0 16 * * *'
-    - cron: '17,47 16-23 * * *'
-    - cron: '17,37,57 0-1 * * *'
-    - cron: '17 2 * * *'
-    - cron: '30 2 * * *'
-    - cron: '37 2 * * *'
-    - cron: '17 3-9 * * *'
+    # UTC 10:00-23:30 = Beijing 18:00-next day 07:30.
+    - cron: '0,30 10-23 * * *'
+    # Beijing 08:00,08:30,09:00,09:10; no new scans after 09:20.
+    - cron: '0,30 0 * * *'
+    - cron: '0,10 1 * * *'
+    # Freeze/publish 09:30; definite-failure recovery checks, no daytime scans.
+    - cron: '30,50 1 * * *'
+    - cron: '10,40 2 * * *'
+    - cron: '10 3-9 * * *'
   workflow_dispatch:
     inputs:
       operation:
@@ -58,11 +60,11 @@ jobs:
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
       - name: 准备单页 HTML 镜像组件
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '30 2 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
         continue-on-error: true
         run: bash cloud/prepare-archive.sh
       - name: 公开页面存档（独立于检索统计）
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '30 2 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

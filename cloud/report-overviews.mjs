@@ -8,8 +8,10 @@ import {evidenceUrl} from '../lead-access.js';
 // from the merged ledger, so a late upload cannot leave another device's totals out.
 export function reportOverviews(state){
  const m=state.monitor,latest=new Map();
+ for(const [day,r] of Object.entries(m.formalReports||{}))latest.set(day,{day,at:r.generatedAt});
  for(const e of m.updateChain||[])if(!latest.has(e.day)||Date.parse(e.at)>Date.parse(latest.get(e.day).at))latest.set(e.day,e);
  return [...latest.values()].sort((a,b)=>a.day.localeCompare(b.day)).map(e=>{
+  if(m.formalReports?.[e.day])return structuredClone(m.formalReports[e.day].overview);
   const cumulative=overview(m,e.day),report=reportModel(m,e.day),cohort=report.cohort;
   const current=priorityCohort(cohort,state.rows),currentByKey=new Map(current.map(r=>[r.key,r.currentPriority])),priorityCurrent={version:PRIORITY_VERSION,total:current.length,counts:prioritySummary(current.map(r=>({priorityV2:{auto:r.currentPriority.auto,manual:r.currentPriority.manual}}))),label:'当前优先级 · 当日新增及变化线索',disclaimer:priorityDisclaimer};
   const reportCases=cohort.map(r=>({key:r.key,url:r.snapshot.url,title:r.snapshot.title,platform:r.snapshot.platform,status:r.reviewStatus,outcome:r.reviewOutcome,kind:r.kind,query:r.snapshot.query,searchUrl:r.snapshot.searchUrl,evidenceUrl:evidenceUrl(r.snapshot,e.day),priority:{level:currentByKey.get(r.key).level,automatic:currentByKey.get(r.key).auto.level,rules:currentByKey.get(r.key).auto.matches.map(m=>m.id),manual:!!currentByKey.get(r.key).manual},...(report.statsVersion===2?{stage:r.reviewStage,node:r.reviewWorkflow.node,round:r.reviewWorkflow.round,closure:r.reviewWorkflow.closure?{type:r.reviewWorkflow.closure.type,reason:r.reviewWorkflow.closure.reason,measures:r.reviewWorkflow.closure.measures}:null}:{})}));

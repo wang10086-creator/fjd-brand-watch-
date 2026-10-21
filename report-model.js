@@ -1,11 +1,13 @@
+import {cycleForDay} from './report-cycle.js';
 import {siteCoverage} from './coverage.js?v=20261020-review';
 import {outcomeOf,workflowOf} from './review.js?v=20261020-review';
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261020-review';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261021-cycle-r1';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){
+ const formal=m.formalReports?.[day];if(formal)return {...structuredClone(formal.report),formal:{checksum:formal.checksum,status:formal.status,cycle:formal.cycle,generatedAt:formal.generatedAt,publishedAt:formal.publishedAt}};
  const statsVersion=day>='2026-10-20'||m.reviews.some(r=>r.day===day&&r.after.reviewWorkflow)?2:1;
- const d=dayReport(m,day),cutoff=day+'T23:59:59.999+08:00';
+ const d=dayReport(m,day),cutoff=m.reportPolicy&&day>=m.reportPolicy.firstDay?cycleForDay(day,m.reportPolicy).cutoffAt:day+'T23:59:59.999+08:00';
  const cohort=[...d.fresh,...d.changed].map(e=>{
   const lastChange=e.changedAt||e.at;
   const review=m.reviews.filter(r=>r.key===e.key&&Date.parse(r.at)<=Date.parse(cutoff)&&(statsVersion===2||Date.parse(r.at)>=Date.parse(lastChange))).sort((a,b)=>b.at.localeCompare(a.at))[0];
@@ -30,6 +32,7 @@ export function reportFingerprint(report){
 }
 export function reportPublication(m,day){const report=reportModel(m,day),saved=m.publications?.[day];return {report,saved,dirty:!!saved&&saved.fingerprint!==reportFingerprint(report)};}
 export function finalizeReport(m,day,at=new Date().toISOString()){
+ const sealed=m.formalReports?.[day];if(sealed)return {date:day,version:sealed.version,createdAt:sealed.generatedAt,fingerprint:sealed.checksum,report:reportModel(m,day)};
  const {report,saved,dirty}=reportPublication(m,day);
  if(!report.hasActivity)throw Error('该日期没有可归档的监控或复核记录');
  if(report.runs.some(r=>r.running))throw Error('该日报仍有检索在执行，请暂停或等执行结束后生成汇报版');

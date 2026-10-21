@@ -21,7 +21,7 @@ export function applyRecordPolicy(state){
  });
  const rowKeys=new Set(state.rows.map(r=>canonical(r.url)));
  for(const key of Object.keys(m.known||{}))if(!rowKeys.has(key)&&removed.has(key))delete m.known[key];
- for(const field of ['coverageScopes','coverageScopeAt','publications'])for(const day of deleted)if(m[field])delete m[field][day];
+ for(const field of ['coverageScopes','coverageScopeAt','publications','formalReports'])for(const day of deleted)if(m[field])delete m[field][day];
  state.history=(state.history||[]).filter(r=>!deleted.has(dayOfRecord(r)));
  for(const day of deleted)if(state.publications)delete state.publications[day];
  for(const id of removedEvents)if(state.archive?.receipts)delete state.archive.receipts[id];

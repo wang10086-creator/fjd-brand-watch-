@@ -1,10 +1,10 @@
 import {deltaCohort} from './content-changes.js?v=20261020-changes';
 import {publicWorkflow} from './review.js?v=20261020-review';
-import {dayOf} from './monitor.js?v=20261020-changes';
-import {reportModel} from './report-model.js?v=20261020-review';
+import {dayOf} from './monitor.js?v=20261021-cycle-r1';
+import {reportModel} from './report-model.js?v=20261021-cycle-r1';
 import {canonical,risk} from './model.js?v=20261020-review';
 export const triggerNames={schedule:'自动检索',manual:'手动检索',refresh:'立即检索','site-retry':'站点补查',retry:'失败重试',watch:'重点复查','public-collector':'公共补充检索',review:'人工复核'};
-export function chainFor(m,day){return (m.updateChain||[]).filter(e=>e.day===day).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));}
+export function chainFor(m,day){return (m.formalReports?.[day]?.chain||m.updateChain||[]).filter(e=>e.day===day).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));}
 const tally=items=>({new:items.filter(x=>x.kind==='new').length,changed:items.filter(x=>x.kind==='changed').length,repeat:items.filter(x=>x.kind==='repeat').length});
 export function overview(m,day){const d=reportModel(m,day);return {new:d.fresh.length,changed:d.changed.length,repeat:d.repeat.length,pending:d.pending,review:d.review,...(d.statsVersion===2?{statsVersion:2,stages:d.stages,closed:d.closed,excluded:d.excluded,completed:d.completed}:{}),sites:d.successfulSites.length,failedSites:d.failedSites.length,success:d.success.length,failed:d.pendingFailures.length,sourceBars:d.sourceBars,trend:d.trend,...(d.coverage?{coverage:Object.fromEntries(Object.entries(d.coverage).filter(([k])=>k!=='rows')),failureReasons:[...new Set(d.coverage.rows.filter(s=>s.pendingFailed).map(s=>s.reason))]}:{})};}
 export function appendRun(m,run,rows,{historical=false}={}){

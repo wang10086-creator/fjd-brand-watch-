@@ -640,3 +640,40 @@ restricted; no original mirror success inferred from a successful workflow.
 Local Node 269 / Python 81 passed; CI 39535758020 success. Live desktop/mobile
 readers and storage card verified without overflow/errors or source-site requests.
 Published monitoring snapshot identical to pre-activation (215 rows).
+
+
+## 2026-10-21 Beijing overnight cycle and immutable formal reports
+
+Impact map: Actions cron → automation → scan/monitor observation day → report-chain /
+report-model → public-safe cycle draft → formal report → chart assets → Notion seal →
+Feishu receipt → encrypted checkpoint/public feed → daily-view/export. Manual reviews,
+priority and evidence continue to use the operational ledger; snapshots never merge back
+into rows. Prior dates retain their original events, IDs, report day and checksums.
+
+Recovery point: pre-change main and data-cloud commit IDs and public snapshot captured
+outside the repository before editing. Activation records the next full 18:00 cycle;
+no old cycle is fabricated or re-sent. Budgets use reportDay, 720 total / 60 per batch,
+while shared query cursor and source cooldown remain intact. The actual clock controls
+scan admission; deadline bounds requests to 09:20. Manual operations after cutoff are
+retained with real timestamps for the next open business day, with their original trigger.
+
+During a cycle the existing encrypted checkpoint keeps a public-safe report draft.
+This preserves priority/stage/evidence as of the last saved pre-cutoff checkpoint even
+if final publication starts late. At 09:30 the draft becomes a SHA-256-checked formal
+snapshot, saved before any external mutation. Snapshot contents and update chain are
+immutable from preparation onward, not just after send. Charts derive from that same
+body and cannot fail open into a different text-only version. Status/receipt metadata
+is outside the content hash. Notion uses an immutable final marker and resumable event
+chunks; repeat publication reuses identical content. Bot intent is checkpointed before
+POST; uncertain responses never auto-retry. Archive failure blocks sending the report.
+Historical Notion pages are not refreshed by the new publisher. Live hub can change.
+
+Cloud merges reject browser attempts to introduce/replace formal records; public devices
+receive those records and preserve them on old-backup merge. Full JSON backups keep the
+new fields. Internal notes are excluded via the existing public projection before a
+snapshot is formed. Explicit record-deletion policy is separate and remains supported.
+Testing includes timezone/month/year rollover, midnight budget, delayed scan no-op,
+post-cutoff manual operations, same-body retry, Notion response loss, bot uncertainty,
+old/public merges, immutable export and desktop/mobile views. Production check must not
+send a test report or manufacture a historical cycle; first real overnight publication
+is observable only after the newly activated cycle ends.

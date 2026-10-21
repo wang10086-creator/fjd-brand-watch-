@@ -6,7 +6,7 @@ import re
 import urllib.parse
 from report_sections_text import sections, beijing
 
-TYPES = {'schedule': '自动检索', 'manual': '手动检索', 'refresh': '立即检索', 'site-retry': '站点补查', 'retry': '失败重试', 'review': '人工复核', 'watch': '重点复查', 'public-collector': '公共补充检索'}
+TYPES = {'schedule': '自动检索', 'manual': '手动检索', 'refresh': '立即检索', 'site-retry': '站点补查', 'retry': '失败重试', 'review': '人工复核', 'watch': '重点复查', 'public-collector': '公共补充检索', 'formal':'周期正式快照'}
 
 OUTCOMES={'pending':'待核查','investigate':'继续核查','authorized':'已排除 · 授权已核实','normal':'已排除 · 正常引用','irrelevant':'已排除 · 无关线索','escalate':'提交法务','legacy':'已完成 · 旧记录结论'}
 STATUSES={'pending':'待核查','reviewing':'继续核查','cleared':'已排除 / 已完成','escalated':'提交法务'}
@@ -109,7 +109,7 @@ class NotionReports:
         if matches:
             page = self.request('GET', '/pages/'+matches[0]['id'])
         else:
-            page = self.request('POST', '/pages', {'parent': {'page_id': self.parent}, 'icon': {'type': 'emoji', 'emoji': '📊'}, 'properties': {'title': {'type': 'title', 'title': text(title)}}, 'children': [block('paragraph', '按北京时间归档，汇总当日检索与复核进展；后续更新保留完整追溯记录。'), block('heading_2', '当日累计与更新记录')]})
+            page = self.request('POST', '/pages', {'parent': {'page_id': self.parent}, 'icon': {'type': 'emoji', 'emoji': '📊'}, 'properties': {'title': {'type': 'title', 'title': text(title)}}, 'children': [block('paragraph', '周期正式快照：前日18:00至当日09:20，发布后内容固定；后续操作保存在实时台账。' if getattr(self,'formal_day',None)==day else '按北京时间归档，汇总当日检索与复核进展；后续更新保留完整追溯记录。'), block('heading_2', '当日累计与更新记录')]})
         self.pages[day] = {'id': page['id'], 'url': page.get('public_url') or page.get('url'), 'publicUrl': page.get('public_url')}
         return self.pages[day]
 
@@ -135,11 +135,11 @@ class NotionReports:
         copy=(f"归档时的执行覆盖：{cv['total']} 个站点与全网入口中，已查 {cv['searched']} 个、失败待补查 {cv['failedOnly']} 个、尚未执行 {cv['unattempted']} 个。" if cv else '该日期未留存完整目标范围，暂不计算覆盖率。')
         specs.extend([
             ('coverage-copy',block('paragraph',copy+' 已查表示至少一次有效索引查询，不代表全站覆盖；未执行不等同网站不可访问。')),
-            ('schedule',block('paragraph','监控安排｜北京时间 00:00 起分批检索，10:30 推送飞书简报，后续补查继续归入当日日报。云端队列可能延迟；本页展示已归档快照，实时执行状态见工作台。')),
+            ('schedule',block('paragraph','监控安排｜北京时间每日18:00启动下一期检索，次日09:20截止，09:30左右归档并推送；正式日报内容固定。云端队列可能延迟；本页展示已归档快照，实时执行状态见工作台。')),
             ('workbench',link_block('进入监控工作台 · 执行状态与线索复核','https://wang10086-creator.github.io/fjd-brand-watch-/')),
             ('method',block('toggle','阅读指引与统计口径',children=[
                 block('paragraph','日报先呈现线索增量、复核进展与覆盖图表，随后列出具体线索及逐次执行记录。检索范围包含中国与海外电商、经销、代理和转售平台。'),
-                block('paragraph','每天一份日报，按北京时间归档；自动检索、手动补查与复核更新追加到同一天的更新链。页面累计概览随归档刷新，重复页面不重复计入新增。'),
+                block('paragraph','新周期每天一份正式快照；已发布日报不随后续检索或复核改变。后续操作保存在实时台账，重复页面不重复计入新增。'),
                 block('paragraph','所有线索由人工核查，不自动评级或认定侵权。公开站点仅呈现统计及公开线索；内部核查备注、授权材料与非公开证据不在此披露。')
             ])),
             ('archive',block('heading_2','历史日报 · 按日期查阅')),
@@ -168,10 +168,26 @@ class NotionReports:
             if obsolete and b['id'] not in keep and b['type']!='child_page':self.request('PATCH','/blocks/'+b['id'],{'archived':True})
         meta.update(at=event['at'],version=2,blocks={k:ids[k] for k,_ in specs})
 
+    def formal(self, event):
+        self.formal_day = event['day']
+        page = self.day_page(event['day'])
+        marker = 'FJD-FORMAL:'+event['day']+':'+event['checksum']
+        seals = [plain(b) for b in self.children(page['id']) if plain(b).startswith('FJD-FORMAL:')]
+        if seals and marker not in seals: raise ValueError('Notion 正式日报校验值不一致，停止覆盖')
+        meta = self.layouts.setdefault(page['id'], {'blocks':{}})
+        if marker not in seals:
+            self.overview(event)
+            self.sync(event)
+            self.request('PATCH', '/blocks/'+page['id']+'/children', {'children':[block('paragraph',marker)]})
+        meta['sealedChecksum'] = event['checksum']
+        return {'url':page['url'], 'publicUrl':page.get('publicUrl'), 'provider':'notion'}
+
     def overview(self, event):
         """Compact chart-first overview; block IDs are persisted outside public content."""
         if not event.get('cumulative'): return
-        page=self.day_page(event['day']);blocks=self.children(page['id'])
+        page=self.day_page(event['day']);
+        if self.layouts.get(page['id'],{}).get('sealedChecksum'): return
+        blocks=self.children(page['id'])
         if blocks and blocks[0]['type']=='paragraph' and plain(blocks[0]).startswith('北京时间每天一页。'):
             self.request('PATCH','/blocks/'+blocks[0]['id'],{'paragraph':{'rich_text':text('按北京时间归档，汇总当日检索与复核进展；后续更新保留完整追溯记录。')}})
         marker='https://wang10086-creator.github.io/fjd-brand-watch-/#report-section='
@@ -236,6 +252,7 @@ class NotionReports:
     def repair_history_presentation(self, day):
         """Change old visible labels/entry links, without touching event markers or checksums."""
         page=self.day_page(day);meta=self.layouts.setdefault(page['id'],{'blocks':{}})
+        if meta.get('sealedChecksum'):return
         if meta.get('historyPresentationVersion')==3:return
         for entry in self.children(page['id']):
             if entry.get('type')!='toggle' or 'FJD-' not in marker_of(entry):continue
@@ -263,6 +280,8 @@ class NotionReports:
     def sync(self, raw_event):
         event = public_event(raw_event)
         page = self.day_page(event['day'])
+        if self.layouts.get(page['id'],{}).get('sealedChecksum'):
+            return {'id':event['id'],'status':'synced','provider':'notion','url':page['url'],'publicUrl':page.get('publicUrl')}
         if page['id'] not in self.children_cache: self.children_cache[page['id']] = self.children(page['id'])
         blocks = self.children_cache[page['id']]
         key = 'FJD-'+hashlib.sha256(event['id'].encode()).hexdigest()[:20]

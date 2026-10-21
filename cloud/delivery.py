@@ -38,6 +38,10 @@ def notion_request(token):
 
 def deliver(state, operation, checkpoint, env=None, request=None, bot_request=None, now=None):
     env = env if env is not None else os.environ
+    if state.get('reportPolicy'):
+        from formal_delivery import deliver_formal
+        return deliver_formal(state, operation, checkpoint, env,
+                              request or notion_request(env.get('NOTION_TOKEN','')), bot_request, now)
     token = env.get('NOTION_TOKEN', '')
     state['notionConfigured'] = bool(token)
     state['botConfigured'] = bool(env.get('FEISHU_BOT_WEBHOOK'))

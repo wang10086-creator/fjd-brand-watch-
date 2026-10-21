@@ -1,3 +1,4 @@
+import {activityDay,mergeFormalReports} from './report-cycle.js';
 import {normalizedContent,changedContent,changeId,mergeContentChanges} from './content-changes.js?v=20261020-changes';
 import {manualReviewFields} from './review.js?v=20261020-review';
 import {canonical, safeUrl, risk} from './model.js?v=20261020-review';
@@ -24,7 +25,7 @@ export function observe(m,rows,existing,{at=new Date().toISOString(),runId='manu
   const merged=old?{...old,...row,status:old.status,note:old.note,confirmedIssue:old.confirmedIssue,imageMatch:old.imageMatch,...(old.reviewWorkflow?{reviewWorkflow:old.reviewWorkflow,reviewOutcome:old.reviewOutcome}:{})}:row;
   const snap=snapshot(merged),queryKey=query||row.query||'',comparable=known?.variants?.[queryKey],signals=x=>{const z=risk({title:clean(x.title),snippet:clean(x.snippet)});return [z.claims,z.imitation,z.relabel].join('|')};
   const comparison=comparable||before,changed=!!comparison&&(clean(comparison.title)!==clean(snap.title)||signals(comparison)!==signals(snap)||(!!comparable&&fingerprint(comparable)!==fingerprint(snap))),isNew=!before;
-  const day=reportDay||dayOf(at),id='observation|'+day+'|'+key;let event=m.observations.find(e=>e.id===id);const previousKind=event?.kind;
+  const day=activityDay(m,at,reportDay),id='observation|'+day+'|'+key;let event=m.observations.find(e=>e.id===id);const previousKind=event?.kind;
   const provenance={query:query||row.query||'',searchUrl:searchUrl||row.searchUrl||'',runId,at,method};
   if(!event){event={id,key,day,at,lastAt:at,kind:isNew?'new':changed?'changed':'repeat',method,before:changed?comparison:null,snapshot:snap,queries:[],hits:0};m.observations.push(event);}
   else if(changed&&event.kind==='repeat'){event.kind='changed';event.before=comparison;}
@@ -51,16 +52,17 @@ export function recordReview(m,before,after,at=new Date().toISOString()){
  const changed=decisionFields.filter(k=>JSON.stringify(before[k]??null)!==JSON.stringify(after[k]??null));
  if(!changed.length)return null;
  const fields=row=>Object.fromEntries(decisionFields.map(k=>[k,structuredClone(row[k]??null)]));
- const event={id:crypto.randomUUID(),key:keyOf(after),url:after.url,title:after.title,day:dayOf(at),at,changed,before:{...fields(before),...(after.reviewWorkflow?{reviewedAt:before.reviewedAt||null}:{})},after:fields(after)};m.reviews.push(event);return event;
+ const event={id:crypto.randomUUID(),key:keyOf(after),url:after.url,title:after.title,day:activityDay(m,at),at,changed,before:{...fields(before),...(after.reviewWorkflow?{reviewedAt:before.reviewedAt||null}:{})},after:fields(after)};m.reviews.push(event);return event;
 }
 export function recordRun(m,run){const copy=structuredClone(run),i=m.runs.findIndex(x=>x.id===run.id);if(i<0)m.runs.push(copy);else m.runs[i]=copy;}
 export function recordCheck(m,{url,at=new Date().toISOString(),runId,result,query,searchUrl,reportDay=null}){
- const e={id:runId+'|'+canonical(url),key:canonical(url),url,day:reportDay||dayOf(at),at,runId,result,query,searchUrl};
+ const e={id:runId+'|'+canonical(url),key:canonical(url),url,day:activityDay(m,at,reportDay),at,runId,result,query,searchUrl};
  const i=m.checks.findIndex(x=>x.id===e.id);if(i<0)m.checks.push(e);else m.checks[i]=e;return e;
 }
 export function dayReport(m,day){
+ if(m.formalReports?.[day])return structuredClone(m.formalReports[day].report);
  const observations=m.observations.filter(e=>e.day===day),reviews=m.reviews.filter(e=>e.day===day).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)),checks=m.checks.filter(e=>e.day===day).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
- const runDay=(r,i)=>r.reportDay||dayOf(i?.at||r.startedAt);
+ const runDay=(r,i)=>i?.reportDay||r.reportDay||dayOf(i?.at||r.startedAt);
  const runs=m.runs.filter(r=>runDay(r)===day||(r.items||[]).some(i=>runDay(r,i)===day));
  const items=runs.flatMap(r=>(r.items||[]).filter(i=>runDay(r,i)===day).map(i=>({...i,runId:r.id}))).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
  const legacy=m.legacyRuns.filter(r=>dayOf(r.startedAt)===day),uniqueReviews=[...new Set(reviews.map(r=>r.key))];
@@ -72,7 +74,7 @@ export function dayReport(m,day){
  const domainOf=i=>i.domain||i.plan?.domain||'';const successfulSites=[...new Set(success.map(domainOf).filter(Boolean))],failedSites=[...new Set(pendingFailures.map(domainOf).filter(Boolean))],resultSites=[...new Set(success.flatMap(i=>(i.resultDomains||[]).map(host=>{const target=domainOf(i);return target&&(host===target||host.endsWith('.'+target))?target:host.replace(/^www\./,'')})))];
  return {successfulSites,failedSites,resultSites,day,observations,reviews,checks,runs,items,legacy,fresh,changed,repeat,uniqueReviews,success,failed,pendingFailures,pendingChecks,cancelled,markets,platforms,hasActivity:!!(runs.length||observations.length||reviews.length||checks.length),legacyOnly:!!legacy.length&&!runs.length&&!observations.length&&!reviews.length,attention:[...fresh,...changed].filter(e=>e.snapshot.level!=='routine').length,raw:success.reduce((n,i)=>n+(i.rawCount||0),0),retained:success.reduce((n,i)=>n+(i.retainedCount||0),0)};
 }
-export function reportDates(m){return [...new Set([dayOf(),...m.observations.map(x=>x.day),...m.reviews.map(x=>x.day),...m.checks.map(x=>x.day),...m.runs.flatMap(r=>[r.reportDay||dayOf(r.startedAt),...(r.items||[]).map(i=>r.reportDay||dayOf(i.at||r.startedAt))]),...m.legacyRuns.map(x=>dayOf(x.startedAt))])].filter(Boolean).sort().reverse();}
+export function reportDates(m){return [...new Set([dayOf(),...Object.keys(m.formalReports||{}),...m.observations.map(x=>x.day),...m.reviews.map(x=>x.day),...m.checks.map(x=>x.day),...m.runs.flatMap(r=>[r.reportDay||dayOf(r.startedAt),...(r.items||[]).map(i=>r.reportDay||dayOf(i.at||r.startedAt))]),...m.legacyRuns.map(x=>dayOf(x.startedAt))])].filter(Boolean).sort().reverse();}
 export function mergeMonitors(current,incoming,rows){
  const out=initMonitor(current,rows);if(!incoming||incoming.version!==1)return out;
  // Earliest recorded discovery wins across backups; never re-report it on import day.
@@ -83,6 +85,7 @@ export function mergeMonitors(current,incoming,rows){
  out.coverageScopes||={};out.coverageScopeAt||={};
  for(const [day,scope] of Object.entries(incoming.coverageScopes||{})){if(!out.coverageScopes[day]||(incoming.coverageScopeAt?.[day]||'')>(out.coverageScopeAt[day]||'')){out.coverageScopes[day]=structuredClone(scope);out.coverageScopeAt[day]=incoming.coverageScopeAt?.[day]||'';}}
  out.publications={...incoming.publications,...out.publications};
+ out.reportPolicy=out.reportPolicy||incoming.reportPolicy;out.formalReports=mergeFormalReports(out.formalReports,incoming.formalReports);
  if(incoming.startedAt<out.startedAt)out.startedAt=incoming.startedAt;return out;
 }
 export async function evidencePackage(row,m,at=new Date().toISOString()){

@@ -8,7 +8,7 @@ import {readEvidenceFeed} from './evidence-data.js?v=20261020-review';
 import {canonical} from './model.js?v=20261020-review';
 import {accessLinks,safePublicUrl} from './lead-access.js?v=20261020-review';
 import {outcomes,outcomeOf,workflowLabel,workflowDetail} from './review.js?v=20261020-review';
-import {deletedReportDays} from './record-policy.js?v=20261020-review';
+import {deletedReportDays} from './record-policy.js?v=20261021-cycle-r1';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const root=document.querySelector('#evidence');let renderVersion=0;
 const time=t=>t?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未记录';

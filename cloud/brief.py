@@ -21,12 +21,12 @@ def brief_card(state, day, latest, today, test=False):
           {'tag':'div','fields':[{'is_short':True,'text':{'tag':'lark_md','content':'**'+title+'**\n'+str(value)}} for title,value in fields]},
           {'tag':'hr'},
           {'tag':'div','text':{'tag':'lark_md','content':'**检索覆盖**\n'+scope+(f"\n待执行 {cv.get('unattempted',0)} · 待补查入口 {cv.get('failedOnly',0)}" if cv else '')+f"\n未解决失败查询 {c.get('failed',0)} · 待归档更新 {pending}"}},
-          {'tag':'div','text':{'tag':'lark_md','content':'**处置建议**\n'+'先核对商家身份、品牌使用及授权依据，再按处理结论归类。'+'未完成站点将在来源冷却后继续检索。'}},
+          {'tag':'div','text':{'tag':'lark_md','content':'**处置建议**\n'+'先核对商家身份、品牌使用及授权依据，再按处理结论归类。'+'未完成站点将在后续检索周期继续轮转。'}},
           {'tag':'action','actions':[{'tag':'button','text':{'tag':'plain_text','content':'查阅当日日报'},'url':report,'type':'primary'}]},
           {'tag':'action','actions':[
               {'tag':'button','text':{'tag':'plain_text','content':'监控工作台'},'url':'https://wang10086-creator.github.io/fjd-brand-watch-/','type':'default'},
               {'tag':'button','text':{'tag':'plain_text','content':'日报总览'},'url':base,'type':'default'}]},
-          {'tag':'note','elements':[{'tag':'plain_text','content':'数据截至 '+(cutoff or '尚无记录')+'\n北京时间 00:00 起分批检索，10:30 定时汇总已保存数据；云端队列可能延迟。\n每日仅发送一次；后续查询与复核更新同一日报，数字可能增加。\n通知机器人：不支持群内问答。'}]}]
+          {'tag':'note','elements':[{'tag':'plain_text','content':'数据截至 '+(cutoff or '尚无记录')+('\n北京时间前日18:00至当日09:20检索，09:30左右发布；云端队列可能延迟。\n每日仅发送一次；正式快照固定，后续处理在实时台账查看。' if state.get('reportPolicy') else '\n北京时间 00:00 起分批检索，10:30 定时汇总已保存数据；云端队列可能延迟。\n每日仅发送一次；后续查询与复核更新同一日报，数字可能增加。')+'\n通知机器人：不支持群内问答。'}]}]
     if pc:
         q=pc['counts'];body.insert(2,{'tag':'div','text':{'tag':'lark_md','content':f"**当前复核优先级**\n高 {q['high']} · 中 {q['medium']} · 低 {q['low']} · 待评估 {q['pending']}\n仅安排复核顺序，不代表侵权判断。"}})
     return {'msg_type':'interactive','card':{'config':{'wide_screen_mode':True},'header':{'template':'turquoise','title':{'tag':'plain_text','content':header}},'elements':body}}

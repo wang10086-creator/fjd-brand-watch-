@@ -1,10 +1,10 @@
 import {imageCategories,publicImageResult,publicImageEvidence,mergeImageResult,mergeImageEvidence} from '../image-evidence.js?v=20261020-images-r3';
-import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261020-priority-r3';
+import {publicPriority,mergePriority,refreshPriorities,priorityEvidenceHash} from '../priority.js?v=20261021-cycle-r1';
 import {publicWorkflow} from '../review.js?v=20261020-review';
 // Only fields already suitable for the public Notion report are published here.
-import {mergeMonitors} from '../monitor.js?v=20261020-changes';
+import {mergeMonitors} from '../monitor.js?v=20261021-cycle-r1';
 import {mergeRows,enrichLead,canonical} from '../model.js?v=20261020-images-r3';
-import {applyRecordPolicy} from '../record-policy.js?v=20261020-review';
+import {applyRecordPolicy} from '../record-policy.js?v=20261021-cycle-r1';
 import {mergeOwnership} from '../brand-ownership.js?v=20261020-review';
 const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
 const visual=v=>({...pick(v,'version method at status checkedImages failedImages referenceCount message'),...(v.match?{match:pick(v.match,'score referenceFile brandIds candidateUrl')}:{})});
@@ -13,7 +13,7 @@ const withVisual=v=>v?({...v,...(v.imageAnalysis?{imageAnalysis:visual(v.imageAn
 const snapshot=v=>v?withVisual({...pick(v,'url title snippet platform country language query searchUrl source verification level status reviewOutcome imageMatch imageAnalysis checkedAt'),...(v.reviewWorkflow?{reviewWorkflow:publicWorkflow(v.reviewWorkflow)}:{})}):null;
 const review=v=>({...pick(v,'reviewOutcome status imageMatch confirmedIssue decision watch pageState needsRecheck'),...(v?.reviewWorkflow?{reviewWorkflow:publicWorkflow(v.reviewWorkflow)}:{})});
 const plan=v=>pick(v,'id platform domain country countries language languages query searchUrl bingUrl aliases models excluded termRules watchUrl combinations');
-const item=v=>({...pick(v,'domain resultDomains durationMs query searchUrl platform country language status message rawCount retainedCount added at failureKind errorCode'),...(v.plan?{plan:plan(v.plan)}:{})});
+const item=v=>({...pick(v,'reportDay domain resultDomains durationMs query searchUrl platform country language status message rawCount retainedCount added at failureKind errorCode'),...(v.plan?{plan:plan(v.plan)}:{})});
 const marked=v=>({...withVisual(v),publicOnly:true});
 export function publicFeed(state,{revision,at=new Date().toISOString(),receipts={}}={}){
  applyRecordPolicy(state);refreshPriorities(state);
@@ -23,12 +23,12 @@ export function publicFeed(state,{revision,at=new Date().toISOString(),receipts=
  const reviews=m.reviews.map(r=>marked({...pick(r,'id key url title day at levelBefore levelAfter'),before:review(r.before),after:review(r.after)}));
  const updateChain=(m.updateChain||[]).map(e=>marked({...pick(e,'id day at startedAt type historical summary cumulative'),entries:(e.entries||[]).map(r=>({...pick(r,'key kind title url query searchUrl platform snippet priority status'),...(r.reviewWorkflow?{reviewWorkflow:publicWorkflow(r.reviewWorkflow)}:{})})),queries:(e.queries||[]).map(q=>pick(q,'query searchUrl status platform domain at'))}));
  const known=Object.fromEntries(Object.entries(m.known||{}).map(([key,v])=>[key,{...pick(v,'firstKnownAt at baseline'),snapshot:snapshot(v.snapshot),variants:Object.fromEntries(Object.entries(v.variants||{}).map(([q,s])=>[q,snapshot(s)]))}]));
- return {version:1,revision,updatedAt:at,brandOwnership:mergeOwnership({},state.config?.brandOwnership),removedRecordKeys:state.removedRecordKeys||[],rows:state.rows.map(r=>withImageEvidence(marked({...pick(r,'id url title snippet platform country language query searchUrl keywords queryProvenance source verification seller imageUrl imageAnalysis trademarkImageMatch productImageMatch imageEvidence checkedAt firstSeen lastSeen status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck pageKind pageState'),...(r.priorityV2?{priorityV2:publicPriority(r.priorityV2)}:{}),...(r.reviewWorkflow?{reviewWorkflow:publicWorkflow(r.reviewWorkflow)}:{})}))),monitor:{version:1,...pick(m,'startedAt baselineCount coverageScopes coverageScopeAt'),known,observations,reviews,runs,checks:[],legacyRuns:[],updateChain},receipts:Object.fromEntries(Object.entries(receipts).map(([id,r])=>[id,pick(r,'id status provider url publicUrl at')]))};
+ return {version:1,revision,updatedAt:at,brandOwnership:mergeOwnership({},state.config?.brandOwnership),removedRecordKeys:state.removedRecordKeys||[],rows:state.rows.map(r=>withImageEvidence(marked({...pick(r,'id url title snippet platform country language query searchUrl keywords queryProvenance source verification seller imageUrl imageAnalysis trademarkImageMatch productImageMatch imageEvidence checkedAt firstSeen lastSeen status reviewOutcome reviewedAt decision confirmedIssue imageMatch needsRecheck pageKind pageState'),...(r.priorityV2?{priorityV2:publicPriority(r.priorityV2)}:{}),...(r.reviewWorkflow?{reviewWorkflow:publicWorkflow(r.reviewWorkflow)}:{})}))),monitor:{version:1,...pick(m,'startedAt baselineCount coverageScopes coverageScopeAt reportPolicy formalReports'),known,observations,reviews,runs,checks:[],legacyRuns:[],updateChain},receipts:Object.fromEntries(Object.entries(receipts).map(([id,r])=>[id,pick(r,'id status provider url publicUrl at')]))};
 }
 export function applyPublicFeed(state,feed){
  if(feed?.version!==1||!Array.isArray(feed.rows)||feed.monitor?.version!==1)throw Error('云端公开日报格式无效');
  if((state.publicRevision||0)>(feed.revision||0))return false;
- if(state.publicRevision===feed.revision){const rowKeys=new Set((state.rows||[]).map(r=>canonical(r.url))),removed=new Set(state.removedRecordKeys||[]);const missingRows=feed.rows.some(r=>!rowKeys.has(canonical(r.url))&&!removed.has(canonical(r.url)));const missingHistory=['observations','reviews','runs','updateChain'].some(field=>{const ids=new Set((state.monitor?.[field]||[]).map(e=>e.id));return (feed.monitor[field]||[]).some(e=>!ids.has(e.id))});if(!missingRows&&!missingHistory)return false;}
+ if(state.publicRevision===feed.revision){const rowKeys=new Set((state.rows||[]).map(r=>canonical(r.url))),removed=new Set(state.removedRecordKeys||[]);const missingRows=feed.rows.some(r=>!rowKeys.has(canonical(r.url))&&!removed.has(canonical(r.url)));const missingHistory=['observations','reviews','runs','updateChain'].some(field=>{const ids=new Set((state.monitor?.[field]||[]).map(e=>e.id));return (feed.monitor[field]||[]).some(e=>!ids.has(e.id))});const missingFormal=Object.entries(feed.monitor.formalReports||{}).some(([day,r])=>state.monitor?.formalReports?.[day]?.checksum!==r.checksum||state.monitor?.formalReports?.[day]?.status!==r.status);if(!missingRows&&!missingHistory&&!missingFormal&&(!feed.monitor.reportPolicy||state.monitor?.reportPolicy))return false;}
  const acceptedPriority=new Set(feed.rows.flatMap(r=>(r.priorityV2?.history||[]).map(e=>e.id)));state.priorityPendingIds=(state.priorityPendingIds||[]).filter(id=>!acceptedPriority.has(id));
  state.rows||=[];
  const locals=new Map(state.rows.filter(r=>!r.publicOnly).map(r=>[canonical(r.url),r])),remote=new Map(feed.rows.map(r=>[canonical(r.url),r]));

@@ -132,7 +132,8 @@ class UserClient:
 
 def digest(state, webhook, secret, checkpoint, request=http, now=None, test=False):
     now = now or dt.datetime.now(BEIJING)
-    day = now.astimezone(BEIJING).date().isoformat()
+    day = state.get('digestDay') if state.get('reportPolicy') else now.astimezone(BEIJING).date().isoformat()
+    if not day: return
     if not webhook:
         state['pushStatus'] = '尚未配置群机器人'
         return
@@ -170,6 +171,8 @@ def digest(state, webhook, secret, checkpoint, request=http, now=None, test=Fals
         if result.get('code', result.get('StatusCode', 0)) != 0:
             raise Failure('群机器人拒绝消息（错误码 '+str(result.get('code',result.get('StatusCode')))+'），请检查签名、关键词或群设置')
         pushes[delivery_key]['status'] = 'sent'
+        pushes[delivery_key]['sentAt'] = now.astimezone(dt.timezone.utc).isoformat()
+        if state.get('formalChecksum'): pushes[delivery_key]['checksum'] = state['formalChecksum']
     except Failure as error:
         pushes[delivery_key].update(status='uncertain' if error.uncertain else 'failed', error=str(error))
         raise

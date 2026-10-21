@@ -75,7 +75,7 @@ class Tests(unittest.TestCase):
         sink.parent_overview(newer);sink.parent_overview(EVENT)
         self.assertEqual([b['id'] for b in active() if b['type']=='child_page'],child_ids)
         self.assertIn('新增 6 条',str(active()));self.assertNotIn('已归档 旧快照',str(active()))
-        self.assertNotIn('private-review',str(active()));self.assertIn('00:00',str(active()));self.assertIn('10:30',str(active()))
+        self.assertNotIn('private-review',str(active()));self.assertIn('18:00',str(active()));self.assertIn('09:20',str(active()));self.assertIn('09:30',str(active()))
         self.assertEqual(sum(b['type']=='child_page' for b in active()),1)
         self.assertLess(next(i for i,b in enumerate(active()) if plain(b)=='历史日报 · 按日期查阅'),next(i for i,b in enumerate(active()) if b['type']=='child_page'))
 
