@@ -2,7 +2,8 @@ import {rotationPlan,recordRotation,rotationReady} from './search-rotation.mjs';
 import {firstImagePass} from './first-images.mjs';
 import {cycleAt,activityDay} from '../report-cycle.js';
 import {refreshPriorities} from '../priority.js';
-import {assertWorkflowTransition,workflowOf,mergeReviewWorkflows} from '../review.js';
+export {applyReviews} from './review-reconciliation.js';
+import {planReviewBatch} from './review-reconciliation.js';
 import {aliasTerritories} from '../territory.js';
 import {coverageQueue,siteCoverage} from '../coverage.js';
 import {cloudSearch} from './search.mjs';
@@ -17,20 +18,14 @@ export async function initialState(){const rows=(await read('leads.json')).map(e
 export async function configure(state){const catalog=await read('brand-catalog.json');const ids=Array.isArray(state.selectedBrandIds)?state.selectedBrandIds:catalog.entries.map(e=>e.id),groups=catalog.entries.filter(g=>ids.includes(g.id));state.selectedBrandIds=ids;state.config=normalizeConfig(state.config);state.config.aliases=[...new Set([...groups.flatMap(g=>g.searchTerms),...(state.customAliases||state.config.aliases)])];state.config.termRules=groups.flatMap(g=>g.termRules||[]);state.config.languageMode='all';state.config.aliasTerritories=aliasTerritories(catalog,ids);refreshPriorities(state,catalog);return buildPlans(state.config,await read('platform-languages.json'));}
 export function mergeState(current,incoming){
  if(!incoming?.config||!Array.isArray(incoming.rows))throw Error('未找到原网站的完整台账');
+ const accepted=new Set((current.monitor?.updateChain||[]).map(e=>e.id)),known=new Set(current.rows.map(r=>canonical(r.url)));
+ const pending=(incoming.monitor?.updateChain||[]).filter(e=>e.type==='review'&&!e.publicOnly&&!accepted.has(e.id)&&known.has(e.entries?.[0]?.key)).map(e=>({...e,reviewRecord:e.reviewRecord||incoming.monitor.reviews?.find(r=>e.id==='review:'+r.id)}));
+ if(pending.length&&planReviewBatch(current,pending).conflicts.length)throw Error('已有线索的复核存在版本冲突，完整迁移不能覆盖原人工处理；请先核对三方记录');
  const out=mergeWorkspace(current,incoming);migrateChain(out.monitor);
  out.monitor.formalReports=structuredClone(current.monitor.formalReports||{});out.monitor.reportDrafts=structuredClone(current.monitor.reportDrafts||{});out.monitor.reportPolicy=current.monitor.reportPolicy;
  out.archive={...out.archive,receipts:{...incoming.archive?.receipts,...current.archive?.receipts}};
  const scope=s=>JSON.stringify([s.config?.regions,s.config?.platforms,s.config?.intent,s.config?.models,s.config?.exclude,s.config?.platformTerritory,s.config?.broad,s.selectedBrandIds,s.customAliases]);
  const unchanged=scope(current)===scope(incoming);out.searchProviders=current.searchProviders;out.queryRotation=current.queryRotation;out.deviceId='fjd-cloud';out.cursor=unchanged?current.cursor||0:0;out.completed=unchanged?current.completed||[]:[];out.siteCursors=unchanged?current.siteCursors||{}:{};return out;
-}
-export function applyReviews(state,events){
- for(const event of events||[]){if(event.type!=='review'||!event.entries?.[0]||!event.id.startsWith('review:'))throw Error('仅可提交真实的复核更新');if(state.monitor.updateChain.some(x=>x.id===event.id))continue;
-  const r=state.rows.find(r=>canonical(r.url)===event.entries[0].key);if(!r)throw Error('云端未找到该线索，请先迁移完整台账');
-  const review=event.reviewRecord;if(!review||review.id!==event.id.slice(7)||review.key!==canonical(r.url))throw Error('复核变更缺少完整依据');
-  if(r.reviewedAt&&r.reviewedAt>review.at)throw Error('云端已有较新的复核，请先读取最新数据');
-  if(review.after.reviewWorkflow){const current=workflowOf(r),base=workflowOf(review.before);if(current.stage!==base.stage||current.round!==base.round||r.reviewWorkflow&&current.updatedAt!==base.updatedAt)throw Error('云端处理阶段已变化，请先读取最新线索再操作');if(Object.hasOwn(review.before,'reviewedAt')&&(r.reviewedAt||null)!==review.before.reviewedAt)throw Error('云端已有不同的核查记录，请读取后重试');assertWorkflowTransition(r,review.after)}
-  const mergedWorkflow=mergeReviewWorkflows(r.reviewWorkflow,review.after.reviewWorkflow);Object.assign(r,review.after,{reviewedAt:review.at},...(mergedWorkflow?[{reviewWorkflow:mergedWorkflow}]:[]));state.monitor.reviews.push(structuredClone(review));state.monitor.updateChain.push(structuredClone(event));
- }
 }
 export async function scan(state,{trigger='manual',site=null,watchOnly=false,now=()=>new Date().toISOString(),fetcher=fetch,wait=pacedWait,checkpoint=async()=>{},onSite=()=>{},budget:queryBudget=null,maxDurationMs=10*60000,clock=Date.now,siteUrl='',imageVerifier=firstImagePass }={}){
  const scheduledAt=now(),cycle=state.monitor.reportPolicy&&trigger==='schedule'?cycleAt(scheduledAt,state.monitor.reportPolicy):null;

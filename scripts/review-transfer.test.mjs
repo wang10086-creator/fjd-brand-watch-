@@ -31,11 +31,10 @@ test('same-ID content conflicts and missing or duplicate cloud copies are never 
  state.monitor.reviews.push(structuredClone(e.reviewRecord));state.monitor.updateChain.push(structuredClone(e));assert.equal(verifyTransferredReviews(state,[e],{requireAll:true}),1);
  state.monitor.reviews[0].after.note='changed';assert.throws(()=>verifyTransferredReviews(state,[e]),/内容不一致/);
 });
-test('the one-file production importer has no group or Notion secret and cannot start from an ordinary code push',async()=>{
- const workflow=await readFile(new URL('../.github/workflows/fjd-review-transfer.yml',import.meta.url),'utf8');
- assert.match(workflow,/paths: \[cloud\/review-transfer-request.json\]/);assert.match(workflow,/queue: max/);
- assert.ok(!workflow.includes('FEISHU_BOT_'));assert.ok(!workflow.includes('NOTION_TOKEN'));
- const bytes=await readFile(new URL('../cloud/review-transfer-request.json',import.meta.url));
- const envelope=validateReviewTransfer(bytes,{sha256:'ac07a250a0e995af5a4952446df9842ad1d68dfa222db12f1a59b62422f5a76b',eventCount:7});
- assert.equal(envelope.operation,'review');
+test('the legacy automatic import is retired and regression needs no real user ciphertext',async()=>{
+ await assert.rejects(readFile(new URL('../.github/workflows/fjd-review-transfer.yml',import.meta.url)),e=>e.code==='ENOENT');
+ await assert.rejects(readFile(new URL('../cloud/review-transfer-request.json',import.meta.url)),e=>e.code==='ENOENT');
+ const events=Array.from({length:7},(_,i)=>event('synthetic-'+i,'2026-10-22T01:0'+i+':00.000Z'));
+ const {bytes,sha256}=await transfer(events),envelope=validateReviewTransfer(bytes,{sha256,eventCount:7});
+ assert.equal((await decodeReviewTransfer(envelope,password)).events.length,7);
 });

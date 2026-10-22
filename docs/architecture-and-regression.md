@@ -1106,3 +1106,51 @@ run had a pre-existing 30s fixture-child timeout under CPU contention; the exact
 timeout to60s while retaining its required HTTP422/no-delivery assertions, then
 rerun the full suite. Production delivery/deployment receipts are recorded below
 only after observed; none of these local fixture results proves a real Base row.
+
+## Three-way review reconciliation and private transport retirement (2026-10-22 r5)
+
+Continue Willon's latest plan: compare the original base, immutable browser
+review and current cloud record; retain version/transition guards; save before
+event-driven Base delivery; never call workflow acceptance confirmed row creation.
+Production read evidence remains the failed review run39774860172, with the
+review-version error and zero Base queue/acceptance at12:00:38Z. Main012e0bb
+already removed the transfer request file. No production review replay is part
+of this change, and no real transfer ciphertext is added to source or fixtures.
+
+- Extract the original guarded apply operation into a browser-compatible module.
+  Compare all manual base fields as well as the original timestamp, stage and
+  round. Normalize only the absent/null closure representation produced by the
+  existing history merge; do not normalize or ignore review times or evidence.
+  Same-ID content mismatches remain fatal rather than idempotent success.
+- Plan on a clone. Quarantine version conflicts and subsequent same-lead events
+  with their exact original payload in the encrypted vault. Independent valid
+  events may persist and reach the existing outbox. An invalid/tampered event
+  still rejects the complete candidate before persistence or delivery. Field
+  comparisons identify independent and conflicting changes, but never rewrite
+  an immutable source event or invent a replacement human decision. Cloud-only
+  edits require a fresh reviewed base; they are not silently overwritten.
+- The browser preflights against the decrypted cloud record. Known version
+  conflicts stop automatic retries and cannot fall through to whole-workspace
+  migration. Add a password-only read-only comparison panel, accepting either
+  the originating browser history or the original encrypted handoff. Render
+  escaped private comparisons locally, including explicit predecessor simulation
+  labels. The comparison performs no dispatch, writes, persistence or Feishu call.
+- Retire the legacy push-triggered seven-record importer workflow; its source
+  history remains recoverable. Regression tests use synthetic ciphertext rather
+  than requiring the deleted user file. Static publication excludes transport
+  filenames, inboxes, renamed envelopes and payload ciphertext, and normal JSON
+  and mirror publication remain available. This cannot erase old Git history;
+  history rewriting is neither requested nor performed.
+- Keep the existing serial, review-only runner: checkpoint confirmed records and
+  exact outbox items before calling Feishu, deliver only selected event IDs, keep
+  source-ID deduplication and OIM-0001 protection, and leave daily group reports
+  enabled. Private conflict details do not enter public feeds or diagnostics.
+  Accepted receipts explicitly distinguish cloud saved, Feishu acceptance and
+  actual table verification still pending. Real seven-event transfer and table
+  writes are not asserted by offline regression results.
+- Add a separately dispatched read-only audit using the existing cloud data
+  password inside the runner. Its token has contents:read only; it reads one
+  encrypted vault snapshot, runs the same guarded planner on a clone and emits
+  aggregate counts, field names and the original ciphertext fingerprint only.
+  Dispatch input remains ephemeral, never a source file, step environment
+  value or artifact. It has no Feishu credentials, delivery call or state write.

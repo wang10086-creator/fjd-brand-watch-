@@ -7,3 +7,7 @@ connection.key
 # Public image download/feature cache (regenerated, bounded, never published)
 .cache/fjd-images/
 _site/
+
+# Private user handoffs are never application source or publication inputs.
+cloud/review-transfer-request.json
+fjd-review-transfer-*.json

@@ -164,12 +164,12 @@ async function main(){
  }
  if(op==='review'){
   vault.lastError='';vault.runtime={phase:'running',operation:op,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
-  try{await submitReviewEvents(vault,payload.events,{webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint,retryEventIds:payload.retryEventIds||[]})}
+  try{const result=await submitReviewEvents(vault,payload.events,{webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint,retryEventIds:payload.retryEventIds||[]});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
   catch(error){if(saveBlocked)throw error;vault.lastError=error.message||'复核同步未完成，原记录保留'}
   vault.runtime={...vault.runtime,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString(),lastError:vault.lastError};await checkpoint();
-  try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()})}catch{console.warn('复核已保存，网站公开快照发布待重试')}
+  try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()})}catch{console.warn('本次复核状态已保留，网站公开快照发布待重试')}
   if(uploadName&&!vault.lastError)await store.remove(uploadName);
-  console.log('本次复核同步结束；飞书工作流受理不等于实际入表完成。');return;
+  console.log('本次复核同步结束；飞书工作流受理不等于实际入表完成。');if(vault.lastError)process.exitCode=1;return;
  }
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
  if(op==='migrate'){const priorReviews=new Set(vault.state.monitor.reviews.map(r=>r.id));vault.state=mergeState(vault.state,payload.state);enqueueBaseReviews(vault,vault.state.monitor.reviews.filter(r=>!priorReviews.has(r.id)));vault.lastError='';await checkpoint();}

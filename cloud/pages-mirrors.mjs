@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 import {createGithubStore} from './github-store.mjs';
 import {releaseStore,collectReleaseGarbage} from './mirror-release.mjs';
 import {storagePath} from './mirror-capacity.mjs';
+import {publishSource} from './publish-policy.mjs';
 const repository=process.env.GITHUB_REPOSITORY||'wang10086-creator/fjd-brand-watch-',token=process.env.GITHUB_TOKEN,store=createGithubStore({repository,branch:'main',token}),config=JSON.parse(await readFile('cloud/mirror-storage.json'));
 const index=JSON.parse(await readFile('archives/index.json')),release=await releaseStore(store,{repository,token,tag:config.releaseTag});
 if(process.argv.includes('--gc')){
@@ -14,7 +15,7 @@ if(process.argv.includes('--gc')){
  await rm('_site',{recursive:true,force:true});await mkdir('_site');
  for(const entry of await readdir('.',{withFileTypes:true})){
   if(entry.name.startsWith('.')||['node_modules','_site'].includes(entry.name))continue;
-  if(entry.isSymbolicLink())throw Error('发布目录不接受符号链接');await cp(entry.name,'_site/'+entry.name,{recursive:true,filter:p=>!p.split('/').some(x=>['node_modules','.git','.cache','__pycache__'].includes(x))});
+  if(entry.isSymbolicLink())throw Error('发布目录不接受符号链接');await cp(entry.name,'_site/'+entry.name,{recursive:true,filter:publishSource});
  }
  let bytes=0;
  for(const [path,ref] of Object.entries(index.mirrorFiles||{})){

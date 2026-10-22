@@ -6,9 +6,22 @@ import {appendReview} from '../report-chain.js';
 import {workflowValues,stageOf} from '../review.js';
 import {seal,unseal} from '../cloud/crypto.js';
 import {enqueueBaseReviews} from '../cloud/base-review.mjs';
-import {syncArchive,refreshCloudSnapshot,pendingReviewEvents,reviewSyncStatus,reviewSavedMessage,requireCloudCredentials,prepareReviewTransfer} from '../cloud/client.js';
+import {syncArchive,refreshCloudSnapshot,pendingReviewEvents,reviewSyncStatus,reviewSavedMessage,requireCloudCredentials,prepareReviewTransfer,comparePendingReviews,reviewComparisonView} from '../cloud/client.js';
 
 const password='review-sync-test-password',start='2026-10-22T01:00:00.000Z';
+test('read-only comparison works without an execution token and leaves both source state and cloud untouched',async()=>{
+ const {local,remote}=await fixture();remote.rows[0].reviewedAt='2026-10-22T00:59:00.000Z';const original=structuredClone(local),cloud=structuredClone(remote);
+ await withCloud(remote,async calls=>{const result=await comparePendingReviews(local);assert.equal(result.plan.conflicts[0].code,'review-version');assert.deepEqual(local,original);assert.deepEqual(remote,cloud);assert.equal(calls.filter(c=>['POST','PUT','PATCH','DELETE'].includes(c.opts.method)).length,0);assert.match(reviewComparisonView(result),/原始记录.*本机处理结果.*云端当前记录/);},{withoutToken:true});
+});
+test('conflicting reviews never fall through to a full-workspace migration during immediate sync',async()=>{
+ const {local,remote}=await fixture();remote.rows[0].reviewedAt='2026-10-22T00:59:00.000Z';local.monitor.updateChain.push({id:'unrelated-search',type:'run',at:start});
+ await withCloud(remote,async calls=>{assert.equal(await syncArchive(local,{force:true,immediateReviews:true}),false);assert.equal(local.archive.syncState,'conflict');assert.equal(calls.filter(c=>c.opts.method==='POST'||c.opts.method==='PUT').length,0);assert.match(reviewSyncStatus(local).message,/只读核对/);});
+});
+test('an authenticated original handoff can be compared and HTML is escaped without upload',async()=>{
+ const {local,remote}=await fixture(),events=structuredClone(local.monitor.updateChain);events[0].reviewRecord.title='<script>PRIVATE TITLE</script>';remote.rows[0].reviewedAt='2026-10-22T00:59:00.000Z';
+ const transfer={format:'fjd-encrypted-review-transfer',version:1,operation:'review',eventCount:1,payload:await seal({events},password,'payload')};
+ await withCloud(remote,async calls=>{const result=await comparePendingReviews({},transfer),html=reviewComparisonView(result);assert.equal(result.plan.conflicts.length,1);assert.ok(!html.includes('<script>PRIVATE'));assert.ok(html.includes('&lt;script&gt;PRIVATE'));assert.equal(calls.filter(c=>c.opts.method==='POST').length,0);},{withoutToken:true});
+});
 async function fixture({localOnly=false,actions=['suspected']}={}){
  const remote=await initialState();
  remote.rows=[{id:'example-lead',url:'https://example.test/lead',title:'Example lead',status:'pending',note:'',imageMatch:'unverified',firstSeen:start,checkedAt:start}];

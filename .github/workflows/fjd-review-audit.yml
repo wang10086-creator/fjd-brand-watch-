@@ -1,0 +1,28 @@
+name: 原复核三方核对（只读）
+on:
+  workflow_dispatch:
+    inputs:
+      transfer:
+        description: 原加密补传文件的完整 JSON；不填密码，不写入仓库
+        type: string
+        required: true
+      sha256:
+        description: 原文件 SHA-256
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 只读比对原始、本机及云端记录
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+        run: node cloud/audit-review-transfer.mjs

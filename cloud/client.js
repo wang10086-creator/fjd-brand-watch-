@@ -7,6 +7,7 @@ import {notionPublicUrl} from '../archive-config.js?v=20261020-review';
 import {seal,unseal,migrationState} from './crypto.js?v=20261020-images';
 import {mergeWorkspace} from './state.js?v=20261020-images-r3';
 import {canonical} from '../model.js?v=20261021-first-pass';
+import {planReviewBatch,compareReviewFields} from './review-reconciliation.js?v=20261022-review-reconcile-r5';
 import {githubFailure,githubRequest} from './github-errors.js?v=20261022-review-live-r4';
 const REPO='wang10086-creator/fjd-brand-watch-',BRANCH='data-cloud',WORKFLOW='fjd-cloud.yml';
 export const workflowUrl='https://github.com/'+REPO+'/actions/workflows/'+WORKFLOW;
@@ -84,6 +85,14 @@ export async function syncArchive(state,{force=false,immediateReviews=false}={})
  const accepted=new Set((dashboard.state.monitor.updateChain||[]).map(e=>e.id));
  const allPriorityUpdates=pendingPriorityUpdates(state,dashboard.state),priorityUpdates=allPriorityUpdates.slice(0,50);state.priorityPendingIds=allPriorityUpdates.map(x=>x.event.id);
  const missing=(state.monitor.updateChain||[]).filter(e=>!e.publicOnly&&!accepted.has(e.id));
+ const reviewEvents=reviewTransferEvents(state,accepted),plan=reviewEvents.length?planReviewBatch(dashboard.state,reviewEvents):null;
+ state.reviewConflictDiagnostics=plan?.conflicts||[];
+ const conflicts=plan?.conflicts.filter(c=>!['missing-source','dependent-review'].includes(c.code))||[];
+ if(conflicts.length){
+  if(plan.ready.length&&!force&&!immediateReviews&&(cloudRunning(state)||Date.now()-Date.parse(state.archive.submittedAt||0)<300000)){state.archive.syncState='waiting';return false;}
+  if(plan.ready.length){await sendReviews(state,{events:plan.ready});state.archive.submittedAt=new Date().toISOString();state.archive.syncState='submitted';state.cloudService={...state.cloudService,phase:'queued',currentSite:null,queuedAt:new Date().toISOString()};return true;}
+  state.archive.syncState='conflict';state.archive.lastError='有 '+plan.conflicts.length+' 次处理需要三方核对，原记录保留；请打开只读核对入口。';return false;
+ }
  const reviewSubmission=(immediateReviews||force)&&missing.some(e=>e.type==='review');
  if(cloudRunning(state)&&!reviewSubmission){state.archive.syncState='waiting';return false;}
  const imageUpdates=pendingImageUpdates(state,dashboard.state).slice(0,24);
@@ -102,6 +111,7 @@ export function reviewSyncStatus(state,credentials=cloudCredentials()){
  const pending=pendingReviewEvents(state).length,needsConnection=!credentials.password||!credentials.token;
  if(!pending)return {pending:0,needsConnection:false,message:''};
  const prefix=`本机有 ${pending} 条处理记录尚未被云端接收。`;
+ if(state.reviewConflictDiagnostics?.length)return {pending,needsConnection:false,message:prefix+state.reviewConflictDiagnostics.length+' 次存在版本或前序处理冲突；原意见保留，请打开连接设置中的“只读核对处理冲突”。'};
  return {pending,needsConnection,message:prefix+(needsConnection?'当前浏览器尚未连接同步权限，飞书台账还不会新增。请连接后补同步处理记录。':state.archive?.lastError?'同步未完成：'+state.archive.lastError:cloudRunning(state)?'云端任务排队或执行中；以云端接收和飞书实际入表为准。':'等待提交；可点击“补同步处理记录”重试。')};
 }
 export function reviewSavedMessage(state){const c=cloudCredentials();return !c.password||!c.token?'处理意见已保存在本机，尚未提交云端；请连接当前浏览器同步权限并补同步处理记录。':'处理意见已保存在本机，等待云端接收；同步状态和飞书实际入表结果请在运行中心查看。';}
@@ -110,9 +120,28 @@ function reviewTransferEvents(state,acceptedIds,limit=Infinity){
  if(events.some(e=>!e.reviewRecord?.before||!e.reviewRecord?.after||e.reviewRecord.publicOnly))throw Error('本机处理记录缺少完整核查依据，请先解锁台账并检查原处理记录');
  return events;
 }
-export async function sendReviews(state,{acceptedIds=state.publicEventIds||[]}={}){
- const events=reviewTransferEvents(state,acceptedIds);if(!events.length)return false;
+export async function sendReviews(state,{acceptedIds=state.publicEventIds||[],events=reviewTransferEvents(state,acceptedIds)}={}){
+ if(!events.length)return false;
  await dispatch('review',await makePayload({events},{large:true}));return true;
+}
+export async function comparePendingReviews(state,transfer=null){
+ requireCloudCredentials(cloudCredentials(),{token:false});
+ const dashboard=await readDashboard();if(!dashboard.ready||!dashboard.state?.monitor||!Array.isArray(dashboard.state.rows))throw Error('云端台账尚不可核对，原记录保留');
+ let events;
+ if(transfer){
+  if(transfer.format!=='fjd-encrypted-review-transfer'||transfer.version!==1||transfer.operation!=='review')throw Error('请选择原加密复核补传文件');
+  const payload=await unseal(transfer.payload,cloudCredentials().password,'payload');
+  if(Object.keys(payload).some(k=>k!=='events')||!Array.isArray(payload.events)||payload.events.length!==transfer.eventCount)throw Error('补传内容范围不符合声明');
+  events=payload.events;
+ }else events=reviewTransferEvents(state,(dashboard.state.monitor.updateChain||[]).map(e=>e.id));
+ const plan=planReviewBatch(dashboard.state,events);
+ return {plan,events,cloudRows:dashboard.state.rows};
+}
+export function reviewComparisonView(result){
+ const {plan,events,cloudRows}=result,labels={reviewOutcome:'处理结论',status:'状态',note:'核查依据',imageMatch:'图形判断',confirmedIssue:'异常确认',evidence:'证据链接',decision:'处理意见',watch:'持续关注',pageState:'页面状态',needsRecheck:'重新核查',reviewWorkflow:'处理阶段及历史'};
+ const conflict=new Map(plan.conflicts.map(c=>[c.id,c])),received=new Set(plan.received.map(e=>e.id));
+ const value=v=>esc(v==null?'未记录':typeof v==='object'?JSON.stringify(v,null,2):String(v));
+ return `<p>只读核对完成：可按原记录提交 ${plan.ready.length} 次 · 云端已保存 ${plan.received.length} 次 · 待核对 ${plan.conflicts.length} 次。此次未上传、未写表、未改变本机或云端原记录。</p>`+events.map(event=>{const review=event.reviewRecord,c=conflict.get(event.id),row=c?.comparisonCurrent||cloudRows.find(r=>canonical(r.url)===review.key),fields=c?.fields||compareReviewFields(review.before,review.after,row);return `<details class="space"><summary>${esc(review.title||event.entries?.[0]?.title||'处理记录')} · ${c?'待核对':received.has(event.id)?'云端已保存':'可按原记录提交'}</summary>${c?`<p>${esc(c.message)}${c.simulated?'（核对基准含前序可提交操作的推演，尚未写入云端）':''}</p><p>原核查时间：${value(c.baseAt)}<br>云端当前核查时间：${value(c.cloudAt)}<br>本机操作时间：${value(c.localAt)}</p>`:''}${fields.length?`<div class="review-comparison"><table><thead><tr><th>字段</th><th>原始记录</th><th>本机处理结果</th><th>云端当前记录</th><th>核对</th></tr></thead><tbody>${fields.map(f=>`<tr><th>${esc(labels[f.field]||f.field)}</th><td><pre>${value(review.before[f.field])}</pre></td><td><pre>${value(review.after[f.field])}</pre></td><td><pre>${value(row?.[f.field])}</pre></td><td>${f.sameResult?'修改结果一致；版本仍需核对':f.conflict?'双方修改不一致':f.cloudChanged?'云端已有变化，保留云端结果':'仅本机修改；仍需通过版本校验'}</td></tr>`).join('')}</tbody></table></div>`:''}</details>`}).join('');
 }
 export async function retryBaseReviews(state){
  requireCloudCredentials();await refreshCloud(state,{switchMode:!!state.cloudMode});
@@ -143,7 +172,7 @@ export async function verifyBrowserSync(){
 export function baseReviewReceiptView(state){
  const receipts=Object.entries(state.baseReviewReceipts||{}).sort(([,a],[,b])=>(b.at||'').localeCompare(a.at||'')).slice(0,10);
  if(!receipts.length)return '';
- const labels={queued:'等待写入请求',accepted:'工作流已受理，实际入表待核验',uncertain:'回执未确认，请先核对台账',failed:'请求失败，可修正后重试',blocked:'资料待核对'};
+ const labels={queued:'云端已保存 · 等待写入请求',accepted:'云端已保存 · 工作流已受理，实际入表待核验',uncertain:'云端已保存 · 回执未确认，请先核对台账',failed:'云端已保存 · 请求失败，可修正后重试',blocked:'云端已保存 · 资料待核对'};
  return `<details class="space"><summary>逐条写表回执</summary>${receipts.map(([id,r])=>{const review=state.monitor?.reviews?.find(x=>'review:'+x.id===id);return `<p>${esc(review?.title||'已保存的初核线索')}：${esc(labels[r.status]||'等待核对')}${r.error?' · '+esc(r.error):''}</p>`}).join('')}</details>`;
 }
 export {migrationState};
