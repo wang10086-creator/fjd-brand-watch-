@@ -26,8 +26,9 @@ import {createGithubStore} from './github-store.mjs';
 import {verifyRecovery} from './controlled-recovery.mjs';
 import {enqueueBaseReviews,deliverBaseReviews,baseReviewStatus,baseReviewReceipts} from './base-review.mjs';
 import {submitReviewEvents} from './review-submission.mjs';
+import {workflowPayload} from './workflow-input.mjs';
 const config=JSON.parse(await readFile(new URL('./config.json',import.meta.url),'utf8'));
-const env=process.env,password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEISHU_APP_SECRET;
+const env={...process.env},password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEISHU_APP_SECRET;
 let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve();
 const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
@@ -93,6 +94,7 @@ async function delivery(operation,{onlyDay=null}={}){
 }
 function operation(){if(env.GITHUB_EVENT_NAME==='schedule')return 'auto';return env.FJD_OPERATION||'scan'}
 async function main(){
+ env.FJD_PAYLOAD=await workflowPayload(env);
  const configurationErrors=[];
  if(!password)configurationErrors.push('MONITOR_CLOUD_PASSWORD 未传入');
  else if(password.length<12)configurationErrors.push('MONITOR_CLOUD_PASSWORD 少于 12 个字符');

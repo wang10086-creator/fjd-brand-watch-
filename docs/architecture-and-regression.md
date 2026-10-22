@@ -1154,3 +1154,9 @@ of this change, and no real transfer ciphertext is added to source or fixtures.
   aggregate counts, field names and the original ciphertext fingerprint only.
   Dispatch input remains ephemeral, never a source file, step environment
   value or artifact. It has no Feishu credentials, delivery call or state write.
+- The original seven-event read-only audit returned ready=3, received=0 and
+  conflicts=4 (one review-version mismatch followed by three dependent events),
+  with zero cloud writes and zero Feishu requests. Keep the source events intact.
+  Before dispatching the guarded review operation, remove its payload from the
+  step environment prelude and read the ephemeral event input inside the runner.
+  Existing local FJD_PAYLOAD callers and scheduled operations remain supported.

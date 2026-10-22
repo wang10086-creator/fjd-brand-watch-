@@ -58,7 +58,6 @@ jobs:
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
           FEISHU_BASE_REVIEW_WEBHOOK: ${{ secrets.FEISHU_BASE_REVIEW_WEBHOOK }}
           FJD_OPERATION: ${{ inputs.operation }}
-          FJD_PAYLOAD: ${{ inputs.payload }}
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
       - name: 准备单页 HTML 镜像组件
