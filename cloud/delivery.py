@@ -38,14 +38,18 @@ def notion_request(token):
 
 def deliver(state, operation, checkpoint, env=None, request=None, bot_request=None, now=None):
     env = env if env is not None else os.environ
+    if state.get('notificationsEnabled') is False:
+        state['botError'] = ''
+        state['pushStatus'] = '群通知已关闭，仅同步台账'
     if state.get('reportPolicy'):
         from formal_delivery import deliver_formal
         return deliver_formal(state, operation, checkpoint, env,
                               request or notion_request(env.get('NOTION_TOKEN','')), bot_request, now)
     token = env.get('NOTION_TOKEN', '')
     state['notionConfigured'] = bool(token)
-    state['botConfigured'] = bool(env.get('FEISHU_BOT_WEBHOOK'))
-    state['pushStatus'] = '机器人已配置，发送结果见回执' if state['botConfigured'] else '飞书群简报待配置：FEISHU_BOT_WEBHOOK'
+    state['botConfigured'] = state.get('notificationsEnabled') is not False and bool(env.get('FEISHU_BOT_WEBHOOK'))
+    if state.get('notificationsEnabled') is not False:
+        state['pushStatus'] = '机器人已配置，发送结果见回执' if state['botConfigured'] else '飞书群简报待配置：FEISHU_BOT_WEBHOOK'
     if operation != 'digest-only':state['archiveError'] = ''
     if operation in ('digest','digest-only','test-digest'):state['botError'] = ''
     else:state.setdefault('botError','')
@@ -105,7 +109,7 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
             digest(state, env.get('FEISHU_BOT_WEBHOOK', ''), env.get('FEISHU_BOT_SECRET', ''), checkpoint, **({'request': bot_request} if bot_request else {}), now=now, test=operation=='test-digest')
         except Failure as error:
             state['botError'] = str(error)
-    elif not state['botConfigured']:
+    elif not state['botConfigured'] and state.get('notificationsEnabled') is not False:
         state['pushStatus'] = '飞书群简报待配置：FEISHU_BOT_WEBHOOK'
     checkpoint()
 

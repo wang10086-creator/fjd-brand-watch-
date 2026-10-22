@@ -51,6 +51,12 @@ test('same fixed snapshot retained on failure and sealed only after both archive
  const s=fixture(),r=freezeReport(s,day,day+'T01:30Z'),v={state:s,delivery:{formalReceipts:{[day]:{status:'failed'}},pushes:{}}};syncFormalReceipts(v);assert.equal(r.status,'failed');
  v.delivery.formalReceipts[day]={status:'archived',at:day+'T01:35Z'};v.delivery.pushes[day]={status:'sent',sentAt:day+'T01:36Z'};syncFormalReceipts(v);assert.equal(r.status,'published');verifyFormal(r);assert.match(dailyView(s.monitor,day,{state:s}),/已发布 · 固定历史快照/);
 });
+test('notifications disabled publishes the archived snapshot without fabricating a sent receipt',()=>{
+ const s=fixture(),r=freezeReport(s,day,day+'T01:30Z'),checksum=r.checksum;
+ const v={state:s,delivery:{notificationsEnabled:false,formalReceipts:{[day]:{status:'archived',at:day+'T01:35Z'}},pushes:{}}};
+ syncFormalReceipts(v);assert.equal(r.status,'published');assert.equal(r.checksum,checksum);assert.equal(r.receipt.notification,'disabled');assert.equal(r.receipt.pushAt,undefined);assert.deepEqual(v.delivery.pushes,{});verifyFormal(r);
+ assert.equal(dueActions(v,new Date(day+'T06:00Z')).digest,false);
+});
 test('legacy reports are not remapped and new policy cannot seal an old day',()=>{
  const s=fixture();const before=JSON.stringify(s.monitor.updateChain);assert.throws(()=>freezeReport(s,'2026-10-19',day+'T01:30Z'));assert.equal(JSON.stringify(s.monitor.updateChain),before);
  assert.equal(activityDay(s.monitor,'2026-10-19T12:00Z','2026-10-19'),'2026-10-19');

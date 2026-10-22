@@ -6,7 +6,10 @@ from notion_archive import NotionReports
 def deliver_formal(state, operation, checkpoint, env, request, bot_request=None, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     state['notionConfigured'] = bool(env.get('NOTION_TOKEN'))
-    state['botConfigured'] = bool(env.get('FEISHU_BOT_WEBHOOK'))
+    state['botConfigured'] = state.get('notificationsEnabled') is not False and bool(env.get('FEISHU_BOT_WEBHOOK'))
+    if state.get('notificationsEnabled') is False:
+        state['botError'] = ''
+        state['pushStatus'] = '群通知已关闭，仅同步台账'
     state['baseUrl'] = state['publicUrl']
     state['archiveError'] = ''
     receipts = state.setdefault('formalReceipts', {})
@@ -56,6 +59,11 @@ def deliver_formal(state, operation, checkpoint, env, request, bot_request=None,
     except Exception as error:
         state['archiveError'] = str(error) if isinstance(error, ValueError) else 'Notion 正式快照写入未确认，保留同版待重试'
     checkpoint()
+    if state.get('notificationsEnabled') is False:
+        state['botError'] = ''
+        state['pushStatus'] = '群通知已关闭，仅同步台账'
+        checkpoint()
+        return
     if operation == 'test-digest':
         candidates = state.get('testOverviews', [])
         if not candidates:

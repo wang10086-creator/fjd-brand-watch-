@@ -55,6 +55,7 @@ jobs:
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          FEISHU_BASE_REVIEW_WEBHOOK: ${{ secrets.FEISHU_BASE_REVIEW_WEBHOOK }}
           FJD_OPERATION: ${{ inputs.operation }}
           FJD_PAYLOAD: ${{ inputs.payload }}
           FJD_SCHEDULE: ${{ github.event.schedule }}

@@ -9,6 +9,12 @@ from runtime import UserClient, Failure, digest, BEIJING, http
 
 
 class Tests(unittest.TestCase):
+    def test_disabled_notifications_never_call_transport_or_modify_sent_history(self):
+        state={'notificationsEnabled':False,'pushes':{'old':{'status':'sent'}}}
+        digest(state,'https://open.feishu.cn/open-apis/bot/v2/hook/test','',lambda:None,
+               request=lambda *args:self.fail('group transport must stay disabled'))
+        self.assertEqual(state['pushes'],{'old':{'status':'sent'}})
+        self.assertIn('已关闭',state['pushStatus'])
     def test_http_authentication_error_has_safe_diagnostics_without_echoing_response(self):
         body = io.BytesIO(json.dumps({'error': 'invalid_client', 'error_description': 'private-test-secret'}).encode())
         error = urllib.error.HTTPError('https://accounts.feishu.cn/oauth/v1/device_authorization', 400, 'Bad Request', {}, body)
