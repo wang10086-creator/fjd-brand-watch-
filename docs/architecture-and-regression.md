@@ -990,3 +990,8 @@ Final production evidence (2026-10-22 UTC):
   logs, public files or messages. A downloaded file is not proof of receipt.
   Existing cloud review validation, Feishu outbox guards and first-row protection
   remain authoritative; daily group reports remain enabled.
+
+- UI verification also found an in-flight public-status request could overwrite a
+  newer credential alert. A status version now rejects outdated refresh output;
+  a regression resolves that earlier request after an unsuccessful submission
+  and confirms the alert, input focus and hidden download remain correct.
