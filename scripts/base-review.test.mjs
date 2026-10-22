@@ -33,7 +33,7 @@ test('queue deduplicates events and public projection never includes private que
  const {vault,review}=fixture();enqueueBaseReviews(vault,[review,review]);assert.equal(Object.keys(vault.baseReview.items).length,1);
  assert.equal(baseReviewStatus(vault,true).queued,1);const status=JSON.stringify(baseReviewStatus(vault,true));assert.ok(!status.includes('private-review'));assert.ok(!status.includes('example.com'));
  assert.ok(!JSON.stringify(publicFeed(vault.state)).includes('private-review'));
- const html=cloudPanel({...vault.state,automation:{base:baseReviewStatus(vault,true)}});assert.match(html,/飞书监测台账/);assert.match(html,/已受理 0/);assert.match(html,/群通知已关闭/);assert.doesNotMatch(html,/✉ 飞书群简报/);
+ const html=cloudPanel({...vault.state,automation:{base:baseReviewStatus(vault,true)}});assert.match(html,/飞书监测台账/);assert.match(html,/已受理 0/);assert.match(html,/线索入表不发送群通知/);assert.match(html,/✉ 飞书群简报/);
 });
 test('missing source dates remain blocked instead of inventing a discovery date',()=>{
  const {vault,review}=fixture();delete vault.state.rows[0].firstSeen;delete vault.state.rows[0].checkedAt;vault.state.monitor.known={};

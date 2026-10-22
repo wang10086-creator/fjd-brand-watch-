@@ -6,7 +6,7 @@
   "searchTime": "18:00",
   "cutoffTime": "09:20",
   "pushTime": "09:30",
-  "feishuNotifications": false,
+  "feishuNotifications": true,
   "timezone": "Asia/Shanghai",
   "notionParentId": "3f865b80-3b2b-81cf-800b-ff7fcf1624db",
   "notionPublicUrl": "https://adventurous-eyebrow-6d5.notion.site/3f865b803b2b81cf800bff7fcf1624db"

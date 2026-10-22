@@ -1,5 +1,14 @@
 # Architecture and regression record
 
+## 2026-10-22 — correct notification scope
+
+The earlier interpretation disabled daily group delivery too broadly. Restore
+feishuNotifications=true and the daily group receipt card. Only the separate
+initial-review-to-Base workflow has no message node. Existing daily schedule,
+webhook, report checksums and sending receipts are unchanged. Keep the private
+Base outbox and OIM-0001 exclusion. The live endpoint remains unconfigured.
+
+
 ## 2026-10-22 — initial review to Feishu Base, notifications disabled
 
 The existing encrypted browser migration/review flow now queues only evidenced
