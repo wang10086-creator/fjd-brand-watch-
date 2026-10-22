@@ -49,6 +49,11 @@ jobs:
       - uses: actions/deploy-pages@v4
         if: steps.source.outputs.ready == 'true'
         id: deploy
+      - name: 回读线上版本及生产完整快照
+        if: steps.source.outputs.ready == 'true' && steps.deploy.conclusion == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node cloud/verify-published-snapshot.mjs
       - name: 部署成功后回收过期独立资产
         if: steps.source.outputs.ready == 'true' && steps.deploy.conclusion == 'success'
         continue-on-error: true

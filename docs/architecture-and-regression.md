@@ -863,3 +863,35 @@ original ref, parent races, protected-branch rejection, hash mismatch, local
 cleanup and store-level concurrent-writer guards. The prior run's rejection
 occurred before external delivery, so a single new transport attempt is safe
 subject to rereading the original daily receipt again at runtime.
+
+Final production evidence (2026-10-22 UTC):
+- Code commit c6682ca57300a107584e8970225dc0dcdf07470c; Actions regression
+  39737889355 passed. Local Node314/Python90 passed; fixed-report browsers at
+  1360/390px and navigation/reload passed without page errors.
+- Controlled run 39737889598 succeeded. Original draft body checksum
+  0f30316a91284a4ef4dbce1809be69d336f73735b7520638d26ed42f81e8a3e2
+  and savedAt 2026-10-22T01:09:33.239Z at original 0407bd76... were independently
+  verified twice using the original encrypted vault and existing Actions secret.
+- Full pre-delivery save a36d4cb2ad7ee6be00da83f684c5eba3ef9c4256 confirmed five
+  paths. Native Git sealing save b8d4f764ba242727341ab8d07f65b6c2c049bee6 confirmed
+  five paths, including raw/gzip; several subsequent atomic Git checkpoints passed.
+- Final data-cloud checkpoint 5889f3ed08321af22bc3e577c52c2f82272cf69f confirms
+  formal status published, Notion archived, Feishu sent with attempts=1 and checksum
+  694ce6ce236702069e49045d0916975a0f265aa6bc98698f9a7da1a8b578fa8d.
+  This formal checksum includes generatedAt/sourceSavedAt per existing sealing
+  policy; the original draft/event checksums were not changed. The stored Feishu
+  timestamp is the delivery routine's captured operation time; it is not read
+  confirmation or a claim that anyone opened the message.
+- Main public snapshot 0b1b159472524b75a68ed15b0084f660a29096c4 deployed in
+  39738289507. Code deployment 39737889235 passed; controlled run independently
+  fetched online github-store.mjs and git-checkpoint.mjs and matched exact bytes.
+- Post-deploy verification now reads both complete production blobs at one pinned
+  data-cloud commit, rehashes their bytes, compares decompressed gzip to raw, and
+  checks live code and public-snapshot bytes against the deployed checkout. It
+  emits only hashes and existing public receipts; it performs no writes or sends.
+- No night queries were restarted. Production search progress still points to the
+  prior 00:45:29Z run/360 daily attempted queries; no independent repository,
+  test branch, site, recipient, credential, Railway or force push was introduced.
+- Historical REST422 cause remains unclassified; native Git publication is proven
+  successful for the exact full production checkpoint that UTF-8 REST rejected.
+  We do not assert a documented 50MB limit or that UTF-8 alone fixes the problem.
