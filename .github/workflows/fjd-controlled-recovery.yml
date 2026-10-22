@@ -36,3 +36,19 @@ jobs:
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
           FJD_OPERATION: recover-digest
         run: node cloud/runner.mjs
+      - name: 核对原网站线上代码字节
+        if: always()
+        run: |
+          node --input-type=module - <<'JS'
+          import {readFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          const {siteUrl}=JSON.parse(await readFile('cloud/config.json'));
+          const files=[];
+          for(const path of ['cloud/github-store.mjs','cloud/git-checkpoint.mjs']){
+            const response=await fetch(siteUrl+path+'?version='+process.env.GITHUB_SHA,{cache:'no-store',signal:AbortSignal.timeout(30000)});
+            const bytes=Buffer.from(await response.arrayBuffer()),expected=await readFile(path);
+            if(!response.ok||!bytes.equals(expected))throw Error('原网站线上代码字节未确认：'+path);
+            files.push({path,sha256:createHash('sha256').update(bytes).digest('hex')});
+          }
+          console.log('线上版本确认 '+JSON.stringify({sourceSha:process.env.GITHUB_SHA,files}));
+          JS

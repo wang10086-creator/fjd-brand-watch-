@@ -129,3 +129,16 @@ test('GitHub error diagnostics classify only allowlisted fields and message labe
  assert.deepEqual(safe,{machineCode:'custom',messageKinds:['request-size-limit','blob-size-limit'],resources:['Blob'],fields:['content','encoding']});assert.ok(!JSON.stringify(safe).includes('PRIVATE'));
  assert.deepEqual(safeGithubError({message:'PRIVATE',errors:'PRIVATE'}),{machineCode:'unclassified',messageKinds:[],resources:[],fields:[]});
 });
+
+test('oversized checkpoints use one guarded Git publication; ref races preserve uploads and ledger conflicts stop',async()=>{
+ const repo=repository({'vault.json':'old','inbox/keep':'preserve'}),calls=[],store=storeFor(repo,{gitThresholdBytes:100,gitPublisher:async({current,changes})=>{
+  calls.push({current,changes});if(calls.length===1){repo.external('inbox/new','also preserve');const e=Error('moved');e.status=409;throw e;}
+  // Model one atomic successful publication, with the same parent check.
+  assert.equal(current.sha,repo.head);for(const e of changes)repo.external(e.path,e.bytes);return {sha:repo.head,tree:'f'.repeat(40)};
+ }});
+ await store.write([{path:'vault.json',value:{large:'x'.repeat(200)}},{path:'status.json',value:{phase:'ready'}}]);
+ assert.equal(calls.length,2);assert.equal(repo.value('inbox/new'),'also preserve');assert.equal(repo.value('inbox/keep'),'preserve');
+ assert.equal(repo.calls.filter(c=>c.method!=='GET').length,0);
+ const stale=storeFor(repo,{gitThresholdBytes:100,gitPublisher:async()=>{throw Error('must not publish stale ledger')}});await stale.readJSON('vault.json');repo.external('vault.json','{"newer":true}');
+ await assert.rejects(stale.putJSON('vault.json',{stale:'x'.repeat(200)}),/其他写入者/);
+});

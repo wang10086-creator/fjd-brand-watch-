@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {publishGitCheckpoint} from './git-checkpoint.mjs';
 
 const blobSha=bytes=>createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 const transient=error=>error.status===0||error.status===409||[429,500,502,503,504].includes(error.status);
@@ -10,21 +11,22 @@ export function safeGithubError(payload){
  const resources=new Set(['Blob','Tree','Commit','Reference','Repository']);
  const fields=new Set(['content','encoding','sha','tree','ref','base_tree','parents']);
  const errors=Array.isArray(payload?.errors)?payload.errors:[];
- const messages=[payload?.message,...errors.map(e=>e?.message)].filter(m=>typeof m==='string');
+ const messages=[typeof payload==='string'?payload:payload?.message,...errors.map(e=>e?.message)].filter(m=>typeof m==='string');
  const labels=new Set();
  for(const m of messages){
   if(/(?:blob|file|content).{0,80}(?:too large|exceeds.{0,40}(?:size|limit)|larger than)/i.test(m))labels.add('blob-size-limit');
   else if(/(?:request|body|payload).{0,80}(?:too large|exceeds.{0,40}(?:size|limit))/i.test(m))labels.add('request-size-limit');
   else if(/^validation failed[.!]?$/i.test(m))labels.add('validation-failed');
   else if(/^(?:invalid|unsupported) encoding[.!]?$/i.test(m))labels.add('invalid-encoding');
+  else if(/(?:too large|size limit|maximum.{0,30}(?:size|bytes)|content.length.{0,30}(?:exceed|limit))/i.test(m))labels.add('size-constraint');
  }
- return {machineCode:[...new Set(errors.map(e=>e?.code).filter(c=>codes.has(c)))].join(',')||'unclassified',messageKinds:[...labels],resources:[...new Set([payload?.resource,...errors.map(e=>e?.resource)].filter(r=>resources.has(r)))],fields:[...new Set([payload?.field,...errors.map(e=>e?.field)].filter(f=>fields.has(f)))]};
+ return {machineCode:[...new Set([payload?.code,...errors.map(e=>e?.code)].filter(c=>codes.has(c)))].join(',')||'unclassified',messageKinds:[...labels],resources:[...new Set([payload?.resource,...errors.map(e=>e?.resource)].filter(r=>resources.has(r)))],fields:[...new Set([payload?.field,...errors.map(e=>e?.field)].filter(f=>fields.has(f)))]};
 }
 
 // Publish all checkpoint files in one commit. Retry against the latest branch,
 // preserving unrelated browser uploads; never force-update a ref or replace
 // a checkpoint that another writer changed while this process was running.
-export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{},onDiagnostic=()=>{}}){
+export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{},onDiagnostic=()=>{},gitPublisher=publishGitCheckpoint,gitThresholdBytes=32*1024*1024}){
  const root='https://api.github.com/repos/'+repository,observed=new Map(),retiredHeads=new Set();
  let queue=Promise.resolve(),cachedSnapshot=null;
  async function request(path,method='GET',body,metadata={}){
@@ -110,6 +112,15 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     if(changes.every(e=>(current.files.get(e.path)||null)===e.sha)){for(const e of changes)observed.set(e.path,e.sha);return {sha:current.sha,recovered:attempt>0};}
     for(const e of changes)if((current.files.get(e.path)||null)!==expected.get(e.path)){
      throw Error('GitHub 云端台账发现其他写入者修改了 '+e.path+'，已停止覆盖；下次重新读取后合并');
+    }
+    // Large JSON can exceed REST request/processing constraints even as UTF-8.
+    // Publish the entire checkpoint through Git; preserve the same guarded parent
+    // and ordinary non-force branch update rather than splitting public snapshots.
+    if(changes.some(e=>e.bytes?.length>gitThresholdBytes)){
+     const next=await gitPublisher({repository,branch,token,current,changes,message,onDiagnostic});
+     const files=new Map(current.files);for(const e of changes){if(e.remove)files.delete(e.path);else files.set(e.path,e.sha);observed.set(e.path,e.sha);}
+     retiredHeads.add(current.sha);cachedSnapshot={sha:next.sha,tree:next.tree,files};
+     return {sha:next.sha,recovered:attempt>0,transport:'git'};
     }
     const tree=[];
     for(const e of changes){

@@ -834,3 +834,32 @@ work. A regression covers legacy imageAnalysis.status=compared plus a future ret
   error labels; exact-source/cutoff/receipt guards; runner422 does not seal, scan or
   spawn delivery. Existing Node/Python and fixed-report/navigation browser checks
   are required. Production verification and final receipts are recorded after run.
+
+Production follow-up: commit eac71fa's save-only passed at data checkpoint
+c5d7ad7d43ff22fd672e88adc86ae673a35dd776, and independently decrypted/verified
+original draft 0f30316a... at 0407bd76... before cutoff. The same run's sealing
+checkpoint was rejected before delivery: UTF-8 public blob 45,717,294 bytes;
+actual escaped HTTP JSON body 50,918,863 bytes. API422 still had no classified
+message/resource/field. UTF-8 alone therefore is NOT a complete production fix;
+no Feishu call or sealing commit occurred. An undocumented size threshold is not
+claimed as proven merely from this response.
+
+Checkpoints containing a blob over 32 MiB now use Git's native object transport
+for the entire atomic checkpoint. A temporary bare staging directory fetches
+only the current original data-cloud parent/tree (shallow and blob-filtered),
+hashes the exact bytes, updates its index, creates one child commit and performs
+one ordinary non-force push to that same branch. It creates no auxiliary remote
+repository or branch. REST observed-file guards still run first; moved parents
+retry against the latest tree and refuse competing ledger changes. Lost push
+responses reconcile through the same expected blob hashes. Server branch
+protections remain enforced. Local staging and credentials are removed after use;
+raw Git stderr and credentials never enter diagnostics. Smaller JSON still uses
+UTF-8 and binary REST uploads still use base64. Native Git file limits apply.
+The dated request's transportRevision records the materially changed retry;
+its original four proof fields and all historical data/checksums remain intact.
+
+Additional regression covers exact Git input bytes, immutable parent, no-force
+original ref, parent races, protected-branch rejection, hash mismatch, local
+cleanup and store-level concurrent-writer guards. The prior run's rejection
+occurred before external delivery, so a single new transport attempt is safe
+subject to rereading the original daily receipt again at runtime.
