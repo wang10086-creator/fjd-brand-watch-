@@ -9,6 +9,7 @@ permissions:
   actions: write
 concurrency:
   group: fjd-cloud-monitor
+  queue: max # Keep each review dispatch waiting instead of replacing an older pending run.
   cancel-in-progress: false
 jobs:
   recover:

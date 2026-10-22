@@ -995,3 +995,114 @@ Final production evidence (2026-10-22 UTC):
   newer credential alert. A status version now rejects outdated refresh output;
   a regression resolves that earlier request after an unsuccessful submission
   and confirms the alert, input focus and hidden download remain correct.
+
+## Event-driven review and API-independent ciphertext export (2026-10-22 r4)
+
+Affected path: durable browser review and append-only event -> encrypted review
+dispatch -> serial original Actions runner -> atomic original data-cloud vault /
+dashboard / public projections -> private Base outbox -> existing Feishu workflow
+-> lookup by platform source ID -> create/update in the existing monitoring table.
+The original r3 portal and parallel main changes are retained (started from
+6fe8e6c after fast-forwarding the clean original worktree). No test repository,
+test Site, production fixture, credential change or Railway operation is needed.
+
+The screenshot's exact text was emitted for both HTTP403 and HTTP429 by the ref
+API reader. The r3 token-free export nevertheless called refreshCloud, which
+required that API to read dashboard.json. This made an API limit look like missing
+execution permissions. The actual screenshot lacks headers, so its precise HTTP
+status and underlying denial cannot be reconstructed from the text alone. The
+reader now falls back to the existing raw ciphertext, without Authorization, when
+ref lookup is operationally unavailable. AES-GCM and role/password validation
+still precede any merge. No token or privilege is required merely to export.
+
+API diagnostics classify 401, rate limits using headers/message, explicit
+permission refusal, SSO, ambiguous403, invisible404, conflicts, invalid requests,
+service errors, timeout and network separately. Never echo raw response messages
+or URLs. A timed-out mutation remains outcome-uncertain. Anonymous API limits
+must not prompt a new persistent credential or broader permissions.
+
+A new review saved while browser sync was busy previously lost its immediate
+request; it retried only on the 30s interval. Pending cloud tasks and a global
+five-minute cooldown also postponed new reviews. Keep a save-triggered request
+until the current browser sync releases it, and allow that request to submit the
+ordered missing review events while the cloud queues them. Send the complete
+pending review batch (ciphertext/file size guards remain); mixed unrelated search
+events no longer force a full migration for an already-cloud-backed review.
+Normal background refreshes retain their existing throttle and acknowledgement
+checks. Local-only source records retain the existing compatible migration path.
+
+The explicit review runner now validates a cloned candidate before changing the
+vault, saves events/outbox before dispatch, and delivers only the submitted event
+IDs. It returns before generic scans, image enrichment, Notion delivery, report
+freezing/digests and archive preparation. Shared ledger-writer workflows use
+queue:max with cancel-in-progress:false. GitHub documents the 100-pending-run
+limit and non-guaranteed dispatch order; this remains asynchronous. Existing
+transition/version checks stop stale events rather than overwrite a newer review.
+References: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
+and https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api .
+
+Per-event Base receipts are added only to the encrypted dashboard. Explicit retry
+may reset queued, definite-failed or blocked original requests after validation;
+accepted/uncertain requests cannot be reset. Keep attempt history and verdicts.
+Missing/invalid endpoint configuration is explicit; public status contains only
+counts and safe configuration text. Existing same-source async workflow guards,
+OIM-0001 protection, source-ID lookup, first-found/manual-field preservation and
+no-per-lead-message contract remain. Feishu acceptance is never labeled confirmed
+row creation. Production Feishu workflow behavior/unique lookup still requires
+actual table/log verification; source-ID lookup is not an atomic database key.
+
+Production read evidence before changes: status updatedAt
+2026-10-22T10:33:51.346Z, run39763837219, operation check, Base configured true,
+queued/accepted/uncertain/failed/blocked all zero and lastAttemptAt null. Existing
+daily group receipt remains sent with attempts1. No cloud review payload has been
+received from this session. The original browser's seven local operations are
+unavailable here; code/browser fixture tests cannot establish real Base writes.
+
+Regression additions cover the exact403/429 export failure, seven encrypted
+events through401/403/429/network fallback, explicit diagnostics, immediate save
+with a busy reader/running cloud/cooldown, retry immutability, duplicate reload,
+atomic invalid-batch rejection, selected-only delivery and missing configuration.
+The browser check intercepts all external requests, disables periodic sync,
+exercises the real save button and token-free portal download at1360/390px, and
+never sends fixture data to GitHub or Feishu.
+
+The user subsequently supplied the originating browser's ciphertext file. Its
+4316-byte SHA-256 is
+ac07a250a0e995af5a4952446df9842ad1d68dfa222db12f1a59b62422f5a76b,
+outer operation review, eventCount7, createdAt2026-10-22T11:50:27.729Z. Library
+prepare_materialize returned an authorized download URL, but the environment's
+proxy refused that host. The supported Library read action returned the exact
+4316-byte content instead; its hash matched. Neither the plaintext nor password
+is available to this execution environment, and Library readability is not a
+cloud-import receipt.
+
+The connected GitHub tools expose repository writes and run reads but no workflow
+dispatch. A narrowly scoped original-repository push workflow therefore consumes
+only cloud/review-transfer-request.json. Its bytes/count/operation are pinned to
+this user-supplied file; authenticated decryption occurs inside original Actions
+using the existing secret. Decoding rejects duplicate/mismatched event IDs,
+unordered dates, missing before/after evidence and unrelated payload keys. Before
+and after import, compare original review records by stable fingerprints and
+check each event occurs once. The child is forced to review mode; bot/Notion
+secrets are absent and explicitly blank. No new stored credentials or external
+access identity are introduced. The existing original ledger concurrency lock
+still applies. Only this request path triggers it; changing ordinary application
+code or the unrelated daily-recovery workflow file does not trigger daily sends.
+
+The importer publishes a safe count/hash receipt on data-cloud, with per-transfer
+eligible/queued/accepted/failed/uncertain counts and exact-original-record and
+unchanged-daily-group-receipt checks. rowWriteVerified remains false because a
+Webhook code0 receipt cannot prove downstream table creation. A rerun never
+resets accepted/uncertain requests or recreates human decisions. Runtime UI also
+shows decrypted per-event failures and acceptance labels without public notes.
+
+Local verification: the actual save button submitted exactly one encrypted review
+while a background dashboard read was blocked and all periodic sync was disabled.
+Reload after acknowledgement submitted zero additional requests. The token-free
+portal exported all seven offline events under API403; mobile390px had no overflow
+and both pages had no uncaught errors. Cloud Python92 passed. The first full Node
+run had a pre-existing 30s fixture-child timeout under CPU contention; the exact
+422-save-blocking case independently passed in25.8s. Raise that test's subprocess
+timeout to60s while retaining its required HTTP422/no-delivery assertions, then
+rerun the full suite. Production delivery/deployment receipts are recorded below
+only after observed; none of these local fixture results proves a real Base row.

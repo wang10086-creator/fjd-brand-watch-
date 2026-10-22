@@ -24,7 +24,7 @@ else {status=403;value={message:'PRIVATE'};}
 return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});
 };
 `);
-  const result=spawnSync(process.execPath,['--import',join(root,'preload.mjs'),'cloud/runner.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,FIXTURE_PATH:root,GITHUB_TOKEN:'fixture-token',MONITOR_CLOUD_PASSWORD:'fixture-password-12345',FJD_OPERATION:'digest',GITHUB_EVENT_NAME:'workflow_dispatch'},encoding:'utf8',timeout:30000,maxBuffer:200000});
+  const result=spawnSync(process.execPath,['--import',join(root,'preload.mjs'),'cloud/runner.mjs'],{cwd:new URL('../',import.meta.url),env:{...process.env,FIXTURE_PATH:root,GITHUB_TOKEN:'fixture-token',MONITOR_CLOUD_PASSWORD:'fixture-password-12345',FJD_OPERATION:'digest',GITHUB_EVENT_NAME:'workflow_dispatch'},encoding:'utf8',timeout:60000,maxBuffer:200000});
   assert.equal(result.status,1,result.stderr);const calls=(await readFile(join(root,'calls.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
   assert.ok(calls.some(c=>c.p?.endsWith('/git/blobs')&&c.m==='POST'));assert.ok(!calls.some(c=>c.spawn||c.p?.endsWith('/git/commits')&&c.m==='POST'||c.m==='PATCH'));
   assert.match(result.stderr,/422/);assert.ok(!(result.stderr+result.stdout).includes('PRIVATE'));

@@ -4,8 +4,11 @@ import {workflowValues} from '../review.js';
 import {initMonitor,recordReview} from '../monitor.js';
 import {canonical} from '../model.js';
 import {publicFeed} from '../cloud/public-feed.js';
-import {cloudPanel} from '../cloud/client.js';
-import {initialReviewTransfer,reviewPayload,enqueueBaseReviews,deliverBaseReviews,baseReviewStatus} from '../cloud/base-review.mjs';
+import {cloudPanel,baseReviewReceiptView} from '../cloud/client.js';
+import {initialReviewTransfer,reviewPayload,enqueueBaseReviews,deliverBaseReviews,baseReviewStatus,baseReviewReceipts} from '../cloud/base-review.mjs';
+import {submitReviewEvents} from '../cloud/review-submission.mjs';
+import {appendReview} from '../report-chain.js';
+import {readFile} from 'node:fs/promises';
 
 // Deliberately fake credential, never a production webhook.
 const webhook='https://fjdynamics.feishu.cn/base/workflow/webhook/event/test';
@@ -74,4 +77,61 @@ test('two review rounds for one lead cannot race two asynchronous workflow creat
  const opts={webhook,checkpoint:async()=>{},now:()=>new Date(time).toISOString(),fetcher:async()=>{calls++;return {ok:true,json:async()=>({code:0})}}};
  await deliverBaseReviews(vault,opts);assert.equal(calls,1);assert.equal(baseReviewStatus(vault).queued,1);
  await deliverBaseReviews(vault,opts);assert.equal(calls,1);time+=6*60000;await deliverBaseReviews(vault,opts);assert.equal(calls,2);
+});
+
+function submission(){
+ const {vault,review,row}=fixture(),event=appendReview(vault.state.monitor,review);event.reviewRecord=review;
+ vault.state.rows=[row];vault.state.monitor.reviews=[];vault.state.monitor.updateChain=[];
+ return {vault,event,review};
+}
+test('the event operation saves the real review first, sends only its eligible request, and exposes private receipts without payloads',async()=>{
+ const {vault,event,review}=submission();
+ vault.baseReview={items:{historical:{status:'queued',attempts:0,payload:{source_id:'another-source'}}}};
+ const saves=[],bodies=[];
+ await submitReviewEvents(vault,[event],{webhook,checkpoint:async()=>saves.push(structuredClone(vault)),fetcher:async(_,options)=>{
+  bodies.push(JSON.parse(options.body));assert.equal(saves.at(-1).state.monitor.reviews[0].id,review.id);assert.equal(saves.at(-1).baseReview.items[review.id].status,'sending');return {ok:true,json:async()=>({code:0})};
+ }});
+ assert.equal(bodies.length,1);assert.equal(vault.baseReview.items.historical.status,'queued');
+ const receipt=baseReviewReceipts(vault)[event.id];assert.equal(receipt.status,'accepted');
+ assert.ok(!JSON.stringify(baseReviewReceipts(vault)).includes('private-review-basis'));
+ assert.ok(!JSON.stringify(baseReviewReceipts(vault)).includes('example.com'));
+ await submitReviewEvents(vault,[event],{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('accepted event must not resend')});
+ assert.equal(vault.state.monitor.reviews.length,1);
+});
+test('an invalid later review cannot partially persist an earlier review from the same batch',async()=>{
+ const {vault,event}=submission(),before=structuredClone(vault);
+ const invalid=structuredClone(event);invalid.id='review:invalid';invalid.reviewRecord.id='invalid';invalid.reviewRecord.key='https://different.test/';
+ await assert.rejects(submitReviewEvents(vault,[event,invalid],{webhook,checkpoint:()=>assert.fail('must not save'),fetcher:()=>assert.fail('must not send')}),/复核变更缺少完整依据/);
+ assert.deepEqual(vault,before);
+});
+test('a definite failure can be explicitly retried without changing a verdict; uncertain and accepted requests cannot',async()=>{
+ const {vault,event}=submission();let calls=0;
+ const options={webhook,checkpoint:async()=>{},fetcher:async()=>++calls===1?{ok:false,status:400}:{ok:true,json:async()=>({code:0})}};
+ await submitReviewEvents(vault,[event],options);const reviews=structuredClone(vault.state.monitor.reviews);
+ assert.equal(baseReviewReceipts(vault)[event.id].status,'failed');
+ await submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]});assert.equal(calls,2);
+ assert.deepEqual(vault.state.monitor.reviews,reviews);assert.equal(baseReviewReceipts(vault)[event.id].status,'accepted');
+ await assert.rejects(submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]}),/已受理和回执未确认/);
+ vault.baseReview.items[event.reviewRecord.id].status='uncertain';
+ await assert.rejects(submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]}),/已受理和回执未确认/);assert.equal(calls,2);
+});
+test('missing or invalid configuration is explicit and does not become a false success receipt',async()=>{
+ const {vault,event}=submission();
+ await submitReviewEvents(vault,[event],{checkpoint:async()=>{},fetcher:()=>assert.fail('no endpoint')});
+ assert.equal(baseReviewReceipts(vault)[event.id].status,'queued');assert.match(baseReviewStatus(vault).configurationError,/未配置/);
+ const status=baseReviewStatus(vault,'https://example.test/PRIVATE_WEBHOOK');assert.equal(status.configured,false);assert.match(status.configurationError,/格式不正确/);assert.ok(!JSON.stringify(status).includes('PRIVATE_WEBHOOK'));
+});
+test('all original ledger writers retain queued review runs and review-only dispatch skips archive preparation',async()=>{
+ for(const name of ['fjd-cloud.yml','fjd-images.yml','fjd-controlled-recovery.yml']){
+  const workflow=await readFile(new URL('../.github/workflows/'+name,import.meta.url),'utf8');
+  assert.match(workflow,/group: fjd-cloud-monitor\n\s+queue: max/);assert.match(workflow,/cancel-in-progress: false/);
+  if(name==='fjd-cloud.yml')assert.equal(workflow.match(/inputs.operation != 'review'/g)?.length,2);
+ }
+});
+test('the runtime center shows per-event failures and acceptance without asserting actual row creation',()=>{
+ const state={monitor:{reviews:[{id:'one',title:'Original lead'}]},baseReviewReceipts:{'review:one':{status:'failed',error:'HTTP 403',at}}};
+ assert.match(baseReviewReceiptView(state),/Original lead.*请求失败.*HTTP 403/);
+ state.baseReviewReceipts['review:one'].status='accepted';delete state.baseReviewReceipts['review:one'].error;
+ assert.match(baseReviewReceiptView(state),/工作流已受理，实际入表待核验/);
+ state.baseReviewReceipts['review:one'].status='uncertain';assert.match(baseReviewReceiptView(state),/先核对台账/);
 });

@@ -50,18 +50,43 @@ function endpoint(value){
  throw Error('飞书台账写入入口未配置或格式不正确');
 }
 export function baseReviewStatus(vault,configured=false){
+ let configurationError='';
+ if(typeof configured==='string'){try{endpoint(configured);configured=true}catch{configured=false;configurationError='飞书台账写入入口格式不正确，请由管理员核对现有配置'}}
+ if(!configured&&!configurationError)configurationError='飞书台账写入入口未配置，已保存的复核记录尚不能入表';
  const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,uncertain:0,failed:0,blocked:0};
  for(const item of values)counts[item.status==='sending'?'uncertain':item.status]=(counts[item.status==='sending'?'uncertain':item.status]||0)+1;
- return {configured,...counts,lastAttemptAt:vault.baseReview?.lastAttemptAt||null};
+ return {configured,...counts,configurationError,lastAttemptAt:vault.baseReview?.lastAttemptAt||null};
 }
 
-export async function deliverBaseReviews(vault,{webhook,checkpoint,fetcher=fetch,now=()=>new Date().toISOString(),limit=5}={}){
+export function baseReviewReceipts(vault){
+ return Object.fromEntries(Object.entries(vault.baseReview?.items||{}).map(([id,item])=>['review:'+id,
+  {status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,error:item.error||''}]));
+}
+
+export function retryBaseReviewEvents(vault,eventIds){
+ if(!Array.isArray(eventIds)||eventIds.length>1000)throw Error('写表重试范围无效');
+ const ids=[...new Set(eventIds)].map(id=>String(id).replace(/^review:/,''));
+ for(const id of ids)if(!vault.baseReview?.items?.[id]||!['queued','failed','blocked'].includes(vault.baseReview.items[id].status))throw Error('只允许重试待写或明确失败的原请求；已受理和回执未确认的请求须先核对飞书台账');
+ for(const id of ids){
+  const item=vault.baseReview.items[id];
+  if(item.status==='blocked'){
+   const review=vault.state.monitor.reviews.find(r=>r.id===id);
+   try{const payload=reviewPayload(vault.state,review);if(!payload)continue;item.payload=payload}catch{continue}
+  }
+  (item.history||=[]).push({status:item.status,at:item.at||null,error:item.error||''});
+  item.status='queued';delete item.error;delete item.retryable;
+ }
+ return ids;
+}
+
+export async function deliverBaseReviews(vault,{webhook,checkpoint,fetcher=fetch,now=()=>new Date().toISOString(),limit=5,reviewIds=null}={}){
  const box=vault.baseReview;if(!box||!webhook)return;
  const target=endpoint(webhook);
  // A crash after dispatch is ambiguous. Never automatically repeat that mutation.
  for(const item of Object.values(box.items))if(item.status==='sending'){item.status='uncertain';item.error='写入请求回执未确认，请先核对台账';await checkpoint()}
- const pending=Object.values(box.items).filter(x=>x.status==='queued'||x.status==='failed'&&
-  x.retryable&&x.attempts<3&&Date.parse(now())-Date.parse(x.at)>=15*60000).slice(0,limit);
+ const selected=reviewIds?new Set(reviewIds):null;
+ const pending=Object.entries(box.items).filter(([id,x])=>(!selected||selected.has(id))&&(x.status==='queued'||x.status==='failed'&&
+  x.retryable&&x.attempts<3&&Date.parse(now())-Date.parse(x.at)>=15*60000)).slice(0,selected?selected.size:limit).map(([,x])=>x);
  const dispatched=new Set();
  for(const item of pending){
   const source=item.payload.source_id;

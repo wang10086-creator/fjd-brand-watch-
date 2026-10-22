@@ -23,18 +23,19 @@ async function fixture({localOnly=false,actions=['suspected']}={}){
  if(localOnly)remote.rows=[];
  return {local,remote};
 }
-async function withCloud(remote,run,{credentials=true,failDispatch=false,withoutToken=false}={}){
+async function withCloud(remote,run,{credentials=true,failDispatch=false,withoutToken=false,headFailure=null,running=false}={}){
  const priorFetch=globalThis.fetch,priorStorage=globalThis.sessionStorage,values=new Map(credentials?[['fjd-cloud-password',password],['fjd-cloud-github','TEST_ONLY']]:[]),calls=[];
- const runtime={phase:'ready',startedAt:new Date(Date.now()+1000).toISOString()},encrypted=await seal({ready:true,state:remote,revision:Date.now(),runtime},password,'dashboard');
+ const runtime={phase:running?'running':'ready',startedAt:new Date(Date.now()+1000).toISOString()},encrypted=await seal({ready:true,state:remote,revision:Date.now(),runtime},password,'dashboard');
  if(withoutToken)values.delete('fjd-cloud-github');
  globalThis.sessionStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
  globalThis.fetch=async(url,opts={})=>{
   calls.push({url,opts});
+  if(url.includes('/git/ref/')&&headFailure){if(headFailure==='network')throw TypeError('offline');return new Response(JSON.stringify({message:headFailure===403?'API rate limit exceeded':''}),{status:headFailure,headers:{'x-ratelimit-remaining':'0'}})}
   if(opts.method==='POST'){
    if(failDispatch)throw Error('offline test');
    return {ok:true,status:204};
   }
-  return {ok:true,status:200,json:async()=>url.includes('/git/ref/')?{object:{sha:'a'.repeat(40)}}:url.endsWith('/dashboard.json')?encrypted:{runtime,automation:{base:{configured:true}}}};
+  return {ok:true,status:200,json:async()=>url.includes('/git/ref/')?{object:{sha:'a'.repeat(40)}}:url.includes('/dashboard.json')?encrypted:{runtime,automation:{base:{configured:true}}}};
  };
  refreshCloudSnapshot();
  try{return await run(calls)}finally{globalThis.fetch=priorFetch;globalThis.sessionStorage=priorStorage;refreshCloudSnapshot()}
@@ -88,7 +89,7 @@ test('a review for a newly added local lead still migrates its source record bef
 
 test('a failed submission keeps the original review available for an encrypted retry',async()=>{
  const {local,remote}=await fixture(),review=structuredClone(local.monitor.reviews[0]);
- await withCloud(remote,async()=>{await assert.rejects(syncArchive(local),/offline test/);assert.deepEqual(local.monitor.reviews[0],review);assert.equal(pendingReviewEvents(local).length,1);assert.notEqual(local.archive.syncState,'submitted');},{failDispatch:true});
+ await withCloud(remote,async()=>{await assert.rejects(syncArchive(local),e=>e.kind==='network'&&e.outcome==='uncertain'&&/提交回执未确认/.test(e.message));assert.deepEqual(local.monitor.reviews[0],review);assert.equal(pendingReviewEvents(local).length,1);assert.notEqual(local.archive.syncState,'submitted');},{failDispatch:true});
  await withCloud(remote,async calls=>{await syncArchive(local);assert.equal((await dispatched(calls)).payload.events[0].reviewRecord.id,review.id);});
 });
 
@@ -129,4 +130,33 @@ test('handoff excludes accepted reviews and does not export or resubmit already 
 test('an encrypted handoff carries a new source lead through the existing migration format',async()=>{
  const {local,remote}=await fixture({localOnly:true});
  await withCloud(remote,async calls=>{const transfer=await prepareReviewTransfer(local);assert.equal(transfer.operation,'migrate');const payload=await unseal(transfer.payload,password,'payload');assert.equal(payload.state.rows[0].url,local.rows[0].url);assert.equal(payload.state.monitor.reviews.length,1);assert.equal(calls.filter(c=>c.opts.method==='POST').length,0);},{withoutToken:true});
+});
+
+test('the seven-event handoff works through the encrypted raw channel when ref API is limited, invalid or unreachable',async()=>{
+ for(const headFailure of [401,403,429,'network']){
+  const {local,remote}=await fixture({actions:['suspected','suspected','facts','facts','facts','facts','facts']});
+  await withCloud(remote,async calls=>{
+   const transfer=await prepareReviewTransfer(local);assert.equal(transfer.eventCount,7);
+   const read=calls.find(c=>c.url.includes('/data-cloud/dashboard.json'));
+   assert.ok(read);assert.equal(read.opts.credentials,'omit');assert.equal(read.opts.headers?.Authorization,undefined);
+   assert.equal(calls.filter(c=>['PUT','POST'].includes(c.opts.method)).length,0);
+   assert.equal((await unseal(transfer.payload,password,'payload')).events.length,7);
+   assert.equal(pendingReviewEvents(local).length,7);
+  },{headFailure,withoutToken:true});
+ }
+});
+
+test('an actual saved review submits immediately despite another cloud run, a recent submit and unrelated search events',async()=>{
+ const {local,remote}=await fixture({actions:['suspected','suspected','facts','facts','facts','facts','facts']});
+ local.archive.submittedAt=new Date().toISOString();local.monitor.updateChain.push({id:'other-search',type:'run',at:start});
+ await withCloud(remote,async calls=>{
+  assert.equal(await syncArchive(local,{immediateReviews:true}),true);
+  const sent=await dispatched(calls);assert.equal(sent.operation,'review');assert.equal(sent.payload.events.length,7);
+  assert.ok(sent.payload.events.every(e=>e.type==='review'));assert.equal(local.cloudService.phase,'queued');
+ },{running:true});
+});
+
+test('reading an acknowledged review again creates no new request',async()=>{
+ const {local,remote}=await fixture();applyReviews(remote,local.monitor.updateChain);
+ await withCloud(remote,async calls=>{assert.equal(await syncArchive(local,{immediateReviews:true}),false);assert.equal(calls.filter(c=>c.opts.method==='POST').length,0);});
 });
