@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {createGithubStore} from '../cloud/github-store.mjs';
+import {createGithubStore,safeGithubError} from '../cloud/github-store.mjs';
+import {gzipSync,gunzipSync} from 'node:zlib';
 const hash=value=>createHash('sha1').update(value).digest('hex');
 const blobSha=bytes=>hash(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`),bytes]));
 function repository(initial={}){
@@ -21,7 +22,7 @@ function repository(initial={}){
   if(path.startsWith('/git/commits/')&&method==='GET')return response(200,commits.get(path.split('/').at(-1)));
   if(path.startsWith('/git/trees/')&&method==='GET')return response(200,{tree:[...trees.get(path.split('/').at(-1))].map(([path,sha])=>({path,sha,type:'blob'})),truncated:false});
   if(path.startsWith('/git/blobs/')&&method==='GET')return response(200,{content:blobs.get(path.split('/').at(-1)).toString('base64'),encoding:'base64'});
-  if(path==='/git/blobs'&&method==='POST')return response(201,{sha:blob(Buffer.from(body.content,'base64'))});
+  if(path==='/git/blobs'&&method==='POST')return response(201,{sha:blob(Buffer.from(body.content,body.encoding==='utf-8'?'utf8':'base64'))});
   if(path==='/git/trees'&&method==='POST'){
    const files=new Map(trees.get(body.base_tree));for(const f of body.tree){if(f.sha===null)files.delete(f.path);else files.set(f.path,f.sha||blob(f.content));}return response(201,{sha:tree(files)});
   }
@@ -96,9 +97,35 @@ test('blob 422 with concurrent ref advance is not a ref conflict; safe diagnosti
  const repo=repository({'vault.json':'old'}),diagnostics=[],retry=[],store=storeFor(repo,{onDiagnostic:d=>diagnostics.push(d),onRetry:d=>retry.push(d)});
  repo.intercept=({path,method,response,external})=>{if(path==='/git/blobs'&&method==='POST'){external('inbox/keep','preserve');return response(422,{errors:[{code:'invalid',message:'PRIVATE'}]})}};
  await assert.rejects(store.putJSON('vault.json',{secret:'PRIVATE'.repeat(100000)}),/422/);
- assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,1);assert.equal(retry.length,0);assert.equal(repo.value('vault.json'),'old');assert.equal(diagnostics[0].stage,'blob-upload');assert.equal(diagnostics[0].fileCategory,'encrypted-ledger');assert.ok(diagnostics[0].encodedBytes>diagnostics[0].byteSize);assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));
+ assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,1);assert.equal(retry.length,0);assert.equal(repo.value('vault.json'),'old');assert.equal(diagnostics[0].stage,'blob-upload');assert.equal(diagnostics[0].fileCategory,'encrypted-ledger');assert.equal(diagnostics[0].encodedBytes,diagnostics[0].byteSize);assert.equal(diagnostics[0].encoding,'utf-8');assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));
 });
 test('verified uploaded blobs are reused after unrelated ref conflict',async()=>{
  const repo=repository(),store=storeFor(repo);let once=true;repo.intercept=({method,response,external})=>{if(method==='PATCH'&&once){once=false;external('inbox/new','keep');return response(422,{})}};
  await store.putJSON('vault.json',{data:'x'.repeat(600000)});assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,1);assert.equal(repo.value('inbox/new'),'keep');
+});
+
+test('UTF-8 JSON and base64 gzip retain identical Chinese, escapes and blob bytes',async()=>{
+ const repo=repository(),store=storeFor(repo),value={text:('中文 🚜 \"quote\" \\ slash\n\t\u0000 '+String.fromCharCode(0xd800)).repeat(25000)},raw=Buffer.from(JSON.stringify(value)),gzip=gzipSync(raw);
+ const entries=[{path:'public-dashboard.json',value},{path:'public-dashboard.json.gz',bytes:gzip,bytesInput:true}];
+ const result=await store.write(entries);assert.equal((await store.verifyWrite(entries,result.sha)).confirmed,true);
+ const uploads=repo.calls.filter(c=>c.path==='/git/blobs'&&c.method==='POST');
+ assert.deepEqual(uploads.map(c=>c.body.encoding),['utf-8','base64']);
+ assert.deepEqual(Buffer.from(uploads[0].body.content,'utf8'),raw);
+ assert.deepEqual(gunzipSync(Buffer.from(uploads[1].body.content,'base64')),raw);
+ assert.deepEqual(JSON.parse(repo.value('public-dashboard.json')),value);
+ const historical=await store.readJSONAt('public-dashboard.json',result.sha);assert.deepEqual(historical.value,value);
+ repo.external('public-dashboard.json','{}');await assert.rejects(store.verifyWrite(entries,result.sha),/回读/);
+});
+test('wrong uploaded SHA and binary 422 never publish any checkpoint files',async()=>{
+ for(const reject of [false,true]){
+  const repo=repository({'vault.json':'old'}),store=storeFor(repo),head=repo.head;
+  repo.intercept=({path,method,response})=>path==='/git/blobs'&&method==='POST'?response(reject?422:201,reject?{message:'PRIVATE'}:{sha:'f'.repeat(40)}):null;
+  await assert.rejects(store.write([{path:'vault.json',value:{new:true}},{path:'public-dashboard.json.gz',bytes:gzipSync('data'),bytesInput:true}]));
+  assert.equal(repo.head,head);assert.equal(repo.value('vault.json'),'old');assert.equal(repo.calls.filter(c=>['/git/trees','/git/commits','/git/refs/heads/data-cloud'].includes(c.path)&&c.method!=='GET').length,0);
+ }
+});
+test('GitHub error diagnostics classify only allowlisted fields and message labels',()=>{
+ const safe=safeGithubError({message:'Sorry, your request was too large. PRIVATE token',resource:'Blob',field:'content',errors:[{code:'custom',resource:'Blob',field:'encoding',message:'Content is too large: PRIVATE'},{code:'PRIVATE',resource:'PRIVATE',field:'PRIVATE',message:'PRIVATE'}]});
+ assert.deepEqual(safe,{machineCode:'custom',messageKinds:['request-size-limit','blob-size-limit'],resources:['Blob'],fields:['content','encoding']});assert.ok(!JSON.stringify(safe).includes('PRIVATE'));
+ assert.deepEqual(safeGithubError({message:'PRIVATE',errors:'PRIVATE'}),{machineCode:'unclassified',messageKinds:[],resources:[],fields:[]});
 });

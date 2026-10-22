@@ -4,6 +4,23 @@ const blobSha=bytes=>createHash('sha1').update(`blob ${bytes.length}\0`).update(
 const transient=error=>error.status===0||error.status===409||[429,500,502,503,504].includes(error.status);
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
+// Emit only enumerated labels, never server text (which may echo uploaded data).
+export function safeGithubError(payload){
+ const codes=new Set(['invalid','missing','missing_field','already_exists','unprocessable','custom','too_large']);
+ const resources=new Set(['Blob','Tree','Commit','Reference','Repository']);
+ const fields=new Set(['content','encoding','sha','tree','ref','base_tree','parents']);
+ const errors=Array.isArray(payload?.errors)?payload.errors:[];
+ const messages=[payload?.message,...errors.map(e=>e?.message)].filter(m=>typeof m==='string');
+ const labels=new Set();
+ for(const m of messages){
+  if(/(?:blob|file|content).{0,80}(?:too large|exceeds.{0,40}(?:size|limit)|larger than)/i.test(m))labels.add('blob-size-limit');
+  else if(/(?:request|body|payload).{0,80}(?:too large|exceeds.{0,40}(?:size|limit))/i.test(m))labels.add('request-size-limit');
+  else if(/^validation failed[.!]?$/i.test(m))labels.add('validation-failed');
+  else if(/^(?:invalid|unsupported) encoding[.!]?$/i.test(m))labels.add('invalid-encoding');
+ }
+ return {machineCode:[...new Set(errors.map(e=>e?.code).filter(c=>codes.has(c)))].join(',')||'unclassified',messageKinds:[...labels],resources:[...new Set([payload?.resource,...errors.map(e=>e?.resource)].filter(r=>resources.has(r)))],fields:[...new Set([payload?.field,...errors.map(e=>e?.field)].filter(f=>fields.has(f)))]};
+}
+
 // Publish all checkpoint files in one commit. Retry against the latest branch,
 // preserving unrelated browser uploads; never force-update a ref or replace
 // a checkpoint that another writer changed while this process was running.
@@ -12,11 +29,12 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
  let queue=Promise.resolve(),cachedSnapshot=null;
  async function request(path,method='GET',body,metadata={}){
   const stage=path==='/git/blobs'?'blob-upload':path==='/git/trees'?'tree-create':path==='/git/commits'?'commit-create':path.startsWith('/git/refs/')?'ref-update':'read';
-  const byteSize=stage==='blob-upload'&&body?.encoding==='base64'?Buffer.byteLength(body.content||'','base64'):undefined;
-  const diagnostic=(status,confirmation,requestId,machineCode)=>{const safe={stage,status,confirmation,operation:method,...metadata,...(byteSize!==undefined?{byteSize}:{}),...(requestId?{requestId}:{}),...(machineCode?{machineCode}:{})};onDiagnostic(safe);return safe};
+  const wire=body?JSON.stringify(body):undefined;
+  const byteSize=stage==='blob-upload'?Buffer.byteLength(body.content||'',body.encoding==='base64'?'base64':'utf8'):undefined;
+  const diagnostic=(status,confirmation,requestId,details)=>{const safe={stage,status,confirmation,operation:method,...metadata,...(byteSize!==undefined?{byteSize,encoding:body.encoding,requestBytes:Buffer.byteLength(wire)}:{}),...(requestId?{requestId}:{}),...details};onDiagnostic(safe);return safe};
 
   let response;
-  try{response=await fetcher(root+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Cache-Control':'no-cache',...(body?{'Content-Type':'application/json'}:{})},cache:'no-store',body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(25000)});}
+  try{response=await fetcher(root+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Cache-Control':'no-cache',...(body?{'Content-Type':'application/json'}:{})},cache:'no-store',body:wire,signal:AbortSignal.timeout(25000)});}
   catch{const error=Error(`GitHub 云端台账网络响应未确认（${method} ${path.split('?')[0]}）`);error.status=0;error.diagnostic=diagnostic(0,'unconfirmed');throw error;}
   if(!response.ok){
    const error=Error(`GitHub 云端台账 HTTP ${response.status}（${method} ${path.split('?')[0]}）`);
@@ -25,8 +43,8 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
    const id=response.headers?.get('x-github-request-id');
    const safeId=id&&/^[a-z0-9:-]{1,100}$/i.test(id)?id:undefined;
    if(safeId)error.message+='；请求编号 '+safeId;
-   let machineCode='unclassified';try{const payload=await response.json();const known=new Set(['invalid','missing','missing_field','already_exists','unprocessable','custom']);const codes=(payload.errors||[]).map(x=>x?.code).filter(x=>known.has(x));if(codes.length)machineCode=[...new Set(codes)].join(',')}catch{}
-   error.diagnostic=diagnostic(response.status,'rejected',safeId,machineCode);
+   let details={machineCode:'unclassified'};try{details=safeGithubError(await response.json())}catch{}
+   error.diagnostic=diagnostic(response.status,'rejected',safeId,details);
    if(stage==='blob-upload')error.message+='；阶段 blob-upload；字节 '+byteSize+'；请求已拒绝，未确认提交';
    throw error;
   }
@@ -53,8 +71,28 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
  async function readJSON(name){
   const current=await snapshot(),sha=current.files.get(name)||null;observed.set(name,sha);
   if(!sha)return null;
-  const blob=await read('/git/blobs/'+sha);
-  return {sha,value:JSON.parse(Buffer.from(blob.content,'base64').toString('utf8'))};
+  return readBlobJSON(sha);
+ }
+ async function readBlobJSON(sha){
+  const blob=await read('/git/blobs/'+sha),bytes=Buffer.from(blob.content,'base64');
+  if(blobSha(bytes)!==sha)throw Error('GitHub 读取文件字节校验失败，停止使用未确认台账');
+  return {sha,value:JSON.parse(bytes.toString('utf8'))};
+ }
+ async function readJSONAt(name,commitSha){
+  if(!/^[a-f0-9]{40}$/.test(commitSha||''))throw Error('GitHub 历史提交编号无效');
+  const commit=await read('/git/commits/'+commitSha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');
+  if(tree.truncated)throw Error('GitHub 历史目录清单不完整');
+  const entry=tree.tree.find(f=>f.type==='blob'&&f.path===name);
+  return entry?readBlobJSON(entry.sha):null;
+ }
+ async function verifyWrite(entries,commitSha){
+  const commit=await read('/git/commits/'+commitSha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');
+  if(tree.truncated)throw Error('GitHub 保存确认目录不完整');
+  const current=await snapshot(),files=new Map(tree.tree.filter(e=>e.type==='blob').map(e=>[e.path,e.sha]));
+  for(const e of entries){const expected=blobSha(Buffer.from(e.bytes??JSON.stringify(e.value)));
+   if(files.get(e.path)!==expected||current.files.get(e.path)!==expected)throw Error('GitHub 保存回读字节校验未确认');
+  }
+  return {sha:commitSha,files:entries.length,confirmed:true};
  }
  function write(entries,message='Cloud monitor checkpoint'){
   // Copy at submission time, so queued writes cannot observe later mutations.
@@ -77,7 +115,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     for(const e of changes){
      if(e.sha===(current.files.get(e.path)||null))continue;
      if(e.remove)tree.push({path:e.path,mode:'100644',type:'blob',sha:null});
-     else if(e.bytesInput||e.bytes.length>512*1024){if(!uploaded.has(e.sha)){const content=e.bytes.toString('base64'),fileCategory=e.path==='vault.json'?'encrypted-ledger':e.path==='dashboard.json'?'encrypted-dashboard':e.path.startsWith('public-dashboard.')?'public-dashboard':e.path.startsWith('reports/')?'report-asset':'other';const blob=await request('/git/blobs','POST',{encoding:'base64',content},{fileCategory,encodedBytes:Buffer.byteLength(content)});if(blob.sha!==e.sha)throw Error('GitHub 文件校验未通过，停止提交以保护原台账');uploaded.add(e.sha);}tree.push({path:e.path,mode:'100644',type:'blob',sha:e.sha});}
+     else if(e.bytesInput||e.bytes.length>512*1024){if(!uploaded.has(e.sha)){const encoding=e.bytesInput?'base64':'utf-8',content=e.bytes.toString(e.bytesInput?'base64':'utf8'),fileCategory=e.path==='vault.json'?'encrypted-ledger':e.path==='dashboard.json'?'encrypted-dashboard':e.path.startsWith('public-dashboard.')?'public-dashboard':e.path.startsWith('reports/')?'report-asset':'other';const blob=await request('/git/blobs','POST',{encoding,content},{fileCategory,encodedBytes:Buffer.byteLength(content)});if(blob.sha!==e.sha)throw Error('GitHub 文件校验未通过，停止提交以保护原台账');uploaded.add(e.sha);}tree.push({path:e.path,mode:'100644',type:'blob',sha:e.sha});}
      else tree.push({path:e.path,mode:'100644',type:'blob',content:e.bytes.toString('utf8')});
     }
     const nextTree=await request('/git/trees','POST',{base_tree:current.tree,tree});
@@ -97,5 +135,5 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
    }
   }
  }
- return {request,readJSON,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
+ return {request,readJSON,readJSONAt,verifyWrite,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
 }

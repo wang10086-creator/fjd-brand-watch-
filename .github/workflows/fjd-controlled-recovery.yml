@@ -1,0 +1,38 @@
+name: 受控恢复 2026-10-22 正式日报
+on:
+  push:
+    branches: [main]
+    paths: [cloud/recovery-request.json]
+permissions:
+  contents: write
+  pages: write
+  actions: write
+concurrency:
+  group: fjd-cloud-monitor
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 准备原日报图表依赖
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+      - name: 原生产完整保存与截止前草稿核验（不检索不发送）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FJD_OPERATION: save-only
+        run: node cloud/runner.mjs
+      - name: 使用原幂等回执恢复一次今日正式日报
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
+          FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          FJD_OPERATION: recover-digest
+        run: node cloud/runner.mjs

@@ -799,3 +799,38 @@ work. A regression covers legacy imageAnalysis.status=compared plus a future ret
   Browser fixed-report fixtures now explicitly construct a confirmed saved draft.
   During browser regression a misplaced rotation call in public scan import caused
   p-is-not-defined; removed before publication, retaining controls regression.
+
+## 2026-10-22 production checkpoint and bounded report recovery
+
+- Affected path: runner checkpoint -> Git Data blob/tree/commit/ref -> draft proof ->
+  frozen report -> Python Notion/Feishu delivery. Public gzip/raw readers remain.
+- Existing production run 39733570808 rejected a public-dashboard blob (45,717,294
+  original bytes; 60,956,392 base64 bytes). Previous logs discarded top-level API
+  messages, so the historical 422 cause is not proven. No claim of a GitHub file
+  size limit follows from those bytes alone.
+- JSON values now upload as official GitHub UTF-8 blobs; explicitly binary bytes
+  (gzip and report PNGs) still use base64. Local byte SHA checks and atomic tree,
+  non-force ref updates, competing-writer detection and saveBlocked are retained.
+  Diagnostics add UTF-8/base64, actual JSON request size, and enumerated message,
+  resource and field labels; never upload bodies or raw API error strings.
+- The original data-cloud checkpoint is read by immutable commit SHA and its blob
+  bytes are rehashed. Recovery compares its encrypted draft to the fixed existing
+  checksum/time/checkpoint receipt, then uses the ordinary freezeReport checks.
+  Current post-cutoff evidence is never used to rebuild the report or old checksum.
+- One dated recovery request triggers the original repository's production recovery
+  workflow. It shares fjd-cloud-monitor concurrency with scheduled scans/images.
+  save-only confirms all five checkpoint paths by remote tree/blob hashes and writes
+  a safe receipt. recover-digest requires that same run/commit receipt, validates
+  the source again, checkpoints the formal report, then calls existing delivery.
+  Both modes exit before query configuration, scanning or visual backfill. The
+  workflow is triggered only by changes to its dated request, not ordinary commits.
+  Same-day checks prevent this request from being used for a later day's report.
+- sent/sending/uncertain receipts stop recovery; the existing Python daily sending
+  checkpoint and idempotency key are shared with scheduled delivery. Any ambiguous
+  send remains blocked. Only the configured existing webhook is used. Recovery
+  does not perform historical deletion housekeeping or process other pending days.
+- Regression: Unicode/escaped/lone-surrogate JSON bytes; gzip/raw equivalence; SHA
+  mismatch; rejected422 creates no checkpoint; immutable historical reads; safe
+  error labels; exact-source/cutoff/receipt guards; runner422 does not seal, scan or
+  spawn delivery. Existing Node/Python and fixed-report/navigation browser checks
+  are required. Production verification and final receipts are recorded after run.
