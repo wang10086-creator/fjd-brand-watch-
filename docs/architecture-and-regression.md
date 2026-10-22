@@ -932,3 +932,34 @@ Final production evidence (2026-10-22 UTC):
 - Historical REST422 cause remains unclassified; native Git publication is proven
   successful for the exact full production checkpoint that UTF-8 REST rejected.
   We do not assert a documented 50MB limit or that UTF-8 alone fixes the problem.
+
+
+## Browser review upload and Base entry (2026-10-22)
+
+- A saved browser review is distinct from cloud acceptance and Feishu workflow
+  acceptance. A real initial review was visible on the user's device at 18:49
+  Beijing while the cloud still showed its 18:33 connection check and zero Base
+  queue items. No cloud workflow had received that review. The originating local
+  browser is unavailable to this session, so its exact credential state cannot
+  be independently inspected.
+- Keep the browser's private review and append-only event intact. Saving now
+  explicitly says whether a browser connection is missing, and pending reviews
+  have a persistent connection/retry entry on every workbench page and the Base
+  panel. The connection page can upload the already saved review; a second human
+  verdict is unnecessary. Existing session-only credential storage is retained.
+- For reviews of leads already in the cloud, submit the encrypted review
+  operation instead of requiring a full workspace migration. New local leads or
+  pending search events retain full migration. Apply sequential reviews in time
+  order, in batches of five, preserving private review records while omitting
+  generated chart images from transport. Cloud event IDs acknowledge receipt;
+  neither Notion receipts nor remembered browser queue IDs prove cloud receipt.
+  A failed or interrupted submission can retry the same immutable event IDs.
+- Flow remains local durable save -> encrypted GitHub dispatch -> validated
+  cloud review -> private Base outbox -> Feishu workflow. The original OIM-0001
+  protection, per-lead notification removal, and daily Feishu group report
+  configuration are unchanged. No synthetic review is sent to production.
+- Regression cases exercise disconnected saves, encrypted review dispatch through
+  backend validation and outbox enqueue, ordered stage transitions, lost-submit
+  retry, cloud acknowledgements, and new-lead migration. Live row creation still
+  requires the original device's saved review to be uploaded; do not describe
+  endpoint configuration or a mocked dispatch as a verified Feishu write.

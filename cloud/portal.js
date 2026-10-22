@@ -1,4 +1,4 @@
-import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261021-cycle-r2';
+import {verifyBrowserSync,cloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261022-review-sync-r1';
 import {loadState,persist,flush} from '../storage.js?v=20261020-review';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false;
 const status=text=>$('#status').textContent=text;
@@ -12,6 +12,7 @@ $('#verify-browser').onclick=()=>perform(async()=>{await connect();await verifyB
 $('#check').onclick=()=>perform(()=>send('check'));
 $('#migrate').onclick=()=>perform(async()=>{const state=await loadState();if(!state.config||!state.monitor)throw Error('未找到当前网站的完整台账，请先打开原网站恢复记录');await send('migrate',{state:migrationState(state)})});
 $('#read').onclick=()=>perform(async()=>{await connect();const state=await loadState();await refreshCloud(state);persist(state);await flush();status('云端记录已保存到当前浏览器，手动检索仍在网页执行。返回监控网站即可查看。')});
+$('#submit-reviews').onclick=()=>perform(async()=>{await connect();const state=await loadState();if(!state.monitor)throw Error('未找到本机处理记录，请在保存处理意见的同一浏览器打开此页');await syncArchive(state,{force:true});persist(state);const saved=await flush();if(!saved?.fullOK)throw Error('同步状态未能保存，请返回工作台检查');const reviewSync=reviewSyncStatus(state);status(reviewSync.message||'云端已接收本机处理记录。飞书入表请以台账实际记录为准。');});
 $('#scan').onclick=()=>location.href='../#tasks';
 $('#sync').onclick=()=>perform(()=>send('sync'));
 $('#forget').onclick=()=>{actionError='';sessionStorage.removeItem('fjd-permission-check');refreshCloudSnapshot();sessionStorage.removeItem('fjd-cloud-password');sessionStorage.removeItem('fjd-cloud-github');$('#password').value='';$('#github-token').value='';showCredentials();status('已清除本会话凭据；云端定时计划未删除。')};
