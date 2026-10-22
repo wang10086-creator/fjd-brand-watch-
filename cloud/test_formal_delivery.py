@@ -13,6 +13,17 @@ def fixture():
     e=copy.deepcopy(EVENT);e.update(day=DAY,at=DAY+'T09:20:00+08:00',reportVersion='fixed-v1')
     return {'parentId':'parent','publicUrl':'https://public.notion.site/parent','reportPolicy':{'version':1,'firstDay':DAY},'digestDay':DAY,'formalReports':{DAY:{'checksum':'fixed-hash','status':'pending','cycle':{'day':DAY},'chain':[e],'overview':e,'report':{'cohort':[{'key':'x','kind':'new','reviewStatus':'pending','snapshot':e['entries'][0]}],'items':[],'fresh':[1],'changed':[],'success':[1,2],'pendingFailures':[]}}}}
 class FormalTests(unittest.TestCase):
+    def test_disabled_notifications_keep_archive_and_history_without_any_group_send(self):
+        for operation in ('digest', 'test-digest', 'sync', 'check'):
+            s=fixture();s['notificationsEnabled']=False;s['botError']='old error'
+            s['pushes']={'old':{'status':'sent','at':'old-time'}}
+            original=copy.deepcopy(s['pushes']);store=Store();sent=[]
+            deliver(s,operation,lambda:None,env=ENV,request=store.request,
+                    bot_request=lambda *args:sent.append(args),now=NOW)
+            self.assertEqual(sent,[]);self.assertEqual(s['pushes'],original)
+            self.assertFalse(s['botConfigured']);self.assertEqual(s['botError'],'')
+            if operation!='check':self.assertEqual(s['formalReceipts'][DAY]['status'],'archived')
+            self.assertIn('已关闭',s['pushStatus'])
     def test_archive_before_send_retry_keeps_same_body_date_and_prevents_duplicates(self):
         s=fixture();store=Store();sent=[];calls=[]
         def request(u,m,b):

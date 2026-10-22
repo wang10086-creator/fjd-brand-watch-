@@ -52,9 +52,10 @@ function buildReport(state,day,at){
 export function syncFormalReceipts(vault){for(const [day,r] of Object.entries(vault.state.monitor.formalReports||{})){verifyFormal(r);const d=vault.delivery.formalReceipts?.[day],p=vault.delivery.pushes?.[day];if(r.status==='published')continue;
  const previousStatus=r.status;
  if(d?.checksum&&d.checksum!==r.checksum||p?.checksum&&p.checksum!==r.checksum)throw Error('正式日报发布回执校验值不一致');
- r.status=d?.status==='archived'&&p?.status==='sent'?'published':d?.status==='failed'||['failed','uncertain'].includes(p?.status)?'failed':p?.status==='sending'?'publishing':'pending';
+ const archiveOnly=vault.delivery.notificationsEnabled===false;
+ r.status=d?.status==='archived'&&(archiveOnly||p?.status==='sent')?'published':d?.status==='failed'||!archiveOnly&&['failed','uncertain'].includes(p?.status)?'failed':!archiveOnly&&p?.status==='sending'?'publishing':'pending';
  if(r.status!==previousStatus)r.statusAt=new Date().toISOString();
- if(r.status==='published'){r.publishedAt=p.sentAt||p.at;r.receipt={archiveAt:d.at,pushAt:r.publishedAt,checksum:r.checksum};}
+ if(r.status==='published'){r.publishedAt=archiveOnly?d.at:p.sentAt||p.at;r.receipt={archiveAt:d.at,...(archiveOnly?{notification:'disabled'}:{pushAt:r.publishedAt}),checksum:r.checksum};}
 }}
 
 export function updateCycleDraft(state,at=new Date().toISOString()){

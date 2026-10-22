@@ -1,5 +1,33 @@
 # Architecture and regression record
 
+## 2026-10-22 — initial review to Feishu Base, notifications disabled
+
+The existing encrypted browser migration/review flow now queues only evidenced
+initial-to-IP suspected transitions in the original private vault. New review IDs
+are compared before migration; ordinary search results and unchanged historic
+cloud reviews never become table writes. The backend reads a separate Actions
+secret, FEISHU_BASE_REVIEW_WEBHOOK; no live endpoint is in browser code or logs.
+The workflow contract and setup are in docs/feishu-initial-review.md.
+
+Persist sending state before POST; a rejected checkpoint blocks dispatch. Record
+workflow acceptance separately from actual row-write confirmation. Lost responses,
+5xx and interrupted sends remain uncertain for manual table verification; bounded
+429 retries cool down. Duplicate events and concurrent same-source requests are
+suppressed. Stable source IDs hash the canonical URL rather than per-device IDs.
+Search market is never presented as evidenced operator location. Public status
+contains aggregate counts, never payloads or private review bases.
+
+The user's latest instruction disables group notifications in config, including
+format tests. Old push receipts stay intact; a newly archived formal report can be
+published with an explicit disabled-notification receipt and no fabricated send.
+The queue has no extra scheduler and runs through the existing serialized jobs.
+The workbench's delivery card displays table acceptance and pending checks.
+
+Regression covers transition filtering, stable IDs, source completeness, privacy,
+save-before-send, duplicates, unknown receipts, throttling, notification suppression
+and immutable archive-only publication. Production endpoint configuration and a
+real workbench-to-table write remain separate verification steps.
+
 ## Data flow and compatibility boundaries
 - Browser: app.js -> model/buildPlans -> search-engine -> monitor observation/review
   ledger -> report-chain immutable events -> storage IndexedDB/task journal.

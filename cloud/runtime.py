@@ -131,6 +131,11 @@ class UserClient:
 
 
 def digest(state, webhook, secret, checkpoint, request=http, now=None, test=False):
+    if state.get('notificationsEnabled') is False:
+        state['botConfigured'] = False
+        state['botError'] = ''
+        state['pushStatus'] = '群通知已关闭，仅同步台账'
+        return
     now = now or dt.datetime.now(BEIJING)
     day = state.get('digestDay') if state.get('reportPolicy') else now.astimezone(BEIJING).date().isoformat()
     if not day: return
