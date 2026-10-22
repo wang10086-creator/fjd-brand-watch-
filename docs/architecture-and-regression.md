@@ -963,3 +963,30 @@ Final production evidence (2026-10-22 UTC):
   retry, cloud acknowledgements, and new-lead migration. Live row creation still
   requires the original device's saved review to be uploaded; do not describe
   endpoint configuration or a mocked dispatch as a verified Feishu write.
+
+
+## Missing browser credential and encrypted review handoff (2026-10-22)
+
+- A production screenshot showed seven local review events and an unconnected
+  browser after the upload button. syncArchive intentionally returns false
+  without credentials for background callers, but the portal failed to reject
+  a missing GitHub token and rendered the blocked result as ordinary status.
+  Interactive submission and permission checks now validate both inputs before
+  clearing fields or touching the ledger, show an alert, and focus the missing
+  field. Export requires only the existing data password.
+- Add an encrypted review handoff for browsers without GitHub credentials. Read
+  the authenticated encrypted dashboard, retain local reviews, and export only
+  reviews absent from the cloud in chronological order. If the cloud does not
+  contain their source leads, export the existing compatible migration instead.
+  No workflow dispatch, source-record edit, cloud acceptance flag, or external
+  write occurs while preparing the file. The existing backend payload cipher
+  remains compatible; the JSON envelope contains ciphertext plus operation,
+  count, version and preparation time. Do not request the user's password in
+  chat or regenerate the production data password.
+- This fallback needs the original browser to generate/download the file. Once
+  supplied, a signed-in operator can use the existing GitHub workflow and inbox
+  without creating another browser token. Unwrap the envelope's payload when
+  dispatching; use its operation. Never put plaintext review notes in inputs,
+  logs, public files or messages. A downloaded file is not proof of receipt.
+  Existing cloud review validation, Feishu outbox guards and first-row protection
+  remain authoritative; daily group reports remain enabled.

@@ -18,6 +18,13 @@ async function currentHead(){
  try{return await headRequest}finally{headRequest=null}
 }
 export function cloudCredentials(){return {password:typeof sessionStorage==='undefined'?'':sessionStorage.getItem('fjd-cloud-password')||'',token:typeof sessionStorage==='undefined'?'':sessionStorage.getItem('fjd-cloud-github')||''}}
+export function requireCloudCredentials(credentials=cloudCredentials(),{token=true}={}){
+ const fail=(message,field)=>{throw Object.assign(Error(message),{field})};
+ if(!credentials.password)fail('请先填写已有的云端数据密码；本机处理记录尚未上传。','password');
+ if(credentials.password.length<12)fail('云端数据密码至少 12 个字符，请使用已有密码。','password');
+ if(token&&!credentials.token?.trim())fail('缺少 GitHub 同步凭据，本次尚未提交。可填写该凭据后重试，或点击“生成加密补传文件”使用免 GitHub 凭据方式。','github-token');
+ return credentials;
+}
 export function setCloudCredentials(password,token=''){if(password.length<12)throw Error('云端密码至少 12 个字符');sessionStorage.setItem('fjd-cloud-password',password);if(token)sessionStorage.setItem('fjd-cloud-github',token)}
 export async function publicCloudFile(name){
  if(!['status.json','dashboard.json','public-dashboard.json'].includes(name))throw Error('不允许的云端文件');
@@ -92,15 +99,29 @@ export function reviewSyncStatus(state,credentials=cloudCredentials()){
  return {pending,needsConnection,message:prefix+(needsConnection?'当前浏览器尚未连接同步权限，飞书台账还不会新增。请连接后补同步处理记录。':state.archive?.lastError?'同步未完成：'+state.archive.lastError:cloudRunning(state)?'云端任务排队或执行中；以云端接收和飞书实际入表为准。':'等待提交；可点击“补同步处理记录”重试。')};
 }
 export function reviewSavedMessage(state){const c=cloudCredentials();return !c.password||!c.token?'处理意见已保存在本机，尚未提交云端；请连接当前浏览器同步权限并补同步处理记录。':'处理意见已保存在本机，等待云端接收；同步状态和飞书实际入表结果请在运行中心查看。';}
-export async function sendReviews(state,{acceptedIds=state.publicEventIds||[]}={}){
- const events=pendingReviewEvents(state,acceptedIds).slice(0,5).map(e=>({...e,chartPng:undefined,reviewRecord:state.monitor.reviews.find(r=>r.id===e.id.slice(7))||e.reviewRecord}));
- if(!events.length)return false;
+function reviewTransferEvents(state,acceptedIds,limit=Infinity){
+ const events=pendingReviewEvents(state,acceptedIds).slice(0,limit).map(e=>({...e,chartPng:undefined,reviewRecord:state.monitor.reviews.find(r=>r.id===e.id.slice(7))||e.reviewRecord}));
  if(events.some(e=>!e.reviewRecord?.before||!e.reviewRecord?.after||e.reviewRecord.publicOnly))throw Error('本机处理记录缺少完整核查依据，请先解锁台账并检查原处理记录');
+ return events;
+}
+export async function sendReviews(state,{acceptedIds=state.publicEventIds||[]}={}){
+ const events=reviewTransferEvents(state,acceptedIds,5);if(!events.length)return false;
  await dispatch('review',await makePayload({events},{large:true}));return true;
+}
+export async function prepareReviewTransfer(state){
+ requireCloudCredentials(cloudCredentials(),{token:false});
+ const dashboard=await refreshCloud(state,{switchMode:!!state.cloudMode}),accepted=(dashboard.state.monitor.updateChain||[]).map(e=>e.id);
+ const events=reviewTransferEvents(state,accepted);if(!events.length)return null;
+ const cloudRows=new Set(dashboard.state.rows.map(r=>canonical(r.url)));
+ const operation=events.every(e=>e.entries?.[0]&&cloudRows.has(e.entries[0].key))?'review':'migrate';
+ const payload=await makePayload(operation==='review'?{events}:{state:migrationState(state)},{large:true});
+ if(new TextEncoder().encode(payload).length>20000000)throw Error('加密补传文件超过 20 MB，原记录保留；请先整理历史报告再导出');
+ // Only ciphertext and transport metadata leave the browser. No token is needed.
+ return {format:'fjd-encrypted-review-transfer',version:1,operation,eventCount:events.length,createdAt:new Date().toISOString(),payload:JSON.parse(payload)};
 }
 export async function saveCloudTask(state){await dispatch('sync',await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases}));state.cloudTaskDirty=false;}
 export async function verifyBrowserSync(){
- const c=cloudCredentials();if(!c.password||!c.token)throw Error('请先填写数据密码和仅限本仓库的 GitHub 同步凭据');
+ requireCloudCredentials();
  await readDashboard();
  const id=crypto.randomUUID(),payload=await makePayload({permissionProbe:id}),pointer=await uploadPayload(payload);
  await dispatch('check',JSON.stringify(pointer));

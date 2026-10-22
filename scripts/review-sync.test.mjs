@@ -6,7 +6,7 @@ import {appendReview} from '../report-chain.js';
 import {workflowValues,stageOf} from '../review.js';
 import {seal,unseal} from '../cloud/crypto.js';
 import {enqueueBaseReviews} from '../cloud/base-review.mjs';
-import {syncArchive,refreshCloudSnapshot,pendingReviewEvents,reviewSyncStatus,reviewSavedMessage} from '../cloud/client.js';
+import {syncArchive,refreshCloudSnapshot,pendingReviewEvents,reviewSyncStatus,reviewSavedMessage,requireCloudCredentials,prepareReviewTransfer} from '../cloud/client.js';
 
 const password='review-sync-test-password',start='2026-10-22T01:00:00.000Z';
 async function fixture({localOnly=false,actions=['suspected']}={}){
@@ -16,16 +16,17 @@ async function fixture({localOnly=false,actions=['suspected']}={}){
  const local=structuredClone(remote);local.cloudMode=true;local.publicEventIds=[];
  for(const [i,action] of actions.entries()){
   const at=new Date(Date.parse(start)+(i+1)*60000).toISOString(),before=structuredClone(local.rows[0]),form=new FormData();
-  form.set('workflowAction',action);form.set('note','PRIVATE review basis');form.set('handlingNode','legal');
+  form.set('workflowAction',action);form.set('note',i<2?'PRIVATE review basis':'PRIVATE review basis '+i);form.set('handlingNode','legal');
   Object.assign(local.rows[0],workflowValues(form,before,at),{reviewedAt:at,publicOnly:false});
   const review=recordReview(local.monitor,before,local.rows[0],at),event=appendReview(local.monitor,review);event.reviewRecord=review;event.chartPng='large chart omitted from transport';
  }
  if(localOnly)remote.rows=[];
  return {local,remote};
 }
-async function withCloud(remote,run,{credentials=true,failDispatch=false}={}){
+async function withCloud(remote,run,{credentials=true,failDispatch=false,withoutToken=false}={}){
  const priorFetch=globalThis.fetch,priorStorage=globalThis.sessionStorage,values=new Map(credentials?[['fjd-cloud-password',password],['fjd-cloud-github','TEST_ONLY']]:[]),calls=[];
  const runtime={phase:'ready',startedAt:new Date(Date.now()+1000).toISOString()},encrypted=await seal({ready:true,state:remote,revision:Date.now(),runtime},password,'dashboard');
+ if(withoutToken)values.delete('fjd-cloud-github');
  globalThis.sessionStorage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)};
  globalThis.fetch=async(url,opts={})=>{
   calls.push({url,opts});
@@ -94,4 +95,38 @@ test('a failed submission keeps the original review available for an encrypted r
 test('cloud receipt and Notion archival receipt do not replace each other in review status',()=>{
  const state={monitor:{updateChain:[{id:'review:one',type:'review',at:start},{id:'public-review',type:'review',publicOnly:true}]},archive:{receipts:{'review:one':{status:'synced'}}},publicEventIds:[]};
  assert.equal(pendingReviewEvents(state).length,1);state.publicEventIds=['review:one'];state.archive.receipts={};assert.equal(pendingReviewEvents(state).length,0);
+});
+
+test('interactive uploads identify the missing credential instead of reporting a normal completion',()=>{
+ assert.throws(()=>requireCloudCredentials({password:'',token:''}),e=>e.field==='password'&&/已有.*密码/.test(e.message));
+ assert.throws(()=>requireCloudCredentials({password,token:'  '}),e=>e.field==='github-token'&&/尚未提交/.test(e.message)&&/加密补传文件/.test(e.message));
+ assert.deepEqual(requireCloudCredentials({password,token:''},{token:false}),{password,token:''});
+});
+
+test('without a GitHub credential, an encrypted handoff preserves all seven private review updates and enqueues only the initial referral',async()=>{
+ const {local,remote}=await fixture({actions:['suspected','suspected','facts','facts','facts','facts','facts']});
+ // Each facts update changes its private basis while preserving the stage.
+ assert.equal(local.monitor.updateChain.length,7);
+ const original=structuredClone(local.monitor.reviews);
+ await withCloud(remote,async calls=>{
+  const transfer=await prepareReviewTransfer(local),text=JSON.stringify(transfer);
+  assert.equal(transfer.operation,'review');assert.equal(transfer.eventCount,7);
+  assert.ok(!text.includes('PRIVATE review basis'));assert.ok(!text.includes(password));assert.ok(!text.includes('TEST_ONLY'));
+  assert.equal(calls.filter(c=>['POST','PUT','PATCH'].includes(c.opts.method)).length,0);
+  const payload=await unseal(transfer.payload,password,'payload');assert.equal(payload.events.length,7);
+  applyReviews(remote,payload.events);assert.equal(remote.monitor.reviews.length,7);
+  const vault={state:remote};enqueueBaseReviews(vault,remote.monitor.reviews);assert.equal(Object.keys(vault.baseReview.items).length,1);
+  assert.deepEqual(local.monitor.reviews,original);assert.equal(pendingReviewEvents(local).length,7);
+  assert.notEqual(local.archive.syncState,'submitted');assert.notEqual(local.cloudService.phase,'queued');
+ },{withoutToken:true});
+});
+
+test('handoff excludes accepted reviews and does not export or resubmit already acknowledged events',async()=>{
+ const {local,remote}=await fixture();applyReviews(remote,local.monitor.updateChain);
+ await withCloud(remote,async calls=>{assert.equal(await prepareReviewTransfer(local),null);assert.equal(calls.filter(c=>c.opts.method==='POST').length,0);assert.equal(pendingReviewEvents(local).length,0);},{withoutToken:true});
+});
+
+test('an encrypted handoff carries a new source lead through the existing migration format',async()=>{
+ const {local,remote}=await fixture({localOnly:true});
+ await withCloud(remote,async calls=>{const transfer=await prepareReviewTransfer(local);assert.equal(transfer.operation,'migrate');const payload=await unseal(transfer.payload,password,'payload');assert.equal(payload.state.rows[0].url,local.rows[0].url);assert.equal(payload.state.monitor.reviews.length,1);assert.equal(calls.filter(c=>c.opts.method==='POST').length,0);},{withoutToken:true});
 });
