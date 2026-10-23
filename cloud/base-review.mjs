@@ -9,7 +9,7 @@ export function initialReviewTransfer(review){
  const last=after.rounds?.find(r=>r.number===after.round)?.events?.at(-1);
  return before.stage==='initial'&&after.stage==='ip'&&after.opinion==='suspected'&&
   before.round===after.round&&last?.action==='suspected'&&last.fromStage==='initial'&&
-  last.toStage==='ip'&&last.opinion==='suspected'&&last.at===review.at&&!!last.basis?.trim();
+  last.toStage==='ip'&&last.opinion==='suspected'&&last.at===review.at;
 }
 const day=value=>{const t=Date.parse(value);if(!Number.isFinite(t))throw Error('线索日期缺失，保留待核对');return new Date(t+8*3600000).toISOString().slice(0,10)};
 export function reviewPayload(state,review){

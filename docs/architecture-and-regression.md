@@ -1160,3 +1160,12 @@ of this change, and no real transfer ciphertext is added to source or fixtures.
   Before dispatching the guarded review operation, remove its payload from the
   step environment prelude and read the ephemeral event input inside the runner.
   Existing local FJD_PAYLOAD callers and scheduled operations remain supported.
+
+## 2026-10-23 optional handling basis
+User requested the handling-basis textarea be optional. Remove note-only required
+checks from shared browser/cloud workflow validation and legacy review input;
+keep stage, node, closure reason/measures, actual-completion confirmation and
+reopen-reason requirements. Existing round histories and evidence are not migrated.
+Initial-review notification eligibility no longer depends on nonempty basis text.
+UI labels explicitly mark optional; browser regression submits empty basis through
+both the failed-save rollback and successful initial transfer paths.

@@ -1,6 +1,6 @@
 export const outcomes={pending:'待核查',investigate:'继续核查 · 信息不足',authorized:'已排除 · 授权已核实',normal:'已排除 · 正常引用',irrelevant:'已排除 · 无关线索',escalate:'发现具体异常 · 提交法务',legacy:'已完成 · 旧记录结论'};
 export function outcomeOf(r){if(outcomes[r.reviewOutcome])return r.reviewOutcome;return {'授权已核实':'authorized','正常引用':'normal','无关 / 误报':'irrelevant','需法务评估':'escalate'}[r.decision]||({cleared:'legacy',escalated:'escalate',reviewing:'investigate'}[r.status])||'pending';}
-export function reviewValues(form,previous,at){if(form.has('workflowAction'))return workflowValues(form,previous,at);const outcome=form.get('reviewOutcome');if(!outcomes[outcome])throw Error('请选择有效的处理结论');const note=String(form.get('note')||'').trim();if(['authorized','normal','irrelevant','escalate'].includes(outcome)&&!note)throw Error('排除线索或提交法务时，请写明具体依据');if(form.get('pageState')==='removed'&&!note)throw Error('记录页面已移除时，请填写查看时间及依据');return {reviewOutcome:outcome,status:['authorized','normal','irrelevant','legacy'].includes(outcome)?'cleared':outcome==='escalate'?'escalated':outcome==='investigate'?'reviewing':'pending',decision:{authorized:'授权已核实',normal:'正常引用',irrelevant:'无关 / 误报',escalate:'需法务评估',legacy:previous.decision||'旧记录已完成'}[outcome]||'待判定',confirmedIssue:outcome==='escalate'?true:outcome==='legacy'?!!previous.confirmedIssue:false,note};}
+export function reviewValues(form,previous,at){if(form.has('workflowAction'))return workflowValues(form,previous,at);const outcome=form.get('reviewOutcome');if(!outcomes[outcome])throw Error('请选择有效的处理结论');const note=String(form.get('note')||'').trim();return {reviewOutcome:outcome,status:['authorized','normal','irrelevant','legacy'].includes(outcome)?'cleared':outcome==='escalate'?'escalated':outcome==='investigate'?'reviewing':'pending',decision:{authorized:'授权已核实',normal:'正常引用',irrelevant:'无关 / 误报',escalate:'需法务评估',legacy:previous.decision||'旧记录已完成'}[outcome]||'待判定',confirmedIssue:outcome==='escalate'?true:outcome==='legacy'?!!previous.confirmedIssue:false,note};}
 
 // Workflow fields are additive. Reading a legacy record never mutates it.
 export const stages={initial:'待IP对接人初核',ip:'待IP部门复核',handling:'待后续处置',closed:'已结案'};
@@ -38,7 +38,7 @@ export function publicWorkflow(w){
  return {version:1,stage:w.stage,opinion:w.opinion,node:w.node||'',round:w.round,updatedAt:w.updatedAt||null,closure:close(w.closure),rounds:(w.rounds||[]).map(r=>({number:r.number,openedAt:r.openedAt||null,closedAt:r.closedAt||null,closure:close(r.closure),events:(r.events||[]).map(e=>Object.fromEntries(['id','at','action','fromStage','toStage','node','opinion','round'].filter(k=>e[k]!==undefined).map(k=>[k,e[k]])))}))};
 }
 function readClosure(form,type,note,at){
- if(!note)throw Error('结案必须填写处理依据或实际完成依据');
+
  if(type==='excluded'){
   const reason=form.get('closureReason'),explanation=String(form.get('closureExplanation')||'').trim();
   if(!['authorized','normal','irrelevant','other'].includes(reason))throw Error('请选择排除侵权嫌疑的结案原因');
@@ -62,12 +62,12 @@ export function workflowValues(form,previous,at=new Date().toISOString()){
   stage='initial';opinion='pending';node='';closure=null;
  }else if(action==='suspected'){
   if(!['initial','ip'].includes(stage))throw Error('当前阶段不能执行该处理意见');
-  if(!note)throw Error('疑似侵权转交前，请填写具体处理依据');
+
   if(stage==='initial'){stage='ip';node=''}else{stage='handling';node=form.get('handlingNode');if(!handlingNodes[node])throw Error('请选择后续处理节点')}
   opinion='suspected';
  }else if(action==='insufficient'){
   if(stage!=='initial')throw Error('信息不足仅适用于IP对接人初核阶段');
-  if(!note)throw Error('请记录待补充的信息及处理说明');opinion='insufficient';
+  opinion='insufficient';
  }else if(action==='exclude'){
   if(!['initial','ip'].includes(stage))throw Error('当前阶段请通过结案操作记录排除判断');
   closure=readClosure(form,'excluded',note,at);stage='closed';opinion='exclude';
@@ -78,9 +78,9 @@ export function workflowValues(form,previous,at=new Date().toISOString()){
   // Auxiliary observations never change an opinion, stage, node or closure.
  }else if(action==='update'){
   if(stage!=='handling'&&stage!=='closed')throw Error('请选择当前阶段的处理意见');
-  if(stage==='handling'){node=form.get('handlingNode');if(!handlingNodes[node])throw Error('请选择处理节点');if(node!==old.node&&!note)throw Error('调整处理节点时，请填写转交依据')}
+  if(stage==='handling'){node=form.get('handlingNode');if(!handlingNodes[node])throw Error('请选择处理节点');}
  }else throw Error('请选择有效的处理意见');
- if(form.get('pageState')==='removed'&&!note)throw Error('记录页面已移除时，请填写查看时间及依据');
+
  const w=structuredClone(old);delete w.legacy;w.rounds||=[];
  if(!w.rounds.length)w.rounds.push({number:old.round,openedAt:null,...(old.stage==='closed'?{closedAt:old.closure?.at||null,closure:structuredClone(old.closure)}:{}),legacy:legacyBaseline(previous),events:[]});
  if(action==='reopen'){w.round=old.round+1;w.rounds.push({number:w.round,openedAt:at,events:[]})}
@@ -107,7 +107,7 @@ export function assertWorkflowTransition(before,after){
  const allowed={initial:['initial','ip','closed'],ip:['ip','handling','closed'],handling:['handling','closed'],closed:['closed','initial']};if(!allowed[a.stage].includes(b.stage))throw Error('处理阶段不能跳转');
  if(b.stage==='handling'&&!handlingNodes[b.node])throw Error('待后续处置必须指定处理节点');
  if(b.stage==='closed'&&a.stage!=='closed'){
-  if(!b.closure?.basis?.trim())throw Error('结案必须有实际依据');if(!['excluded','completed'].includes(b.closure.type))throw Error('新结案必须指定排除或处置完成类型');
+  if(!['excluded','completed'].includes(b.closure?.type))throw Error('新结案必须指定排除或处置完成类型');
   if(b.closure.type==='completed'&&(a.stage!=='handling'||b.closure.reason!=='completed'||!b.closure.measures?.length||b.closure.completionConfirmed!==true))throw Error('处置完成必须来自后续处置并记录具体措施');
   if(b.closure.type==='excluded'&&!['authorized','normal','irrelevant','other'].includes(b.closure.reason))throw Error('排除结案原因无效');
  }

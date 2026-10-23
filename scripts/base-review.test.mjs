@@ -13,9 +13,9 @@ import {readFile} from 'node:fs/promises';
 // Deliberately fake credential, never a production webhook.
 const webhook='https://fjdynamics.feishu.cn/base/workflow/webhook/event/test';
 const at='2026-10-22T09:00:00.000Z';
-function fixture(action='suspected'){
+function fixture(action='suspected',note='private-review-basis'){
  const row={id:'local-id',url:'https://example.com/item',title:'Public title',snippet:'Public excerpt',seller:'Public store',platform:'amazon',country:'SG',firstSeen:'2026-10-21T17:00:00Z',checkedAt:at,status:'pending',note:''};
- const form=new FormData();form.set('workflowAction',action);form.set('note','private-review-basis');
+ const form=new FormData();form.set('workflowAction',action);form.set('note',note);
  const after={...row,...workflowValues(form,row,at),reviewedAt:at};
  const monitor=initMonitor(null,[row],at);monitor.updateChain=[];
  const review=recordReview(monitor,row,after,at);
@@ -135,3 +135,5 @@ test('the runtime center shows per-event failures and acceptance without asserti
  assert.match(baseReviewReceiptView(state),/工作流已受理，实际入表待核验/);
  state.baseReviewReceipts['review:one'].status='uncertain';assert.match(baseReviewReceiptView(state),/先核对台账/);
 });
+
+test('optional empty basis preserves initial-to-IP notification eligibility',()=>{const {vault,review}=fixture('suspected','');assert.equal(initialReviewTransfer(review),true);enqueueBaseReviews(vault,[review]);assert.equal(Object.keys(vault.baseReview.items).length,1);});
