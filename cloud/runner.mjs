@@ -1,3 +1,4 @@
+import {normalizePublicReviews,mergePublicBusinessState} from './public-business.mjs';
 import {activateReportCycles,updateCycleDraft,persistDraftProofs,restoreCycleDrafts,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
 import {cycleAt,cycleForDay,bjDay,addDay} from '../report-cycle.js';
 import {applyImageUpdates} from './image-updates.js';
@@ -148,6 +149,11 @@ async function main(){
   return;
  }
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
+ if(payload.publicAccess===true){
+  const allowed={review:['publicAccess','events','retryEventIds'],migrate:['publicAccess','state'],sync:['publicAccess','imageUpdates','priorityUpdates'],scan:['publicAccess','site','watchOnly'],'site-retry':['publicAccess','site','watchOnly']};
+  if(!allowed[op]||Object.keys(payload).some(key=>!allowed[op].includes(key)))throw Error('不支持的公开同步内容，未修改原台账');
+  if(payload.site&&(!/^[a-z0-9-]+$/.test(payload.site.platform||'')||!/^[a-z0-9.-]*$/.test(payload.site.domain||'')))throw Error('目标网站格式不正确');
+ }
  if(op==='images'){
   const protectedState=()=>JSON.stringify({rows:vault.state.rows.map(r=>Object.fromEntries(['id','url','imageUrl','imageAnalysis','reviewWorkflow','priorityV2','reviewOutcome','status','decision','confirmedIssue','note','reviewedAt','imageMatch','evidence','watch','needsRecheck','firstSeen','lastSeen'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]))),monitor:vault.state.monitor,history:vault.state.history,config:vault.state.config,schedule:vault.state.schedule});
   const localMinute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
@@ -166,7 +172,7 @@ async function main(){
  }
  if(op==='review'){
   vault.lastError='';vault.runtime={phase:'running',operation:op,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
-  try{const result=await submitReviewEvents(vault,payload.events,{webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint,retryEventIds:payload.retryEventIds||[]});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
+  try{const events=payload.publicAccess===true?normalizePublicReviews(vault.state,payload.events):payload.events;const result=await submitReviewEvents(vault,events,{webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint,retryEventIds:payload.retryEventIds||[]});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
   catch(error){if(saveBlocked)throw error;vault.lastError=error.message||'复核同步未完成，原记录保留'}
   vault.runtime={...vault.runtime,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString(),lastError:vault.lastError};await checkpoint();
   try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()})}catch{console.warn('本次复核状态已保留，网站公开快照发布待重试')}
@@ -174,7 +180,7 @@ async function main(){
   console.log('本次复核同步结束；飞书工作流受理不等于实际入表完成。');if(vault.lastError)process.exitCode=1;return;
  }
  for(const run of vault.state.history.filter(r=>r.running)){run.running=false;run.cancelled=true;run.endedAt=new Date().toISOString();recordRun(vault.state.monitor,run);appendRun(vault.state.monitor,run,vault.state.rows);}
- if(op==='migrate'){const priorReviews=new Set(vault.state.monitor.reviews.map(r=>r.id));vault.state=mergeState(vault.state,payload.state);enqueueBaseReviews(vault,vault.state.monitor.reviews.filter(r=>!priorReviews.has(r.id)));vault.lastError='';await checkpoint();}
+ if(op==='migrate'){const priorReviews=new Set(vault.state.monitor.reviews.map(r=>r.id));vault.state=payload.publicAccess===true?mergePublicBusinessState(vault.state,payload.state):mergeState(vault.state,payload.state);enqueueBaseReviews(vault,vault.state.monitor.reviews.filter(r=>!priorReviews.has(r.id)));vault.lastError='';await checkpoint();}
  if(op==='sync'&&payload.imageUpdates){applyImageUpdates(vault.state,payload.imageUpdates);await checkpoint();}
  if(op==='sync'&&payload.priorityUpdates){applyPriorityUpdates(vault.state,payload.priorityUpdates);await checkpoint();}
  if(op==='check'&&/^[a-f0-9-]{36}$/.test(payload.permissionProbe||''))vault.browserPermissionCheck={id:payload.permissionProbe,at:new Date().toISOString(),repositoryWrite:true,payloadDecrypted:true,workflowTriggered:true};

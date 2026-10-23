@@ -4,6 +4,7 @@ import {gunzipSync,createGunzip} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {seal,unsealCompressed} from '../cloud/crypto.js';
 import {validateDashboardCompressed} from './dashboard-stream.mjs';
+import {publicDashboardBytes} from './public-dashboard.mjs';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
@@ -17,8 +18,8 @@ function connectionToken(value){
  if(!token||!/^[A-Za-z0-9_]+$/.test(token))throw Object.assign(issue(400,'请粘贴 GitHub 生成的完整个人访问令牌（Token），不要填写账号密码、仓库地址或令牌名称。'),{code:'github-token-format',field:'token'});
  return token;
 }
-export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{}}={}){
- const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,setupInProgress=false;
+export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{},accessMode='accounts'}={}){
+ const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const allowedOrigin=origin=>!!origin&&(origin===siteOrigin||origin===selfOrigin||testOrigins.includes(origin));
  function limit(key,max,ms){const t=now();for(const [k,v]of limiter)if(v.until<=t)limiter.delete(k);const value=limiter.get(key)||{count:0,until:t+ms};value.count++;limiter.set(key,value);if(value.count>max||limiter.size>3000)throw issue(429,'请求过于频繁，请稍后重试')}
@@ -41,27 +42,43 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   };
   if(fresh)return load();dashboardRead=load();try{return await dashboardRead}finally{dashboardRead=null}
  }
- function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)],user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'请登录工作台，原本机记录保留');return {token,name:session.name,role:user.role}}
+ async function readPublicDashboard(){
+  if(publicCache?.until>now())return publicCache.body;if(publicRead)return publicRead;
+  publicRead=(async()=>{const config=store.read().config;const [feed,status]=await Promise.all([github('/repos/'+REPO+'/contents/public-dashboard.json.gz?ref='+BRANCH,{token:config.token,raw:true}),github('/repos/'+REPO+'/contents/status.json?ref='+BRANCH,{token:config.token,raw:true})]);const body=await publicDashboardBytes(Buffer.from(await feed.arrayBuffer()),await status.json());publicCache={until:now()+30000,body};return body})();
+  try{return await publicRead}finally{publicRead=null}
+ }
+ function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)];if(session?.role==='public'&&accessMode==='public'&&state.config&&session.expiresAt>now())return {token,name:session.name,role:'public'};
+  const user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'同步会话已过期，请重新连接；原本机记录保留');return {token,name:session.name,role:user.role}}
  async function session(name){const token=randomBytes(32).toString('base64url'),expiresAt=now()+TTL;await store.mutate(s=>{for(const [k,v]of Object.entries(s.sessions))if(v.expiresAt<=now())delete s.sessions[k];if(Object.keys(s.sessions).length>=2000)throw issue(429,'登录会话过多，请管理员清理');s.sessions[hash(token)]={name,expiresAt}});return {token,expiresAt,user:safeUser(name,store.read().users[name])}}
+ async function publicSession(){const token=randomBytes(32).toString('base64url'),expiresAt=now()+86400000;await store.mutate(s=>{for(const [k,v]of Object.entries(s.sessions))if(v.expiresAt<=now())delete s.sessions[k];if(Object.keys(s.sessions).length>=2000)throw issue(429,'同步会话繁忙，请稍后重试');s.sessions[hash(token)]={name:'public-'+randomBytes(12).toString('hex'),role:'public',expiresAt}});return {token,expiresAt,user:{name:'共享协作',role:'public'}}}
  async function body(req,max=65536){const parts=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw issue(413,'提交内容过大，原记录保留');parts.push(chunk)}let bytes=Buffer.concat(parts);if(req.headers['content-encoding']==='gzip'){try{bytes=gunzipSync(bytes,{maxOutputLength:64*1024*1024})}catch{throw issue(400,'提交内容解压失败')}}else if(req.headers['content-encoding'])throw issue(400,'不支持的内容编码');try{return JSON.parse(bytes.toString())}catch{throw issue(400,'提交内容格式不正确')}}
  async function execute(user,input){
   const {operation,data={},requestId}=input;
   if(!['review','migrate','sync','scan','site-retry','check'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
   if(operation==='review'&&(!Array.isArray(data.events)||Object.keys(data).some(k=>!['events','retryEventIds'].includes(k))))throw issue(400,'处理事件格式不正确');
-  if(operation==='migrate'&&(!data.state?.config||!Array.isArray(data.state.rows)||!data.state.monitor))throw issue(400,'台账结构不完整');
+  if(operation==='migrate'&&((user.role!=='public'&&!data.state?.config)||!Array.isArray(data.state?.rows)||!data.state?.monitor))throw issue(400,'台账结构不完整');
   if(operation==='sync'&&Object.keys(data).some(k=>!['config','selectedBrandIds','customAliases','imageUpdates','priorityUpdates'].includes(k)))throw issue(400,'同步内容不支持');
   // No arbitrary repository, file, workflow or destructive maintenance endpoint.
-  const key=user.name+':'+requestId,digest=hash(JSON.stringify({operation,data}));let existing;
-  await store.mutate(s=>{existing=s.requests[key];if(existing){if(existing.digest!==digest)throw issue(409,'同一请求编号不能用于不同内容');return}for(const [k,v]of Object.entries(s.requests))if(['queued','failed'].includes(v.status)&&v.at<now()-30*86400000)delete s.requests[k];if(Object.keys(s.requests).length>=5000)throw issue(429,'请求回执需要管理员核查后再提交');s.requests[key]={digest,status:'preparing',at:now(),operation,actor:user.name}});
+  let business=data;
+  if(user.role==='public'){
+   if(!['review','migrate','sync','scan','site-retry'].includes(operation))throw issue(403,'公开协作仅允许线索业务同步与补查');
+   if(operation==='review'&&(data.events.length>50||data.retryEventIds?.length))throw issue(400,'公开协作每批最多提交50条处理记录');
+   if(operation==='migrate'){if(data.state.rows.length>500)throw issue(400,'增量线索过多，请分批同步');business={state:{rows:data.state.rows,monitor:data.state.monitor}}}
+   if(operation==='sync'&&Object.keys(data).some(k=>!['imageUpdates','priorityUpdates'].includes(k)))throw issue(403,'公开协作可同步图片与优先级；全站监控配置请通过维护入口修改');
+   if(operation==='scan'||operation==='site-retry')business={...(data.site?{site:data.site}:{}),watchOnly:!!data.watchOnly};
+   business={...business,publicAccess:true};
+  }
+  const key=(user.role==='public'?'public':user.name)+':'+requestId,digest=hash(JSON.stringify({operation,data}));let existing;
+  await store.mutate(s=>{existing=s.requests[key];if(existing){if(existing.digest!==digest)throw issue(409,'同一请求编号不能用于不同内容');return}if(user.role==='public')limit('public-command',12,60000);for(const [k,v]of Object.entries(s.requests))if(['queued','failed'].includes(v.status)&&v.at<now()-30*86400000)delete s.requests[k];if(Object.keys(s.requests).length>=5000)throw issue(429,'请求回执需要管理员核查后再提交');s.requests[key]={digest,status:'preparing',at:now(),operation,actor:user.name}});
   if(existing)return {requestId,status:existing.status,queued:existing.status==='queued',duplicate:true};
   const config=store.read().config;let sending=false;
   try{
-   const cipher=await seal(data,config.password,'payload'),payload=JSON.stringify(cipher);let pointer=payload;
+   const cipher=await seal(business,config.password,'payload'),payload=JSON.stringify(cipher);let pointer=payload;
    if(Buffer.byteLength(payload)>60000){const uploadId=requestId;await github('/repos/'+REPO+'/contents/inbox/'+uploadId+'.json',{token:config.token,method:'PUT',body:{message:'Encrypted shared workspace transfer',branch:BRANCH,content:Buffer.from(payload).toString('base64')}});pointer=JSON.stringify({uploadId})}
    await store.mutate(s=>{s.requests[key].status='sending'});sending=true;
    const r=await github('/repos/'+REPO+'/actions/workflows/fjd-cloud.yml/dispatches',{token:config.token,method:'POST',body:{ref:'main',inputs:{operation,payload:pointer}}});
    if(r.status!==204)throw issue(502,'工作流提交回执未确认');
-   await store.mutate(s=>{s.requests[key].status='queued'});dashboardCache=null;return {requestId,status:'queued',queued:true};
+   await store.mutate(s=>{s.requests[key].status='queued'});dashboardCache=null;publicCache=null;return {requestId,status:'queued',queued:true};
   }catch{await store.mutate(s=>{s.requests[key].status=sending?'uncertain':'failed'});return {requestId,status:sending?'uncertain':'failed',queued:false,message:sending?'工作流提交回执未确认，请核对云端记录；不会自动重复提交':'提交前保存未完成，原本机记录保留'};}
  }
  const server=createServer(async(req,res)=>{
@@ -72,10 +89,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   try{
    if(origin&&!allowedOrigin(origin))throw issue(403,'此来源未获授权');
    if(req.method==='OPTIONS'){res.writeHead(204,headers);res.end();return}
-   if(path==='/'&&req.method==='GET'){res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; frame-ancestors 'none'"});res.end('<!doctype html><meta charset="utf-8"><title>丰疆统一同步服务</title><h1>丰疆统一同步服务</h1><p>请通过原工作台的连接设置登录或完成管理员配置。</p>');return}
-   if(path==='/health'&&req.method==='GET'){respond(200,{service:'fjd-shared-sync',version:1,configured:!!store.read().config});return}
+   if(path==='/'&&req.method==='GET'){res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; frame-ancestors 'none'"});res.end('<!doctype html><meta charset="utf-8"><title>丰疆统一同步服务</title><h1>丰疆统一同步服务</h1><p>请打开丰疆品牌监控工作台使用共享同步；后台维护请使用连接设置。</p>');return}
+   if(path==='/health'&&req.method==='GET'){respond(200,{service:'fjd-shared-sync',version:1,configured:!!store.read().config,accessMode});return}
    if(req.method==='POST'&&!allowedOrigin(origin))throw issue(403,'写入操作必须来自工作台');
    const ip=req.socket.remoteAddress||'unknown';
+   if(path==='/public-session'&&req.method==='POST'){if(accessMode!=='public'||!store.read().config)throw issue(503,'共享同步后台尚未启用');limit('public-session',120,60000);await body(req);respond(200,await publicSession());return}
    if(path==='/setup'&&req.method==='POST'){
     if(setupInProgress)throw issue(409,'配置验证正在进行，请等待当前请求完成后再核对状态');
     setupInProgress=true;try{
@@ -95,10 +113,10 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
-   if(path==='/session'&&req.method==='GET'){respond(200,{user:{name:user.name,role:user.role}});return}
+   if(path==='/session'&&req.method==='GET'){respond(200,{user:{name:user.role==='public'?'共享协作':user.name,role:user.role}});return}
    if(path==='/logout'&&req.method==='POST'){await store.mutate(s=>{delete s.sessions[hash(user.token)]});respond(200,{signedOut:true});return}
    if(path==='/dashboard'&&req.method==='GET'){
-    const data=await readDashboard(store.read().config),acceptsGzip=(req.headers['accept-encoding']||'').split(',').some(v=>v.split(';')[0].trim()==='gzip'&&!/;\s*q=0(?:\.0*)?(?:\s*;|\s*$)/.test(v));
+    const data=await(user.role==='public'?readPublicDashboard():readDashboard(store.read().config)),acceptsGzip=(req.headers['accept-encoding']||'').split(',').some(v=>v.split(';')[0].trim()==='gzip'&&!/;\s*q=0(?:\.0*)?(?:\s*;|\s*$)/.test(v));
     res.writeHead(200,{...headers,Vary:'Origin, Accept-Encoding',...(acceptsGzip?{'Content-Encoding':'gzip'}:{})});
     if(acceptsGzip)res.end(data);else{const stream=createGunzip();stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);stream.end(data)}return;
    }
@@ -117,5 +135,5 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const port=Number(process.env.PORT||8080),selfOrigin=process.env.RAILWAY_PUBLIC_DOMAIN?'https://'+process.env.RAILWAY_PUBLIC_DOMAIN:'';
- const {server}=await createGateway({directory:process.env.FJD_GATEWAY_DATA_DIR||'/data',selfOrigin,diagnostic:entry=>console.warn(JSON.stringify(entry))});server.listen(port,'0.0.0.0',()=>console.log('FJD shared gateway listening'));
+ const {server}=await createGateway({directory:process.env.FJD_GATEWAY_DATA_DIR||'/data',selfOrigin,accessMode:process.env.FJD_SYNC_ACCESS_MODE==='accounts'?'accounts':'public',diagnostic:entry=>console.warn(JSON.stringify(entry))});server.listen(port,'0.0.0.0',()=>console.log('FJD shared gateway listening'));
 }
