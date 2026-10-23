@@ -4,7 +4,7 @@
 
 自动补传使用 `fjd-base-evidence.yml`，每批最多两个已获准原始线索，避开日报截止与发布时段；失败按半小时至24小时退避。附件原文件和采集清单加密保存，公开页面只显示待处理原因。`verified` 表示记录、状态和附件原始字节回读通过；旧 `accepted` 仅表示工作流曾受理。
 
-需要飞书自建应用的读取字段/记录、新增/更新记录、上传素材、下载素材权限，并把该应用加入目标多维表格的可编辑协作者。按开放平台对应接口的权限要求开通并发布应用；不需要删除记录或发送群消息权限。在原仓库 Actions Secrets 中配置 `FEISHU_APP_ID` 和对应 `FEISHU_APP_SECRET`，不要把密钥发送到聊天或提交源码。已有 Webhook 与 Railway 连接不代表拥有这些 API 权限。
+需要飞书自建应用的读取字段/记录、新增/更新记录、上传素材、下载素材权限，并把该应用加入目标多维表格的可编辑协作者。按开放平台对应接口的权限要求开通并发布应用；不需要删除记录或发送群消息权限。在原仓库 Actions Secrets 中新增 `FEISHU_BASE_APP_ID` 和对应 `FEISHU_BASE_APP_SECRET`（不要替换原有飞书凭据；同一已授权应用也兼容现有 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`），不要把密钥发送到聊天或提交源码。已有 Webhook 与 Railway 连接不代表拥有这些 API 权限。
 
 官方接口：[上传素材](https://open.feishu.cn/document/server-docs/docs/drive-v1/media/upload_all)、[下载素材](https://open.feishu.cn/document/server-docs/docs/drive-v1/media/download)、[新增记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/create)。实际表字段必须读取核对；字段缺失时停止新增，不猜测映射。不改写OIM编号。已有记录只补网址状态和附件，保留其他人工数据与旧附件。
 

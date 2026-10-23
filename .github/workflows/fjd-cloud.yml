@@ -57,6 +57,8 @@ jobs:
         if: inputs.operation != 'archive'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_BASE_APP_ID: ${{ secrets.FEISHU_BASE_APP_ID }}
+          FEISHU_BASE_APP_SECRET: ${{ secrets.FEISHU_BASE_APP_SECRET }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}

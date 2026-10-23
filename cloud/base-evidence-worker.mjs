@@ -17,8 +17,8 @@ export async function captureWindow(url){
 export async function supplementBaseEvidence(vault,{store,checkpoint,capture=captureWindow,detector=detectUrl,limit=2,now=Date.now}={}){
  let attempted=0;const seen=new Set();vault.baseEvidenceTasks||={};
  for(const item of Object.values(vault.baseReview?.items||{})){
-  if(attempted>=limit)break;if(item.status==='verified')continue;
-  const row=vault.state.rows.find(r=>canonical(r.url)===canonical(item.payload?.url));if(!row||seen.has(canonical(row.url)))continue;const key=canonical(row.url);seen.add(key);
+  if(attempted>=limit)break;
+  const row=vault.state.rows.find(r=>canonical(r.url)===canonical(item.payload?.url));if(!row||seen.has(canonical(row.url))||item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id)continue;const key=canonical(row.url);seen.add(key);
   const task=vault.baseEvidenceTasks[key]||={attempts:0};if(task.nextAt&&Date.parse(task.nextAt)>now())continue;
   attempted++;task.attempts++;task.at=new Date(now()).toISOString();task.phase='running';await checkpoint();
   try{

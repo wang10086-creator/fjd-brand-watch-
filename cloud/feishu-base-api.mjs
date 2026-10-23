@@ -3,6 +3,8 @@ import {sha256} from './base-evidence.mjs';
 const APP='X9rmbnf25aBv7isYJvYcA9UfnIe',TABLE='tblleeBgQTn3krrL';
 const ROOT='https://open.feishu.cn/open-apis';
 const text=v=>typeof v==='string'?v:Array.isArray(v)?v.map(x=>x.text||x.link||'').join(''):v?.link||'';
+// A separately authorized Base app never replaces legacy Feishu credentials.
+export function baseAppCredentials(env){return env.FEISHU_BASE_APP_ID?{appId:env.FEISHU_BASE_APP_ID,appSecret:env.FEISHU_BASE_APP_SECRET}:{appId:env.FEISHU_APP_ID,appSecret:env.FEISHU_APP_SECRET}}
 export function feishuBaseApi({appId,appSecret,fetcher=fetch}={}){
  if(!appId||!appSecret)return null;
  let token;

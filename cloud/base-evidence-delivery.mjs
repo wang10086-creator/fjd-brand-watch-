@@ -8,10 +8,11 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
  const waiting=async(item,status,error)=>{const changed=item.status!==status||item.error!==error;item.status=status;item.error=error;if(changed)await checkpoint()};
  const selected=reviewIds?new Set(reviewIds):null;let count=0;const seen=new Set();
  for(const [id,item]of Object.entries(box.items).sort(([,a],[,b])=>String(a.evidenceCheckedAt||'').localeCompare(String(b.evidenceCheckedAt||'')))){
-  if(count>=limit||selected&&!selected.has(id)||item.status==='verified')continue;
+  if(count>=limit||selected&&!selected.has(id))continue;
   if(item.nextAt&&Date.parse(item.nextAt)>Date.parse(now()))continue;
   const row=vault.state.rows.find(r=>canonical(r.url)===canonical(item.payload?.url));
   if(!row){item.error='原始线索关联待核实，未写入飞书';item.status='blocked';await checkpoint();continue}
+  if(item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id)continue;
   if(seen.has(canonical(row.url)))continue;seen.add(canonical(row.url));count++;item.evidenceCheckedAt=now();
   // Never erase the old acceptance/ambiguous receipt; it prohibits blind creation.
   if(['accepted','uncertain','sending'].includes(item.status)&&!item.legacyReceipt)item.legacyReceipt={status:item.status,at:item.at||null};
@@ -34,7 +35,9 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    item.failureStage='record-write';const record=await baseApi.write({payload,status:gate.status,fileToken:item.attachment.fileToken,existing,fields,allowCreate:!item.legacyReceipt});
    if(!record?.record_id)throw Error('飞书未返回记录编号');
    item.recordId=record.record_id;await checkpoint();
-   item.failureStage='attachment-readback';item.verification=await baseApi.verify(record.record_id,item.attachment.fileToken,evidence.bytes,gate.status);
+   item.failureStage='attachment-readback';const verified=await baseApi.verify(record.record_id,item.attachment.fileToken,evidence.bytes,gate.status);
+   if(item.verification)(item.verificationHistory||=[]).push(item.verification);
+   item.verification={...verified,urlCheckId:gate.record.id,urlCheckAt:gate.record.at,status:gate.status};
    item.status='verified';item.verifiedAt=now();delete item.error;delete item.nextAt;delete item.failureStage;await checkpoint();
   }catch(e){
    if(item.status==='sending')item.status='uncertain';else item.status='waiting-upload';

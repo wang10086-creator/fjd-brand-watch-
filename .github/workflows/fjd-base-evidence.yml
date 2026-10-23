@@ -30,6 +30,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_BASE_REVIEW_WEBHOOK: ${{ secrets.FEISHU_BASE_REVIEW_WEBHOOK }}
+          FEISHU_BASE_APP_ID: ${{ secrets.FEISHU_BASE_APP_ID }}
+          FEISHU_BASE_APP_SECRET: ${{ secrets.FEISHU_BASE_APP_SECRET }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FJD_OPERATION: base-evidence
