@@ -1289,3 +1289,53 @@ See `docs/priority-url-status.md` for the current model, queue/security bounds a
 Production follow-up: the complete 67-alias catalog exposed a punctuation escaping error for SVEA EST.1911 in the new URL target matcher. Reuse the existing V2 name matcher; keep parser failures deferred and count them separately from actual access failures. Full Node regression now 434 tests; no business histories or frozen report bytes rewritten.
 
 Update-only outbox audit found URL inspection time cannot order later manual priority edits or a revert to an accepted value. Persist a private monotonic intent order, retain old entries, deduplicate consecutive identical intentions, and select the latest intention across all statuses. Two before-failing regressions now pass; full Node suite 436. No real Feishu status endpoint is configured.
+
+## 2026-10-23 native browser-window evidence prerequisite
+
+Original repository baseline: 7d01bbb2. The previous text-only webhook accepted
+an initial review even without `page_status` or an uploaded attachment. An isolated
+baseline reproduction records one such mock send; no production row was created.
+The existing review reconciliation/commit remains first. Base delivery now gates
+both new and old queued requests against a recent direct URL observation and an
+actual PNG, native omnibox clipboard reading, window metadata and SHA-256. Program
+failure, queued checks, robots/noarchive and missing screenshots defer delivery.
+No new review is manufactured to resume an original event.
+
+A bounded `base-evidence` operation in the existing runner supplements two original
+approved sources per pass, with backoff and the shared writer concurrency lock.
+It skips the 09:10–09:45 publication guard. Headed Chromium runs in a fresh X display;
+Pillow reads the actual framebuffer, XTest operates the native address bar, and
+Tk reads that display's clipboard. No fake toolbar, page screenshot or product
+photo qualifies. Scripts, service workers, credentials and active interactions
+are disabled. HTTP requests use the existing DNS-pinned transport, including each
+redirect/resource. An explicitly configured egress proxy uses CONNECT to the
+validated public IP while retaining TLS hostname verification. This does not
+bypass target access controls. Robots/noarchive and bounded resource budgets apply.
+
+Original PNG plus manifest is encrypted using the existing cloud data password
+and stored by content hash in `data-cloud/private-evidence/`. No screenshot, file
+attachment token, credential or internal review basis enters the public feed.
+Only controlled per-event receipt statuses are public. The new fields are private
+outbox/evidence extensions; original review IDs, report events, checksums, manual
+fields and original images are retained. Evidence-only checkpoints bypass report
+regeneration. Auxiliary failures do not block review or daily notification logic.
+
+The fixed-target Feishu adapter validates the actual schema, finds the stable
+platform lead URL, uploads `bitable_image`, writes the attachment, reads the record
+and downloads the original media to compare SHA-256. Only then is `verified` saved.
+Legacy accepted/uncertain requests cannot create a new row when lookup finds none.
+Ambiguous creation is reconciled before another write. Existing rows only receive
+the two requested field updates, appending attachments; no delete endpoint exists.
+First-row ID, original discovery date, human processing status and remarks are not
+changed. New rows require verified business field mappings and default to 待核查
+and empty remarks. Missing API authorization is explicit and never falls back to
+the old text-only webhook.
+
+The old webhook-only tests now require deferred delivery for missing evidence;
+all original review preservation/conflict assertions remain. New isolated tests
+cover prerequisites, encrypted restart, final preflight, lost responses, old-row
+field preservation and attachment byte readback. Real native screenshot captured
+for the existing Mercado Libre FV2000 URL showed HTTP403 and an actual error page;
+this is restricted-access evidence, not a product display or proof of removal.
+Real Feishu attachment permissions, schema and readback must be verified separately
+before declaring the production backfill complete.

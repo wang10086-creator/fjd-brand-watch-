@@ -1,3 +1,4 @@
+import {deliverEvidence} from './base-evidence-delivery.mjs';
 // Private outbox inside the existing encrypted vault. No webhook or payload is public.
 import {createHash} from 'node:crypto';
 import {canonical,marketData,safeUrl} from '../model.js';
@@ -50,14 +51,14 @@ export function baseReviewStatus(vault,configured=false){
  let configurationError='';
  if(typeof configured==='string'){try{endpoint(configured);configured=true}catch{configured=false;configurationError='飞书台账写入入口格式不正确，请由管理员核对现有配置'}}
  if(!configured&&!configurationError)configurationError='飞书台账写入入口未配置或未载入当前任务；请核对主工作流配置';
- const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,uncertain:0,failed:0,blocked:0};
+ const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,uncertain:0,failed:0,blocked:0,'waiting-url':0,'waiting-window':0,'waiting-permission':0,'waiting-upload':0,verified:0};
  for(const item of values)counts[item.status==='sending'?'uncertain':item.status]=(counts[item.status==='sending'?'uncertain':item.status]||0)+1;
  return {configured,...counts,configurationError,lastAttemptAt:vault.baseReview?.lastAttemptAt||null};
 }
 
 export function baseReviewReceipts(vault){
  return Object.fromEntries(Object.entries(vault.baseReview?.items||{}).map(([id,item])=>['review:'+id,
-  {status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,error:item.error||''}]));
+  {status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
 }
 
 export function retryBaseReviewEvents(vault,eventIds){
@@ -76,29 +77,10 @@ export function retryBaseReviewEvents(vault,eventIds){
  return ids;
 }
 
-export async function deliverBaseReviews(vault,{webhook,checkpoint,fetcher=fetch,now=()=>new Date().toISOString(),limit=5,reviewIds=null}={}){
- const box=vault.baseReview;if(!box||!webhook)return;
- const target=endpoint(webhook);
- // A crash after dispatch is ambiguous. Never automatically repeat that mutation.
- for(const item of Object.values(box.items))if(item.status==='sending'){item.status='uncertain';item.error='写入请求回执未确认，请先核对台账';await checkpoint()}
- const selected=reviewIds?new Set(reviewIds):null;
- const pending=Object.entries(box.items).filter(([id,x])=>(!selected||selected.has(id))&&(x.status==='queued'||x.status==='failed'&&
-  x.retryable&&x.attempts<3&&Date.parse(now())-Date.parse(x.at)>=15*60000)).slice(0,selected?selected.size:limit).map(([,x])=>x);
- const dispatched=new Set();
- for(const item of pending){
-  const source=item.payload.source_id;
-  if(dispatched.has(source)||Object.values(box.items).some(other=>other!==item&&other.payload?.source_id===source&&
-   (['sending','uncertain'].includes(other.status)||other.status==='accepted'&&Date.parse(now())-Date.parse(other.at)<5*60000)))continue;
-  dispatched.add(source);
-  item.status='sending';item.at=now();item.attempts++;box.lastAttemptAt=item.at;
-  await checkpoint(); // Persist the exact request before the external mutation.
-  try{
-   const response=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(item.payload),redirect:'error',signal:AbortSignal.timeout(20000)});
-   if(!response.ok){item.status=response.status>=500?'uncertain':'failed';item.retryable=response.status===429;item.error='飞书写入请求未获确认（HTTP '+response.status+'）'}
-   else {const result=await response.json();if(result?.code===0){item.status='accepted';item.acceptedAt=now();delete item.error;delete item.retryable}
-    else {item.status='uncertain';item.error='飞书未返回可确认的受理回执，请先核对台账'}}
-  }catch{item.status='uncertain';item.error='飞书响应未确认，请先核对台账'}
-  await checkpoint();
- }
+// Existing Webhook cannot satisfy native-window attachment/readback requirements.
+// Keep endpoint parsing and historical receipt compatibility; never use it to
+// bypass the new prerequisites, even for an old queued payload.
+export async function deliverBaseReviews(vault,options={}){
+ if(options.webhook)endpoint(options.webhook);
+ return deliverEvidence(vault,options);
 }

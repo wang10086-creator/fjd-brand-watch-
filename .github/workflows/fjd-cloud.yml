@@ -16,7 +16,7 @@ on:
         description: 'check 配置检查；verify 检索归档及群测试；scan 立即检索；sync 归档；archive 页面存档；digest 每日简报'
         type: choice
         default: scan
-        options: [auto, check, verify, archive, scan, site-retry, sync, digest, test-digest, migrate, review, images, url-check]
+        options: [auto, check, verify, archive, scan, site-retry, sync, digest, test-digest, migrate, review, images, url-check, base-evidence]
       payload:
         description: '仅粘贴网页生成的加密传输内容；不要填写密钥、令牌或明文复核资料'
         required: false
@@ -47,10 +47,17 @@ jobs:
           restore-keys: |
             image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-
             image-evidence-v2-${{ runner.os }}-
+      - name: 准备真实浏览器整窗采集
+        if: inputs.operation == 'base-evidence'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-noto-cjk
+          python3 -m pip install --quiet playwright==1.55.0
       - name: 云端检索、Notion 归档与飞书简报
         if: inputs.operation != 'archive'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
@@ -62,11 +69,11 @@ jobs:
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
       - name: 准备单页 HTML 镜像组件
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
         continue-on-error: true
         run: bash cloud/prepare-archive.sh
       - name: 公开页面存档（独立于检索统计）
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
+        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

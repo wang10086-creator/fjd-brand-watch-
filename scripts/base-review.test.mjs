@@ -48,35 +48,30 @@ test('no endpoint or a rejected checkpoint cannot dispatch; unsupported endpoint
  await assert.rejects(deliverBaseReviews(vault,{webhook:'https://example.com/private-secret',checkpoint:async()=>{},fetcher}),e=>!e.message.includes('private-secret'));
  await assert.rejects(deliverBaseReviews(vault,{webhook,checkpoint:async()=>{throw Error('save rejected')},fetcher}),/save rejected/);assert.equal(calls,0);
 });
-test('a workflow acceptance is recorded without claiming row-write completion and is never resent',async()=>{
- const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);let calls=0,snapshots=[];
- const checkpoint=async()=>snapshots.push(structuredClone(vault.baseReview));
- const fetcher=async(url,options)=>{calls++;assert.equal(snapshots.at(-1).items[review.id].status,'sending');assert.equal(options.redirect,'error');assert.equal(JSON.parse(options.body).url,vault.state.rows[0].url);return {ok:true,json:async()=>({code:0})}};
- await deliverBaseReviews(vault,{webhook,checkpoint,fetcher});assert.equal(vault.baseReview.items[review.id].status,'accepted');
- await deliverBaseReviews(vault,{webhook,checkpoint,fetcher});assert.equal(calls,1);assert.equal(baseReviewStatus(vault,true).accepted,1);
+test('text-only workflow cannot bypass prerequisites or claim completion',async()=>{
+ const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);let calls=0;
+ await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:async()=>{calls++;return {ok:true,json:async()=>({code:0})}}});
+ assert.equal(calls,0);assert.equal(vault.baseReview.items[review.id].status,'waiting-url');
+ await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('no attachment API')});
+ assert.equal(vault.baseReview.items[review.id].attempts,0);
 });
-test('lost responses and crashed sending requests remain uncertain instead of creating duplicate rows',async()=>{
- for(const failure of ['timeout','invalid-json','server']){
-  const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);let calls=0;
-  const fetcher=async()=>{calls++;if(failure==='timeout')throw Error('private-secret');if(failure==='server')return {ok:false,status:503};return {ok:true,json:async()=>{throw Error('bad JSON')}}};
-  await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher});assert.equal(vault.baseReview.items[review.id].status,'uncertain');
-  await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher});assert.equal(calls,1);assert.ok(!JSON.stringify(baseReviewStatus(vault)).includes('private-secret'));
+test('lost legacy responses and crashed sending requests preserve uncertainty without repeating mutations',async()=>{
+ for(const status of ['accepted','uncertain','sending']){
+  const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);vault.baseReview.items[review.id].status=status;
+  await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('must not blindly resend')});
+  assert.equal(vault.baseReview.items[review.id].legacyReceipt.status,status);
+  assert.equal(vault.baseReview.items[review.id].status,'waiting-url');
  }
- const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);vault.baseReview.items[review.id].status='sending';
- await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('must not resend')});assert.equal(vault.baseReview.items[review.id].status,'uncertain');
 });
-test('explicit throttling is retried only after cooldown; historical accepted events remain unchanged',async()=>{
- const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);let time=Date.parse(at),calls=0;
- const opts={webhook,checkpoint:async()=>{},now:()=>new Date(time).toISOString(),fetcher:async()=>++calls===1?{ok:false,status:429}:{ok:true,json:async()=>({code:0})}};
- await deliverBaseReviews(vault,opts);assert.equal(vault.baseReview.items[review.id].status,'failed');
- await deliverBaseReviews(vault,opts);assert.equal(calls,1);time+=16*60000;await deliverBaseReviews(vault,opts);assert.equal(calls,2);assert.equal(vault.baseReview.items[review.id].status,'accepted');
+test('legacy throttled requests cannot retry around the new evidence prerequisites',async()=>{
+ const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);Object.assign(vault.baseReview.items[review.id],{status:'failed',retryable:true,attempts:1,at});
+ await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},now:()=>new Date(Date.parse(at)+3600000).toISOString(),fetcher:()=>assert.fail('must not retry text-only creation')});
+ assert.equal(vault.baseReview.items[review.id].attempts,1);assert.equal(vault.baseReview.items[review.id].status,'waiting-url');
 });
-test('two review rounds for one lead cannot race two asynchronous workflow creations',async()=>{
- const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);
- const second=structuredClone(review);second.id='another-review';enqueueBaseReviews(vault,[second]);let time=Date.parse(at),calls=0;
- const opts={webhook,checkpoint:async()=>{},now:()=>new Date(time).toISOString(),fetcher:async()=>{calls++;return {ok:true,json:async()=>({code:0})}}};
- await deliverBaseReviews(vault,opts);assert.equal(calls,1);assert.equal(baseReviewStatus(vault).queued,1);
- await deliverBaseReviews(vault,opts);assert.equal(calls,1);time+=6*60000;await deliverBaseReviews(vault,opts);assert.equal(calls,2);
+test('two review rounds retain their original identities while evidence is pending',async()=>{
+ const {vault,review}=fixture();enqueueBaseReviews(vault,[review,{...review,id:'another-review'}]);
+ await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('no evidence')});
+ assert.equal(Object.keys(vault.baseReview.items).length,2);assert.equal(baseReviewStatus(vault)['waiting-url'],1);assert.equal(baseReviewStatus(vault).queued,1);
 });
 
 function submission(){
@@ -84,15 +79,15 @@ function submission(){
  vault.state.rows=[row];vault.state.monitor.reviews=[];vault.state.monitor.updateChain=[];
  return {vault,event,review};
 }
-test('the event operation saves the real review first, sends only its eligible request, and exposes private receipts without payloads',async()=>{
+test('the event operation saves the real review first, defers its eligible request until evidence is complete, and exposes private receipts without payloads',async()=>{
  const {vault,event,review}=submission();
  vault.baseReview={items:{historical:{status:'queued',attempts:0,payload:{source_id:'another-source'}}}};
  const saves=[],bodies=[];
  await submitReviewEvents(vault,[event],{webhook,checkpoint:async()=>saves.push(structuredClone(vault)),fetcher:async(_,options)=>{
   bodies.push(JSON.parse(options.body));assert.equal(saves.at(-1).state.monitor.reviews[0].id,review.id);assert.equal(saves.at(-1).baseReview.items[review.id].status,'sending');return {ok:true,json:async()=>({code:0})};
  }});
- assert.equal(bodies.length,1);assert.equal(vault.baseReview.items.historical.status,'queued');
- const receipt=baseReviewReceipts(vault)[event.id];assert.equal(receipt.status,'accepted');
+ assert.equal(bodies.length,0);assert.equal(vault.baseReview.items.historical.status,'queued');
+ const receipt=baseReviewReceipts(vault)[event.id];assert.equal(receipt.status,'waiting-url');
  assert.ok(!JSON.stringify(baseReviewReceipts(vault)).includes('private-review-basis'));
  assert.ok(!JSON.stringify(baseReviewReceipts(vault)).includes('example.com'));
  await submitReviewEvents(vault,[event],{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('accepted event must not resend')});
@@ -104,21 +99,19 @@ test('an invalid later review cannot partially persist an earlier review from th
  await assert.rejects(submitReviewEvents(vault,[event,invalid],{webhook,checkpoint:()=>assert.fail('must not save'),fetcher:()=>assert.fail('must not send')}),/复核变更缺少完整依据/);
  assert.deepEqual(vault,before);
 });
-test('a definite failure can be explicitly retried without changing a verdict; uncertain and accepted requests cannot',async()=>{
- const {vault,event}=submission();let calls=0;
- const options={webhook,checkpoint:async()=>{},fetcher:async()=>++calls===1?{ok:false,status:400}:{ok:true,json:async()=>({code:0})}};
- await submitReviewEvents(vault,[event],options);const reviews=structuredClone(vault.state.monitor.reviews);
- assert.equal(baseReviewReceipts(vault)[event.id].status,'failed');
- await submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]});assert.equal(calls,2);
- assert.deepEqual(vault.state.monitor.reviews,reviews);assert.equal(baseReviewReceipts(vault)[event.id].status,'accepted');
- await assert.rejects(submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]}),/已受理和回执未确认/);
- vault.baseReview.items[event.reviewRecord.id].status='uncertain';
- await assert.rejects(submitReviewEvents(vault,[],{...options,retryEventIds:[event.id]}),/已受理和回执未确认/);assert.equal(calls,2);
+test('explicit retry preserves the original verdict but cannot bypass new prerequisites',async()=>{
+ const {vault,event}=submission();
+ await submitReviewEvents(vault,[event],{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('missing prerequisites')});
+ const reviews=structuredClone(vault.state.monitor.reviews),item=vault.baseReview.items[event.reviewRecord.id];
+ item.status='failed';await submitReviewEvents(vault,[],{webhook,checkpoint:async()=>{},retryEventIds:[event.id],fetcher:()=>assert.fail('still missing prerequisites')});
+ assert.deepEqual(vault.state.monitor.reviews,reviews);assert.equal(item.status,'failed'); // candidate merge preserves input object isolation
+ assert.equal(baseReviewReceipts(vault)[event.id].status,'waiting-url');
+ for(const status of ['uncertain','accepted']){vault.baseReview.items[event.reviewRecord.id].status=status;await assert.rejects(submitReviewEvents(vault,[],{checkpoint:async()=>{},retryEventIds:[event.id]}),/已受理和回执未确认/)}
 });
 test('missing or invalid configuration is explicit and does not become a false success receipt',async()=>{
  const {vault,event}=submission();
  await submitReviewEvents(vault,[event],{checkpoint:async()=>{},fetcher:()=>assert.fail('no endpoint')});
- assert.equal(baseReviewReceipts(vault)[event.id].status,'queued');assert.match(baseReviewStatus(vault).configurationError,/未配置/);
+ assert.equal(baseReviewReceipts(vault)[event.id].status,'waiting-url');assert.match(baseReviewStatus(vault).configurationError,/未配置/);
  const status=baseReviewStatus(vault,'https://example.test/PRIVATE_WEBHOOK');assert.equal(status.configured,false);assert.match(status.configurationError,/格式不正确/);assert.ok(!JSON.stringify(status).includes('PRIVATE_WEBHOOK'));
 });
 test('all original ledger writers retain queued review runs and review-only dispatch skips archive preparation',async()=>{

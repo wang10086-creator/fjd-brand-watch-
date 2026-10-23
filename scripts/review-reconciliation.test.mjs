@@ -39,7 +39,7 @@ test('one conflicted lead and its descendants do not block an independent valid 
  const a=row('one'),b=row('two'),first=event(a),next=event(first.after,'suspected',2),other=event(b,'suspected',3),vault={state:state([{...a,reviewedAt:'2026-10-22T00:59:00.000Z'},b]),delivery:{}};
  const originalA=structuredClone(vault.state.rows[0]),notes=JSON.stringify([first.e,next.e,other.e]);let calls=0;
  const result=await submitReviewEvents(vault,[first.e,next.e,other.e],{webhook:'https://fjdynamics.feishu.cn/base/workflow/webhook/event/test',checkpoint:async()=>{},fetcher:async()=>{calls++;return {ok:true,json:async()=>({code:0})}}});
- assert.deepEqual(result,{saved:1,received:0,conflicts:2});assert.equal(calls,1);assert.deepEqual(vault.state.rows[0],originalA);assert.equal(stageOf(vault.state.rows[1]),'ip');
+ assert.deepEqual(result,{saved:1,received:0,conflicts:2});assert.equal(calls,0);assert.equal(vault.baseReview.items[other.e.reviewRecord.id].status,'waiting-url');assert.deepEqual(vault.state.rows[0],originalA);assert.equal(stageOf(vault.state.rows[1]),'ip');
  assert.equal(vault.reviewConflicts[first.e.id].code,'review-version');assert.equal(vault.reviewConflicts[next.e.id].dependency,first.e.id);assert.deepEqual(vault.reviewConflicts[first.e.id].event,first.e);
  assert.equal(JSON.stringify([first.e,next.e,other.e]),notes);assert.ok(!JSON.stringify(publicFeed(vault.state)).includes('PRIVATE BASIS'));assert.equal(vault.state.monitor.reviews.length,1);
 });
