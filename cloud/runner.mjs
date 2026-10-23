@@ -164,11 +164,11 @@ async function main(){
   const minute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
   if(minute>=550&&minute<585){console.log('日报截止及发布保护时段，飞书补传稍后继续');return}
   vault.runtime={phase:'running',operation:op,stage:'base-evidence',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
-  const save=()=>checkpoint({imagesOnly:true});
+  const save=()=>checkpoint({imagesOnly:true,progressOnly:true});
   const evidence=evidenceStore(vault,{password,read:file,write:put});
   const result=await supplementBaseEvidence(vault,{store:evidence,checkpoint:save});
   await deliverBaseReviews(vault,{checkpoint:save,baseApi:feishuBaseApi({appId:env.FEISHU_APP_ID,appSecret:env.FEISHU_APP_SECRET}),evidenceLoader:evidence.load});
-  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await save();
+  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await checkpoint({imagesOnly:true});
   await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:false}),status:publicStatus()});
   console.log('飞书证据补传：'+JSON.stringify(result));return;
  }

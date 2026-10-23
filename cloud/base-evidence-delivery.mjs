@@ -5,6 +5,7 @@ import {baseFields} from './base-fields.mjs';
 // manufactures another review, changes a workflow, or edits a frozen report.
 export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=async()=>null,now=()=>new Date().toISOString(),limit=5,reviewIds=null,deferUpload=false}={}){
  const box=vault.baseReview;if(!box)return;
+ const waiting=async(item,status,error)=>{const changed=item.status!==status||item.error!==error;item.status=status;item.error=error;if(changed)await checkpoint()};
  const selected=reviewIds?new Set(reviewIds):null;let count=0;const seen=new Set();
  for(const [id,item]of Object.entries(box.items).sort(([,a],[,b])=>String(a.evidenceCheckedAt||'').localeCompare(String(b.evidenceCheckedAt||'')))){
   if(count>=limit||selected&&!selected.has(id)||item.status==='verified')continue;
@@ -16,9 +17,9 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   if(['accepted','uncertain','sending'].includes(item.status)&&!item.legacyReceipt)item.legacyReceipt={status:item.status,at:item.at||null};
   let evidence;try{evidence=await evidenceLoader(row)}catch{}
   let gate=entryPrerequisites(row,evidence,Date.parse(now()));
-  if(gate.phase!=='ready'){item.status=gate.phase;item.error=item.legacyReceipt?gate.reason.replace('尚未写入飞书','既有入表和附件待核验'):gate.reason;await checkpoint();continue}
-  if(!baseApi){item.status='waiting-permission';item.error='初核已保存，等待飞书附件上传及记录回读授权，尚未确认写入飞书';await checkpoint();continue}
-  if(deferUpload){item.status='waiting-upload';item.error='初核已保存，证据已取得，等待后台附件上传及回读核验';await checkpoint();continue}
+  if(gate.phase!=='ready'){await waiting(item,gate.phase,item.legacyReceipt?gate.reason.replace('尚未写入飞书','既有入表和附件待核验'):gate.reason);continue}
+  if(!baseApi){await waiting(item,'waiting-permission','初核已保存，等待飞书附件上传及记录回读授权，尚未确认写入飞书');continue}
+  if(deferUpload){await waiting(item,'waiting-upload','初核已保存，证据已取得，等待后台附件上传及回读核验');continue}
   try{
    item.failureStage='schema-read';const fields=await baseApi.schema();item.failureStage='record-lookup';const existing=await baseApi.find(item.payload);
    if(!existing&&(item.legacyReceipt||item.dispatchStartedAt)){item.status='uncertain';item.error='既有请求已发送但未找到唯一记录，先核对实际台账，不盲目重发';item.nextAt=new Date(Date.parse(now())+1800000).toISOString();await checkpoint();continue}

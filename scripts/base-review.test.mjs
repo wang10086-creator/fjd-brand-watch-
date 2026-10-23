@@ -46,6 +46,7 @@ test('no endpoint or a rejected checkpoint cannot dispatch; unsupported endpoint
  const {vault,review}=fixture();enqueueBaseReviews(vault,[review]);let calls=0;const fetcher=async()=>{calls++;throw Error('must not dispatch')};
  await deliverBaseReviews(vault,{checkpoint:async()=>{},fetcher});assert.equal(calls,0);
  await assert.rejects(deliverBaseReviews(vault,{webhook:'https://example.com/private-secret',checkpoint:async()=>{},fetcher}),e=>!e.message.includes('private-secret'));
+ vault.baseReview.items[review.id].status='queued'; // Independent failed-persistence case.
  await assert.rejects(deliverBaseReviews(vault,{webhook,checkpoint:async()=>{throw Error('save rejected')},fetcher}),/save rejected/);assert.equal(calls,0);
 });
 test('text-only workflow cannot bypass prerequisites or claim completion',async()=>{
