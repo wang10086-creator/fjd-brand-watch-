@@ -14,11 +14,36 @@ export async function captureWindow(url){
   return {manifest:JSON.parse(await readFile(join(dir,'manifest.json'),'utf8')),bytes:await readFile(join(dir,'window.png'))};
  }finally{await rm(dir,{recursive:true,force:true})}
 }
+// One recent original review gets a prompt attempt, while the second slot
+// continues the oldest eligible URL. Build the list by URL so two review rounds
+// for one page cannot consume the entire bounded pass.
+export function baseEvidenceQueue(vault,{at=Date.now(),limit=2}={}){
+ const rows=new Map((vault.state.rows||[]).map(row=>[canonical(row.url),row]));
+ const reviews=new Map((vault.state.monitor?.reviews||[]).map(review=>[review.id,review]));
+ const candidates=new Map();let index=0;
+ for(const [id,item] of Object.entries(vault.baseReview?.items||{})){
+  const key=canonical(item.payload?.url),row=rows.get(key),task=vault.baseEvidenceTasks?.[key];
+  const stored=vault.baseEvidence?.items?.[key],imageAt=Date.parse(stored?.at),checkAt=Date.parse(row?.urlCheck?.current?.at);
+  const evidenceReady=['waiting-upload','waiting-permission'].includes(item.status)&&task?.phase==='ready'&&
+   /^private-evidence\/[a-f0-9]{64}\.json$/.test(stored?.path||'')&&
+   Number.isFinite(imageAt)&&Number.isFinite(checkAt)&&imageAt<=at&&at-imageAt<=86400000&&
+   Math.abs(imageAt-checkAt)<=3600000;
+  if(!row||task?.nextAt&&Date.parse(task.nextAt)>at||item.nextAt&&Date.parse(item.nextAt)>at||evidenceReady||
+     item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id){index++;continue}
+  const timestamp=Date.parse(reviews.get(id)?.at),when=Number.isFinite(timestamp)?timestamp:0;
+  const candidate=candidates.get(key);
+  if(candidate){if(when>=candidate.latestAt){candidate.latestAt=when;candidate.latestIndex=index}}
+  else candidates.set(key,{key,row,latestAt:when,latestIndex:index});
+  index++;
+ }
+ const ordered=[...candidates.values()];
+ const newest=ordered.reduce((best,item)=>!best||item.latestAt>best.latestAt||
+  item.latestAt===best.latestAt&&item.latestIndex>best.latestIndex?item:best,null);
+ return [newest,...ordered.filter(item=>item!==newest)].filter(Boolean).slice(0,Math.max(0,Math.min(2,limit)));
+}
 export async function supplementBaseEvidence(vault,{store,checkpoint,capture=captureWindow,detector=detectUrl,limit=2,now=Date.now}={}){
- let attempted=0;const seen=new Set();vault.baseEvidenceTasks||={};
- for(const item of Object.values(vault.baseReview?.items||{})){
-  if(attempted>=limit)break;
-  const row=vault.state.rows.find(r=>canonical(r.url)===canonical(item.payload?.url));if(!row||seen.has(canonical(row.url))||item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id)continue;const key=canonical(row.url);seen.add(key);
+ let attempted=0;vault.baseEvidenceTasks||={};
+ for(const {row,key} of baseEvidenceQueue(vault,{at:now(),limit})){
   const task=vault.baseEvidenceTasks[key]||={attempts:0};if(task.nextAt&&Date.parse(task.nextAt)>now())continue;
   attempted++;task.attempts++;task.at=new Date(now()).toISOString();task.phase='running';await checkpoint();
   try{

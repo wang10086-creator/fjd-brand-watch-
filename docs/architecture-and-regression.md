@@ -1303,8 +1303,27 @@ No new review is manufactured to resume an original event.
 
 A bounded `base-evidence` operation in the existing runner supplements two original
 approved sources per pass, with backoff and the shared writer concurrency lock.
-It skips the 09:10–09:45 publication guard. Headed Chromium runs in a fresh X display;
-Pillow reads the actual framebuffer, XTest operates the native address bar, and
+It skips the 09:10–09:45 publication guard.
+
+After an eligible initial-review transfer and its private outbox are saved, the
+review runner now confirms the final Git checkpoint and requests one immediate
+`fjd-base-evidence.yml` pass for the newly queued events. The request is bounded
+to one per review batch; replayed reviews and existing outbox items do not wake
+it again. A rejected or ambiguous workflow dispatch does not undo the saved
+review or claim that a screenshot or Feishu attachment exists. The existing
+hourly schedule remains the fallback, including during the publication guard.
+Capture is not moved into cloud search: a search-time image could expire before
+initial review, and full native-window capture would consume the scan deadline.
+The worker still processes at most two distinct URLs per run. It first selects
+the newest eligible review by its original review time, then the oldest remaining
+eligible URL in outbox order. A URL in retry backoff or with an already verified
+current check is skipped, and two review rounds for one URL share the same slot.
+Recent verified window bytes awaiting attachment upload or permission are reused
+instead of occupying a fresh capture slot; expired evidence can enter again.
+This lets new work start promptly while older requests continue to advance.
+
+Headed Chromium runs in a fresh X display; Pillow reads the actual framebuffer,
+XTest operates the native address bar, and
 Tk reads that display's clipboard. No fake toolbar, page screenshot or product
 photo qualifies. Scripts, service workers, credentials and active interactions
 are disabled. HTTP requests use the existing DNS-pinned transport, including each

@@ -31,6 +31,7 @@ import {createGithubStore} from './github-store.mjs';
 import {verifyRecovery} from './controlled-recovery.mjs';
 import {enqueueBaseReviews,deliverBaseReviews,baseReviewStatus,baseReviewReceipts} from './base-review.mjs';
 import {submitReviewEvents} from './review-submission.mjs';
+import {checkpointAndDispatchBaseEvidence} from './base-evidence-dispatch.mjs';
 import {workflowPayload} from './workflow-input.mjs';
 const config=JSON.parse(await readFile(new URL('./config.json',import.meta.url),'utf8'));
 const brandCatalog=JSON.parse(await readFile(new URL('../brand-catalog.json',import.meta.url),'utf8'));
@@ -200,9 +201,13 @@ async function main(){
  }
  if(op==='review'){
   vault.lastError='';vault.runtime={phase:'running',operation:op,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
+  const priorBaseReviewIds=new Set(Object.keys(vault.baseReview?.items||{}));
   try{const events=payload.publicAccess===true?normalizePublicReviews(vault.state,payload.events):payload.events;const result=await submitReviewEvents(vault,events,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint,retryEventIds:payload.retryEventIds||[]});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
   catch(error){if(saveBlocked)throw error;vault.lastError=error.message||'复核同步未完成，原记录保留'}
-  vault.runtime={...vault.runtime,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString(),lastError:vault.lastError};await checkpoint();
+  vault.runtime={...vault.runtime,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString(),lastError:vault.lastError};
+  const wake=await checkpointAndDispatchBaseEvidence({beforeIds:priorBaseReviewIds,vault,checkpoint,request:github});
+  if(wake.requested)console.log('飞书证据补传工作流已请求；整窗截图及实际入表仍待核验');
+  else if(wake.reason==='dispatch-unconfirmed')console.warn('飞书证据补传即时启动未确认，保留每小时定时续查'+(wake.status?'（HTTP '+wake.status+'）':''));
   try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()})}catch{console.warn('本次复核状态已保留，网站公开快照发布待重试')}
   if(uploadName&&!vault.lastError)await store.remove(uploadName);
   console.log('本次复核同步结束；飞书工作流受理不等于实际入表完成。');if(vault.lastError)process.exitCode=1;return;
