@@ -1,13 +1,12 @@
 import {createServer} from 'node:http';
 import {randomBytes} from 'node:crypto';
-import {gunzipSync,gzip,createGunzip} from 'node:zlib';
-import {promisify} from 'node:util';
+import {gunzipSync,createGunzip} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
-import {seal,unseal} from '../cloud/crypto.js';
+import {seal,unsealCompressed} from '../cloud/crypto.js';
+import {validateDashboardCompressed} from './dashboard-stream.mjs';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
-const compress=promisify(gzip);
 const issue=(status,message)=>Object.assign(Error(message),{status});
 const validUser=s=>typeof s==='string'&&/^[a-zA-Z0-9_.-]{3,64}$/.test(s)&&!Object.hasOwn(Object.prototype,s);
 const validPassword=s=>typeof s==='string'&&s.length>=12&&s.length<=256;
@@ -34,9 +33,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  async function readDashboard(config,{fresh=false}={}){
   if(!fresh&&dashboardCache?.until>now())return dashboardCache.body;
   if(!fresh&&dashboardRead)return dashboardRead;
-  const load=async()=>{const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});const value=await unseal(await r.json(),config.password,'dashboard');if(!value.ready||!Array.isArray(value.state?.rows)||!value.state?.monitor)throw issue(502,'云端台账尚未准备完成');
-   // Cache one compressed wire representation, not several cloned private ledgers.
-   const body=await compress(JSON.stringify(value));dashboardCache={until:now()+10000,body};return body;
+  const load=async()=>{const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});let compressed;
+   try{compressed=await unsealCompressed(await r.json(),config.password,'dashboard')}catch{throw Object.assign(issue(502,'云端台账解密未通过，请核对已有云端数据密码；原台账保留。'),{code:'cloud-decryption-failed',field:'password'})}
+   let stats;try{stats=await validateDashboardCompressed(compressed)}catch{throw issue(502,'云端台账流式验证未完成或结构无效；原数据保留，请管理员核查。')}
+   const body=Buffer.from(compressed.buffer,compressed.byteOffset,compressed.byteLength);dashboardCache={until:now()+10000,body};
+   try{diagnostic({event:'gateway-dashboard-validated',compressedBytes:body.length,plainBytes:stats.plainBytes})}catch{}return body;
   };
   if(fresh)return load();dashboardRead=load();try{return await dashboardRead}finally{dashboardRead=null}
  }
@@ -107,11 +108,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     if(req.method==='POST'){const v=await body(req);if(!validUser(v.username)||v.username===user.name||!['member','admin'].includes(v.role||'member'))throw issue(400,'账号不合法；不能在此修改自己');if(!v.disabled&&!validPassword(v.password))throw issue(400,'登录密码至少12位');const pass=v.disabled?null:await passwordHash(v.password);await store.mutate(s=>{if(v.disabled&&!s.users[v.username])throw issue(404,'账号不存在');s.users[v.username]={...(s.users[v.username]||{}),...pass,role:v.role||'member',disabled:!!v.disabled};for(const [k,vv]of Object.entries(s.sessions))if(vv.name===v.username)delete s.sessions[k]});respond(200,{saved:true});return}
    }
    throw issue(404,'接口不存在或当前账号无权使用');
-  }catch(error){const safeDetail=error.code?.startsWith('github-')||error.code==='setup-input-invalid'?{code:error.code,field:error.field}:{};
+  }catch(error){const safeDetail=error.code?.startsWith('github-')||['setup-input-invalid','cloud-decryption-failed'].includes(error.code)?{code:error.code,field:error.field}:{};
    if(path==='/setup')try{diagnostic({event:'gateway-setup-rejected',status:error.status||503,code:safeDetail.code||'setup-failed',...(safeDetail.field?{field:safeDetail.field}:{})})}catch{}
    respond(error.status||503,{error:error.status?error.message:'统一同步服务暂不可用，原记录保留',...safeDetail})}
  });
- server.requestTimeout=60000;server.headersTimeout=10000;
+ server.requestTimeout=120000;server.headersTimeout=10000;
  return {server,store};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

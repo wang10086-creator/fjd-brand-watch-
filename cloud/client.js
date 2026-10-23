@@ -1,5 +1,5 @@
-import {sharedCloudEnabled,sharedSignedIn,requireSharedSession,sharedRequest,sharedCommand} from './shared-service.js?v=20261023-shared-r4';
-export {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest} from './shared-service.js?v=20261023-shared-r4';
+import {sharedCloudEnabled,sharedSignedIn,requireSharedSession,sharedRequest,sharedCommand} from './shared-service.js?v=20261023-shared-r5';
+export {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest} from './shared-service.js?v=20261023-shared-r5';
 export const canReadCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!cloudCredentials().password;
 export const canWriteCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!(cloudCredentials().password&&cloudCredentials().token);
 import {cloudCredentials,setCloudCredentials} from './credentials.js?v=20261023-connection';
@@ -11,7 +11,7 @@ import {pendingPriorityUpdates} from '../priority.js?v=20261021-cycle-r2';
 import {readPublicFile} from './public-reader.js?v=20261023-connection';
 import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261021-first-pass';
 import {notionPublicUrl} from '../archive-config.js?v=20261020-review';
-import {seal,unseal,migrationState} from './crypto.js?v=20261023-shared-r4';
+import {seal,unseal,migrationState} from './crypto.js?v=20261023-shared-r5';
 import {mergeWorkspace} from './state.js?v=20261020-images-r3';
 import {canonical} from '../model.js?v=20261021-first-pass';
 import {planReviewBatch,compareReviewFields} from './review-reconciliation.js?v=20261022-review-reconcile-r5';

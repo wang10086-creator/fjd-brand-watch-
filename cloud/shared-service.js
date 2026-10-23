@@ -1,4 +1,4 @@
-import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r4';
+import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r5';
 let endpoint='',configured=false,session=null,lastError='';
 const pending=new Map();
 export function sharedCloudStatus(){return {endpoint,configured,user:session?.user||null,error:lastError}}
@@ -22,7 +22,7 @@ export async function initializeSharedCloud(){
 }
 export async function sharedLogin(username,password){const value=await sharedRequest('/login',{method:'POST',data:{username,password},anonymous:true});configured=true;session={...value,endpoint};await saveWorkspaceSession(session);signal();return value.user}
 export async function sharedSetup(data){
- let value;try{value=await sharedRequest('/setup',{method:'POST',data,anonymous:true})}catch(error){
+ let value;try{value=await sharedRequest('/setup',{method:'POST',data,anonymous:true,timeoutMs:120000})}catch(error){
   if(!error.uncertain)throw error;
   // A lost response can follow a successful commit. Read status and authenticate
   // the intended account; never silently resubmit the administrator credentials.

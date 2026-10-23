@@ -12,8 +12,14 @@ export async function seal(value,password,role='payload'){
  const plain=await transform(enc.encode(JSON.stringify(value)),'zip');const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(role)},await key(password,salt,iterations),plain);
  return {format:'fjd-cloud-cipher',version:1,role,iterations,salt:b64(salt),iv:b64(iv),ciphertext:b64(new Uint8Array(encrypted))};
 }
+// Authenticate and decrypt the compressed bytes without expanding a large
+// dashboard. The gateway can validate/serve these bytes as a bounded stream.
+export async function unsealCompressed(e,password,role='payload'){
+ if(e?.format!=='fjd-cloud-cipher'||e.version!==1||e.role!==role||e.iterations!==310000)throw Error('云端数据格式不正确');
+ try{const iv=bytes(e.iv),salt=bytes(e.salt);if(iv.length!==12||salt.length!==16)throw Error();return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(role)},await key(password,salt,e.iterations),bytes(e.ciphertext)))}catch{throw Error('云端密码不正确或数据校验失败，原数据保留')}
+}
 export async function unseal(e,password,role='payload'){
  if(e?.format!=='fjd-cloud-cipher'||e.version!==1||e.role!==role||e.iterations!==310000)throw Error('云端数据格式不正确');
- try{const iv=bytes(e.iv),salt=bytes(e.salt);if(iv.length!==12||salt.length!==16)throw Error();const p=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:enc.encode(role)},await key(password,salt,e.iterations),bytes(e.ciphertext));return JSON.parse(dec.decode(await transform(new Uint8Array(p),'unzip')))}catch{throw Error('云端密码不正确或数据校验失败，原数据保留')}
+ try{return JSON.parse(dec.decode(await transform(await unsealCompressed(e,password,role),'unzip')))}catch{throw Error('云端密码不正确或数据校验失败，原数据保留')}
 }
 export function migrationState(state){const clean=structuredClone(state);for(const row of clean.rows||[])if(row.priorityV2)delete row.priorityV2.cloudEvidenceHash;delete clean.cloudConnection;if(clean.feishu){delete clean.feishu.service;delete clean.feishu.lastError;}for(const e of clean.monitor?.updateChain||[])delete e.chartPng;clean.customAssets=(clean.customAssets||[]).filter(r=>typeof r.id==='string'&&/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(r.dataUrl||'')&&r.dataUrl.length<=700000).slice(0,20);return clean;}
