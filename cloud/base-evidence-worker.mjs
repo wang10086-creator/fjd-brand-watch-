@@ -1,5 +1,5 @@
 import {mkdtemp,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn} from 'node:child_process';import {randomBytes} from 'node:crypto';
-import {canonical} from '../model.js';import {detectUrl,saveUrlCheck} from './url-check.mjs';import {validWindow,sha256} from './base-evidence.mjs';import {seal,unseal} from './crypto.js';
+import {canonical} from '../model.js';import {detectUrl,saveUrlCheck} from './url-check.mjs';import {entryPrerequisites,validWindow,sha256} from './base-evidence.mjs';import {seal,unseal} from './crypto.js';
 const previewFile=hash=>'private-evidence-preview/'+hash+'.json';
 const previewToken=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value);
 const previewError=()=>Object.assign(Error('截图预览保存或回读未确认'),{previewCode:'preview-unconfirmed'});
@@ -75,8 +75,12 @@ export async function supplementBaseEvidence(vault,{store,checkpoint,capture=cap
    if(r.deferred||!r.status){task.phase='waiting-url';task.reason='网址检测未完成，未判定为无法访问';}
    else{
     saveUrlCheck(row,r);await checkpoint();
-    let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000)evidence=await capture(row.url);
-    await store.save(row,evidence);await store.ensurePreview(row,evidence);task.phase='ready';delete task.reason;
+    const gate=entryPrerequisites(row,null,now());
+    if(gate.phase==='waiting-url'){task.phase='waiting-url';task.reason=r.reason||gate.reason;}
+    else{
+     let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000)evidence=await capture(row.url);
+     await store.save(row,evidence);await store.ensurePreview(row,evidence);task.phase='ready';delete task.reason;
+    }
    }
   }catch(error){task.phase=error.previewCode?'waiting-preview':'waiting-window';const reasons={'robots-restricted':'原站robots规则不允许此次采集','native-address-unconfirmed':'未取得原生地址栏的可核验读数','native-window-missing':'未找到符合尺寸的真实浏览器窗口','capture-budget':'本轮采集时间或资源预算已用尽','request-failed':'公开网页资源请求未完成','ETIMEDOUT':'原站请求超时','ENOTFOUND':'原站DNS解析失败','EAI_AGAIN':'原站DNS暂不可用','unsafe-url':'目标未通过公开网络安全校验','capture-interrupted':'采集进程中断或超过时间预算','preview-unconfirmed':'截图预览地址保存或回读未确认'};const code=error.previewCode||error.captureCode;task.failureKind=Object.hasOwn(reasons,code)?code:'capture-unconfirmed';task.reason=(reasons[code]||'整窗截图采集或原始文件核验未通过')+'；未使用其他图片替代'}
   task.nextAt=new Date(now()+Math.min(86400000,1800000*2**Math.min(task.attempts-1,5))).toISOString();await checkpoint();

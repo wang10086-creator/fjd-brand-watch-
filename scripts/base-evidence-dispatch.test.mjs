@@ -97,6 +97,36 @@ test('evidence pass takes one newest URL and one old FIFO URL without exceeding 
   ['https://example.com/item-3','https://example.com/item-1']);
 });
 
+test('robots restriction persists a waiting URL without launching browser capture',async()=>{
+ const vault=queuedEvidence(1),now=Date.parse('2026-10-22T01:00:00Z'),row=vault.state.rows[0];
+ let captures=0;
+ const result=await supplementBaseEvidence(vault,{now:()=>now,checkpoint:async()=>{},limit:1,
+  detector:async()=>({id:'robots-check',url:row.url,at:new Date(now).toISOString(),status:'unavailable',
+   source:'direct-http',environment:'test',errorKind:'robots',reason:'robots disallows collection'}),
+  capture:async()=>{captures++;throw Error('browser capture must not run')},
+  store:{load:async()=>null}});
+ assert.equal(result.attempted,1);
+ assert.equal(captures,0);
+ assert.equal(row.urlCheck.current.errorKind,'robots');
+ assert.equal(vault.baseEvidenceTasks[row.url].phase,'waiting-url');
+ assert.equal(vault.baseEvidenceTasks[row.url].attempts,1);
+ assert.deepEqual(baseEvidenceQueue(vault,{at:now+60000}),[]);
+});
+
+test('an actual HTTP 403 page can still produce an access-restriction window',async()=>{
+ const vault=queuedEvidence(1),now=Date.parse('2026-10-22T01:00:00Z'),row=vault.state.rows[0];
+ let captures=0,saves=0;
+ await supplementBaseEvidence(vault,{now:()=>now,checkpoint:async()=>{},limit:1,
+  detector:async()=>({id:'http-403-check',url:row.url,at:new Date(now).toISOString(),status:'unavailable',
+   source:'direct-http',environment:'test',errorKind:'http',httpStatus:403,reason:'HTTP 403'}),
+  capture:async()=>{captures++;return {manifest:{at:new Date(now).toISOString()}}},
+  store:{load:async()=>null,save:async()=>{saves++},ensurePreview:async()=>{}}});
+ assert.equal(captures,1);
+ assert.equal(saves,1);
+ assert.equal(row.urlCheck.current.httpStatus,403);
+ assert.equal(vault.baseEvidenceTasks[row.url].phase,'ready');
+});
+
 test('queued evidence skips a verified or cooling URL and deduplicates review rounds by URL',()=>{
  const vault=queuedEvidence(4),now=Date.parse('2026-10-22T01:00:00Z');
  vault.state.rows[1].urlCheck={current:{id:'checked'}};

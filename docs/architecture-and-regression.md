@@ -1337,6 +1337,14 @@ consume further screenshot capture slots; a missing preview sidecar may reenter
 the bounded queue. An ambiguous receipt is not blindly resent, and the original
 review and frozen daily reports remain unchanged.
 
+The evidence worker applies the same URL prerequisite as Base delivery before
+starting headed Chromium. A robots/noarchive refusal, unsafe URL or oversized
+response is saved as a URL-check fact and left in `waiting-url` with its normal
+retry backoff; it does not consume a browser capture attempt. A direct HTTP 403
+on the original page can still be captured as access-restriction evidence when
+robots permits it. Neither case is treated as a product removal or a completed
+Base write.
+
 Headed Chromium runs in a fresh X display; Pillow reads the actual framebuffer,
 XTest operates the native address bar, and
 Tk reads that display's clipboard. No fake toolbar, page screenshot or product
