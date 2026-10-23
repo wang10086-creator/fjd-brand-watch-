@@ -1,11 +1,13 @@
 import {createServer} from 'node:http';
 import {randomBytes} from 'node:crypto';
-import {gunzipSync} from 'node:zlib';
+import {gunzipSync,gzip,createGunzip} from 'node:zlib';
+import {promisify} from 'node:util';
 import {pathToFileURL} from 'node:url';
 import {seal,unseal} from '../cloud/crypto.js';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
+const compress=promisify(gzip);
 const issue=(status,message)=>Object.assign(Error(message),{status});
 const validUser=s=>typeof s==='string'&&/^[a-zA-Z0-9_.-]{3,64}$/.test(s)&&!Object.hasOwn(Object.prototype,s);
 const validPassword=s=>typeof s==='string'&&s.length>=12&&s.length<=256;
@@ -17,7 +19,7 @@ function connectionToken(value){
  return token;
 }
 export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{}}={}){
- const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null;
+ const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const allowedOrigin=origin=>!!origin&&(origin===siteOrigin||origin===selfOrigin||testOrigins.includes(origin));
  function limit(key,max,ms){const t=now();for(const [k,v]of limiter)if(v.until<=t)limiter.delete(k);const value=limiter.get(key)||{count:0,until:t+ms};value.count++;limiter.set(key,value);if(value.count>max||limiter.size>3000)throw issue(429,'请求过于频繁，请稍后重试')}
@@ -29,7 +31,15 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    throw connectionIssue('GitHub 服务返回 HTTP '+r.status+'；请稍后重试，原记录保留。','github-unavailable');
   }return r;
  }
- async function readDashboard(config,{fresh=false}={}){if(!fresh&&dashboardCache?.until>now())return structuredClone(dashboardCache.value);const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});const value=await unseal(await r.json(),config.password,'dashboard');if(!value.ready||!Array.isArray(value.state?.rows)||!value.state?.monitor)throw issue(502,'云端台账尚未准备完成');dashboardCache={until:now()+10000,value};return structuredClone(value)}
+ async function readDashboard(config,{fresh=false}={}){
+  if(!fresh&&dashboardCache?.until>now())return dashboardCache.body;
+  if(!fresh&&dashboardRead)return dashboardRead;
+  const load=async()=>{const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});const value=await unseal(await r.json(),config.password,'dashboard');if(!value.ready||!Array.isArray(value.state?.rows)||!value.state?.monitor)throw issue(502,'云端台账尚未准备完成');
+   // Cache one compressed wire representation, not several cloned private ledgers.
+   const body=await compress(JSON.stringify(value));dashboardCache={until:now()+10000,body};return body;
+  };
+  if(fresh)return load();dashboardRead=load();try{return await dashboardRead}finally{dashboardRead=null}
+ }
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)],user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'请登录工作台，原本机记录保留');return {token,name:session.name,role:user.role}}
  async function session(name){const token=randomBytes(32).toString('base64url'),expiresAt=now()+TTL;await store.mutate(s=>{for(const [k,v]of Object.entries(s.sessions))if(v.expiresAt<=now())delete s.sessions[k];if(Object.keys(s.sessions).length>=2000)throw issue(429,'登录会话过多，请管理员清理');s.sessions[hash(token)]={name,expiresAt}});return {token,expiresAt,user:safeUser(name,store.read().users[name])}}
  async function body(req,max=65536){const parts=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw issue(413,'提交内容过大，原记录保留');parts.push(chunk)}let bytes=Buffer.concat(parts);if(req.headers['content-encoding']==='gzip'){try{bytes=gunzipSync(bytes,{maxOutputLength:64*1024*1024})}catch{throw issue(400,'提交内容解压失败')}}else if(req.headers['content-encoding'])throw issue(400,'不支持的内容编码');try{return JSON.parse(bytes.toString())}catch{throw issue(400,'提交内容格式不正确')}}
@@ -66,6 +76,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    if(req.method==='POST'&&!allowedOrigin(origin))throw issue(403,'写入操作必须来自工作台');
    const ip=req.socket.remoteAddress||'unknown';
    if(path==='/setup'&&req.method==='POST'){
+    if(setupInProgress)throw issue(409,'配置验证正在进行，请等待当前请求完成后再核对状态');
+    setupInProgress=true;try{
     limit('setup',5,900000);if(store.read().config)throw issue(409,'管理员已完成配置，请登录');const v=await body(req);
     const invalid=(message,field)=>{throw Object.assign(issue(400,message),{code:'setup-input-invalid',field})};
     if(!validUser(v?.username))invalid('管理员账号须为3至64位英文字母、数字、下划线、点或短横线，例如 wang10086。','username');
@@ -76,6 +88,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     await readDashboard({token,password:v.password},{fresh:true});const pass=await passwordHash(v.loginPassword);
     await store.mutate(s=>{if(s.config)throw issue(409,'管理员已完成配置');s.config={token,password:v.password};s.users[v.username]={...pass,role:'admin',disabled:false}});
     respond(200,await session(v.username));return;
+    }finally{setupInProgress=false}
    }
    if(path==='/login'&&req.method==='POST'){
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
@@ -83,7 +96,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    const user=auth(req);limit('api:'+user.name,180,60000);
    if(path==='/session'&&req.method==='GET'){respond(200,{user:{name:user.name,role:user.role}});return}
    if(path==='/logout'&&req.method==='POST'){await store.mutate(s=>{delete s.sessions[hash(user.token)]});respond(200,{signedOut:true});return}
-   if(path==='/dashboard'&&req.method==='GET'){respond(200,await readDashboard(store.read().config));return}
+   if(path==='/dashboard'&&req.method==='GET'){
+    const data=await readDashboard(store.read().config),acceptsGzip=(req.headers['accept-encoding']||'').split(',').some(v=>v.split(';')[0].trim()==='gzip'&&!/;\s*q=0(?:\.0*)?(?:\s*;|\s*$)/.test(v));
+    res.writeHead(200,{...headers,Vary:'Origin, Accept-Encoding',...(acceptsGzip?{'Content-Encoding':'gzip'}:{})});
+    if(acceptsGzip)res.end(data);else{const stream=createGunzip();stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);stream.end(data)}return;
+   }
    if(path==='/command'&&req.method==='POST'){respond(202,await execute(user,await body(req,20*1024*1024)));return}
    if(path==='/accounts'&&user.role==='admin'){
     if(req.method==='GET'){respond(200,{users:Object.entries(store.read().users).map(([name,u])=>({...safeUser(name,u),disabled:!!u.disabled}))});return}

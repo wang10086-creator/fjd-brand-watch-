@@ -1,7 +1,9 @@
 // Shared browser/runner transport. Public GitHub files and workflow inputs contain ciphertext only.
 const enc=new TextEncoder(),dec=new TextDecoder();
 const b64=a=>{let s='';for(let i=0;i<a.length;i+=8192)s+=String.fromCharCode(...a.subarray(i,i+8192));return btoa(s)};
-const bytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+// Decode directly into the target buffer. Array.from over a multi-MiB string
+// creates a large intermediate JS array on Node and can exhaust a small runner.
+const bytes=s=>{const binary=atob(s),out=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);return out};
 async function key(password,salt,n){const k=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:n},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
 async function transform(data,kind){const C=kind==='zip'?globalThis.CompressionStream:globalThis.DecompressionStream;if(!C)throw Error('当前环境不支持安全传输所需的压缩');return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new C('gzip'))).arrayBuffer())}
 export async function seal(value,password,role='payload'){

@@ -1,4 +1,4 @@
-import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r3';
+import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r4';
 let endpoint='',configured=false,session=null,lastError='';
 const pending=new Map();
 export function sharedCloudStatus(){return {endpoint,configured,user:session?.user||null,error:lastError}}
@@ -9,8 +9,9 @@ export async function sharedRequest(path,{method='GET',data,anonymous=false,time
  if(!endpoint)throw Error('管理员尚未启用统一同步服务');if(!anonymous)requireSharedSession();
  let body,headers={};if(data!==undefined){body=JSON.stringify(data);headers['Content-Type']='application/json';if(body.length>65536&&typeof CompressionStream!=='undefined'){body=await new Response(new Blob([body]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();headers['Content-Encoding']='gzip'}}
  if(!anonymous)headers.Authorization='Bearer '+session.token;
- let response;try{response=await fetch(endpoint+path,{method,headers,...(body!==undefined?{body}:{}),credentials:'omit',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(timeoutMs)})}catch{throw Error(method==='GET'?'统一服务暂无法读取；本机记录保留':'提交回执未确认，请稍后核对；本机记录保留')}
- const value=await response.json();if(!response.ok){if(response.status===401&&!anonymous){session=null;await saveWorkspaceSession(null);signal()}throw Object.assign(Error(value.error||'统一服务请求未完成'),{code:value.code,field:value.field})}return value;
+ let response;try{response=await fetch(endpoint+path,{method,headers,...(body!==undefined?{body}:{}),credentials:'omit',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(timeoutMs)})}catch{throw Object.assign(Error(method==='GET'?'统一服务暂无法读取；本机记录保留':'提交回执未确认，请稍后核对；本机记录保留'),{uncertain:method!=='GET'})}
+ let value;try{value=await response.json()}catch{throw Object.assign(Error('后台响应中断，提交结果尚未确认；原记录保留'),{uncertain:method!=='GET'})}
+ if(!response.ok){if(response.status===401&&!anonymous){session=null;await saveWorkspaceSession(null);signal()}throw Object.assign(Error(value.error||'统一服务请求未完成'),{code:value.code,field:value.field})}return value;
 }
 export async function initializeSharedCloud(){
  if(typeof window==='undefined')return;
@@ -20,7 +21,17 @@ export async function initializeSharedCloud(){
  }catch(e){lastError=e.message;}
 }
 export async function sharedLogin(username,password){const value=await sharedRequest('/login',{method:'POST',data:{username,password},anonymous:true});configured=true;session={...value,endpoint};await saveWorkspaceSession(session);signal();return value.user}
-export async function sharedSetup(data){const value=await sharedRequest('/setup',{method:'POST',data,anonymous:true});configured=true;session={...value,endpoint};await saveWorkspaceSession(session);signal();return value.user}
+export async function sharedSetup(data){
+ let value;try{value=await sharedRequest('/setup',{method:'POST',data,anonymous:true})}catch(error){
+  if(!error.uncertain)throw error;
+  // A lost response can follow a successful commit. Read status and authenticate
+  // the intended account; never silently resubmit the administrator credentials.
+  let health;try{health=await sharedRequest('/health',{anonymous:true,timeoutMs:5000})}catch{throw error}
+  if(health.service==='fjd-shared-sync'&&health.version===1&&health.configured===true)return sharedLogin(data.username,data.loginPassword);
+  throw Error('已核对后台：当前尚未确认配置成功。请保留填写内容，稍后重试；原台账未改动。');
+ }
+ configured=true;session={...value,endpoint};await saveWorkspaceSession(session);signal();return value.user;
+}
 export async function sharedLogout(){if(session)await sharedRequest('/logout',{method:'POST'});session=null;await saveWorkspaceSession(null);signal()}
 export async function sharedCommand(operation,data={}){
  requireSharedSession();const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({operation,data}))))).map(b=>b.toString(16).padStart(2,'0')).join('');
