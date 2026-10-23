@@ -1197,3 +1197,13 @@ missing runtime secret cannot alone establish that the main review workflow's
 integration is absent globally. Wording distinguishes missing/unloaded entry.
 Actual Secrets metadata inspection was denied (403); no secret or permission
 was changed. Feishu row-write success remains unverified.
+
+## 2026-10-23 Railway shared connection
+
+The original static workbench delegates authenticated private dashboard reads and encrypted workflow submissions to `gateway/server.mjs`. `cloud/service-config.json` contains only the public endpoint. An administrator proves original repository ownership and decrypts the existing dashboard before one-time setup. Other devices use administrator-issued workbench accounts, never GitHub credentials. Until setup completes, the legacy connection remains available.
+
+The gateway has a separate Railway `/data` volume. AES-GCM protects persisted configuration, accounts, hashed sessions and request receipts; scrypt protects account passwords. This is not a second lead database. Only one replica is supported: atomic file replacement and a serialized mutation queue govern state. Protect and back up the volume and encryption key together; never publish either. Existing private ledger, report checksums, workflow and integration secrets remain on the original data-cloud/Actions paths.
+
+Browser sessions last 30 days, are revocable, and are persisted encrypted with a non-exportable browser key. This avoids repeated connection setup, not all authentication forever. All members are trusted internal business operators; only administrators manage accounts. Public browsing still requires no login. Server requests use fixed repository/API/workflow targets, allowed origins, payload limits and encrypted original payload formats. A dispatch receipt means queued, never accepted by the ledger or written to Feishu. Ambiguous dispatches retain durable uncertainty and are not blindly resent after restart.
+
+Tests: `scripts/shared-gateway.test.mjs` uses Unix HTTP sockets, temporary encrypted storage and mock GitHub. `scripts/shared-gateway-browser-check.mjs` uses the actual local gateway, separate browser contexts, mock GitHub and desktop/390px screenshots. No production business writes. Gateway code/key/state are excluded from Pages publication. Railway service health does not prove downstream GitHub, Notion or Feishu writes.

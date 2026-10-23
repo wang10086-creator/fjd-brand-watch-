@@ -1,3 +1,7 @@
+import {sharedCloudEnabled,sharedSignedIn,requireSharedSession,sharedRequest,sharedCommand} from './shared-service.js?v=20261023-shared';
+export {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest} from './shared-service.js?v=20261023-shared';
+export const canReadCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!cloudCredentials().password;
+export const canWriteCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!(cloudCredentials().password&&cloudCredentials().token);
 import {cloudCredentials,setCloudCredentials} from './credentials.js?v=20261023-connection';
 export {cloudCredentials,setCloudCredentials,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus} from './credentials.js?v=20261023-connection';
 import {readLocalSnapshot} from './local-snapshot.js?v=20261023-connection';
@@ -23,6 +27,7 @@ async function currentHead(){
  try{return await headRequest}finally{headRequest=null}
 }
 export function requireCloudCredentials(credentials=cloudCredentials(),{token=true}={}){
+ if(sharedCloudEnabled()){requireSharedSession();return credentials;}
  const fail=(message,field)=>{throw Object.assign(Error(message),{field})};
  if(!credentials.password)fail('请先填写已有的云端数据密码；本机处理记录尚未上传。','password');
  if(credentials.password.length<12)fail('云端数据密码至少 12 个字符，请使用已有密码。','password');
@@ -38,8 +43,8 @@ export async function publicCloudFile(name){
  // or the rate-limited ref API. AES-GCM authentication still precedes any merge.
  return readEncryptedDashboard(revision);
 }
-export async function readDashboard(){const {password}=cloudCredentials();if(!password)throw Error('请在云端设置页输入数据密码');const cipher=await publicCloudFile('dashboard.json');if(!cipher)throw Error('云端尚无数据，请先配置数据密码并检查云端连接');return unseal(cipher,password,'dashboard');}
-export async function makePayload(data,{large=false}={}){const {password}=cloudCredentials();const text=JSON.stringify(await seal(data,password,'payload'));if(new TextEncoder().encode(text).length>60000&&!large)throw Error('本次内容超过云端单次传输上限，请使用完整台账迁移；未发送任何明文');return text;}
+export async function readDashboard(){if(sharedCloudEnabled())return sharedRequest('/dashboard');const {password}=cloudCredentials();if(!password)throw Error('请在云端设置页输入数据密码');const cipher=await publicCloudFile('dashboard.json');if(!cipher)throw Error('云端尚无数据，请先配置数据密码并检查云端连接');return unseal(cipher,password,'dashboard');}
+export async function makePayload(data,{large=false}={}){if(sharedCloudEnabled()){requireSharedSession();return {sharedData:data}}const {password}=cloudCredentials();const text=JSON.stringify(await seal(data,password,'payload'));if(new TextEncoder().encode(text).length>60000&&!large)throw Error('本次内容超过云端单次传输上限，请使用完整台账迁移；未发送任何明文');return text;}
 export function uploadPointer(){return {uploadId:crypto.randomUUID()}}
 export async function uploadPayload(payload,pointer=uploadPointer()){
  const {token}=cloudCredentials();if(!token)throw Error('完整台账上传需要仅限此仓库的 Contents 读写权限');
@@ -49,6 +54,8 @@ export async function uploadPayload(payload,pointer=uploadPointer()){
  if(!r.ok)throw await githubFailure(r,{task:'加密台账上传',permission:'Contents 读写',authenticated:true});return pointer;
 }
 export async function dispatch(operation,payload=''){
+ if(sharedCloudEnabled()){if(payload&&(!payload.sharedData||typeof payload!=='object'))throw Error('统一服务不接受旧会话密文，请刷新后重试');const result=await sharedCommand(operation,payload?.sharedData||{});refreshCloudSnapshot();return result;}
+ if(payload&&typeof payload!=='string')throw Error('连接方式已改变，请刷新后重试');
  const {token}=cloudCredentials();if(!token)throw Error('请在云端设置页授权当前会话的 GitHub 执行权限，或复制加密内容到 GitHub 手动运行');
  if(new TextEncoder().encode(payload).length>60000)payload=JSON.stringify(await uploadPayload(payload));
  const r=await githubRequest('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{method:'POST',headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main',inputs:{operation,payload}}),signal:AbortSignal.timeout(25000)},{task:'云端任务提交',mutation:true});
@@ -58,7 +65,7 @@ export function cloudRunning(state){return ['submitting','queued','running'].inc
 export async function runCloud(state,{site=null,watch=false}={}){
  if(cloudRunning(state))throw Error('已有云端任务，请等待完成后再提交');
  const previous=state.cloudService;state.cloudService={...previous,phase:'submitting',currentSite:site,queuedAt:new Date().toISOString()};
- try{const payload=!cloudCredentials().password&&!state.cloudTaskDirty?JSON.stringify({publicRequest:{...(site?{site}:{}),...(watch?{watchOnly:true}:{})}}):await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
+ try{const payload=!canReadCloud()&&!state.cloudTaskDirty?JSON.stringify({publicRequest:{...(site?{site}:{}),...(watch?{watchOnly:true}:{})}}):await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
 }
 export async function refreshRuntime(state){
  const [statusResult,feedResult]=await Promise.allSettled([publicCloudFile('status.json'),publicCloudFile('public-dashboard.json')]);
@@ -81,9 +88,9 @@ export async function refreshCloud(state,{switchMode=true}={}){
 }
 export async function syncArchive(state,{force=false,immediateReviews=false}={}){
  state.archive||={receipts:{}};
- const credentials=cloudCredentials();if(!credentials.password||!credentials.token){state.archive.syncState='authorization-required';return false;}
+ const credentials=cloudCredentials();if(!canWriteCloud()){state.archive.syncState='authorization-required';return false;}
  const dashboard=await refreshCloud(state,{switchMode:!!state.cloudMode});state.archive.lastError='';
- if(!cloudCredentials().token){state.archive.syncState='authorization-required';return false;}
+ if(!canWriteCloud()){state.archive.syncState='authorization-required';return false;}
  const accepted=new Set((dashboard.state.monitor.updateChain||[]).map(e=>e.id));
  const allPriorityUpdates=pendingPriorityUpdates(state,dashboard.state),priorityUpdates=allPriorityUpdates.slice(0,50);state.priorityPendingIds=allPriorityUpdates.map(x=>x.event.id);
  const missing=(state.monitor.updateChain||[]).filter(e=>!e.publicOnly&&!accepted.has(e.id));
@@ -110,13 +117,13 @@ export async function syncArchive(state,{force=false,immediateReviews=false}={})
 }
 export function pendingReviewEvents(state,acceptedIds=state.publicEventIds||[]){const accepted=new Set(acceptedIds);return (state.monitor?.updateChain||[]).filter(e=>e.type==='review'&&!e.publicOnly&&!accepted.has(e.id)).sort((a,b)=>(a.at||'').localeCompare(b.at||''));}
 export function reviewSyncStatus(state,credentials=cloudCredentials()){
- const pending=pendingReviewEvents(state).length,needsConnection=!credentials.password||!credentials.token;
+ const pending=pendingReviewEvents(state).length,needsConnection=sharedCloudEnabled()?!sharedSignedIn():!credentials.password||!credentials.token;
  if(!pending)return {pending:0,needsConnection:false,message:''};
  const prefix=`本机有 ${pending} 条处理记录尚未被云端接收。`;
  if(state.reviewConflictDiagnostics?.length)return {pending,needsConnection:false,message:prefix+state.reviewConflictDiagnostics.length+' 次存在版本或前序处理冲突；原意见保留，请打开连接设置中的“只读核对处理冲突”。'};
- return {pending,needsConnection,message:prefix+(needsConnection?'当前浏览器尚未连接同步权限，飞书台账还不会新增。请连接后补同步处理记录。':state.archive?.lastError?'同步未完成：'+state.archive.lastError:cloudRunning(state)?'云端任务排队或执行中；以云端接收和飞书实际入表为准。':'等待提交；可点击“补同步处理记录”重试。')};
+ return {pending,needsConnection,message:prefix+(needsConnection?(sharedCloudEnabled()?'请登录工作台后自动同步；无需配置云端凭据。':'当前浏览器尚未连接同步权限，飞书台账还不会新增。请连接后补同步处理记录。'):state.archive?.lastError?'同步未完成：'+state.archive.lastError:cloudRunning(state)?'云端任务排队或执行中；以云端接收和飞书实际入表为准。':'等待提交；可点击“补同步处理记录”重试。')};
 }
-export function reviewSavedMessage(state){const c=cloudCredentials();return !c.password||!c.token?'处理意见已保存在本机，尚未提交云端；请连接当前浏览器同步权限并补同步处理记录。':'处理意见已保存在本机，等待云端接收；同步状态和飞书实际入表结果请在运行中心查看。';}
+export function reviewSavedMessage(state){const c=cloudCredentials();return !canWriteCloud()?'处理意见已保存在本机，尚未提交云端；请连接当前浏览器同步权限并补同步处理记录。':'处理意见已保存在本机，等待云端接收；同步状态和飞书实际入表结果请在运行中心查看。';}
 function reviewTransferEvents(state,acceptedIds,limit=Infinity){
  const events=pendingReviewEvents(state,acceptedIds).slice(0,limit).map(e=>({...e,chartPng:undefined,reviewRecord:state.monitor.reviews.find(r=>r.id===e.id.slice(7))||e.reviewRecord}));
  if(events.some(e=>!e.reviewRecord?.before||!e.reviewRecord?.after||e.reviewRecord.publicOnly))throw Error('本机处理记录缺少完整核查依据，请先解锁台账并检查原处理记录');
@@ -131,6 +138,7 @@ export async function comparePendingReviews(state,transfer=null){
  const dashboard=await readDashboard();if(!dashboard.ready||!dashboard.state?.monitor||!Array.isArray(dashboard.state.rows))throw Error('云端台账尚不可核对，原记录保留');
  let events;
  if(transfer){
+  if(sharedCloudEnabled())throw Error('旧加密文件需管理员在原连接方式下核对；当前可直接核对本机处理记录');
   if(transfer.format!=='fjd-encrypted-review-transfer'||transfer.version!==1||transfer.operation!=='review')throw Error('请选择原加密复核补传文件');
   const payload=await unseal(transfer.payload,cloudCredentials().password,'payload');
   if(Object.keys(payload).some(k=>k!=='events')||!Array.isArray(payload.events)||payload.events.length!==transfer.eventCount)throw Error('补传内容范围不符合声明');
@@ -153,6 +161,7 @@ export async function retryBaseReviews(state){
  state.cloudService={...state.cloudService,phase:'queued',currentSite:null,queuedAt:new Date().toISOString()};return true;
 }
 export async function prepareReviewTransfer(state){
+ if(sharedCloudEnabled())throw Error('统一服务已代管加密传输，请登录后补同步；管理员旧版加密导出入口仍保留');
  requireCloudCredentials(cloudCredentials(),{token:false});
  const dashboard=await refreshCloud(state,{switchMode:!!state.cloudMode}),accepted=(dashboard.state.monitor.updateChain||[]).map(e=>e.id);
  const events=reviewTransferEvents(state,accepted);if(!events.length)return null;
@@ -165,6 +174,7 @@ export async function prepareReviewTransfer(state){
 }
 export async function saveCloudTask(state){await dispatch('sync',await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases}));state.cloudTaskDirty=false;}
 export async function verifyBrowserSync(){
+ if(sharedCloudEnabled()){await readDashboard();return 'shared-read-verified';}
  requireCloudCredentials();
  await readDashboard();
  const id=crypto.randomUUID(),payload=await makePayload({permissionProbe:id}),pointer=await uploadPayload(payload);

@@ -11,3 +11,6 @@ _site/
 # Private user handoffs are never application source or publication inputs.
 cloud/review-transfer-request.json
 fjd-review-transfer-*.json
+
+# Shared gateway runtime secrets and receipt metadata stay on its private volume.
+gateway-state.enc*
