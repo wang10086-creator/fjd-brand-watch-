@@ -1345,6 +1345,11 @@ on the original page can still be captured as access-restriction evidence when
 robots permits it. Neither case is treated as a product removal or a completed
 Base write.
 
+The screenshot workflows install the small WenQuanYi CJK font package instead
+of the large Noto CJK archive. A real production run stalled while downloading
+the 61 MB Noto package and timed out before capture; this keeps CJK fallback
+available without making that large download a prerequisite for each run.
+
 Headed Chromium runs in a fresh X display; Pillow reads the actual framebuffer,
 XTest operates the native address bar, and
 Tk reads that display's clipboard. No fake toolbar, page screenshot or product

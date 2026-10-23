@@ -23,7 +23,7 @@ jobs:
       - run: |
           npm ci --ignore-scripts
           sudo apt-get update -qq
-          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-noto-cjk
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
           python3 -m pip install --quiet Pillow==11.3.0 playwright==1.55.0
       - name: 补齐原始初核事件证据并核验附件
         env:

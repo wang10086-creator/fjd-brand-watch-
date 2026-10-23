@@ -51,7 +51,7 @@ jobs:
         if: inputs.operation == 'base-evidence'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-noto-cjk
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
           python3 -m pip install --quiet playwright==1.55.0
       - name: 云端检索、Notion 归档与飞书简报
         if: inputs.operation != 'archive'
