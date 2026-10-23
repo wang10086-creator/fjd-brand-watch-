@@ -1,7 +1,8 @@
 // Private outbox inside the existing encrypted vault. No webhook or payload is public.
 import {createHash} from 'node:crypto';
-import {canonical,platforms,marketData,safeUrl} from '../model.js';
+import {canonical,marketData,safeUrl} from '../model.js';
 import {workflowOf} from '../review.js';
+import {baseFields} from './base-fields.mjs';
 
 export function initialReviewTransfer(review){
  if(!review?.id||!review.after?.reviewWorkflow)return false;
@@ -16,16 +17,12 @@ export function reviewPayload(state,review){
  if(!initialReviewTransfer(review))return null;
  const row=state.rows.find(r=>canonical(r.url)===review.key),url=safeUrl(row?.url);
  if(!url||canonical(url)!==canonical(review.url))throw Error('线索原网址缺失，保留待核对');
- const platform=platforms.find(p=>p.id===row.platform),key=canonical(url);
+ const key=canonical(url);
  return {
   source_id:'lead-'+createHash('sha256').update(key).digest('hex'),
   event_id:'review:'+review.id,event_type:'ip_initial_review_submitted',
   from_stage:'待IP对接人初核',review_opinion:'疑似侵权·待IP部门复核',
-  monitor_category:platform?.kind==='social'?'社交媒体':['market','resale','b2b'].includes(platform?.kind)?'电商平台':'网页',
-  source_platform:platform?.name||new URL(url).hostname,page_title:row.title||url,url,
-  // Search market is not evidence of the operator's location.
-  country_region:row.countryEvidence?marketData[row.observedCountry]?.name||row.observedCountry||'':'',
-  operator_name:row.seller||'',product_model:row.productModel||'',
+  ...baseFields(row),page_title:row.title||url,url,
   first_found_date:day(row.firstSeen||state.monitor.known?.[key]?.firstKnownAt||row.checkedAt),
   last_checked_date:day(row.checkedAt||row.lastSeen||review.at),
   summary:[row.snippet||'',`初核意见：疑似侵权·待IP部门复核`,

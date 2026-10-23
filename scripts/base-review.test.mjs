@@ -24,7 +24,7 @@ function fixture(action='suspected',note='private-review-basis'){
 test('only an evidenced initial-to-IP suspected transition creates a write payload',()=>{
  const {vault,review}=fixture();assert.equal(initialReviewTransfer(review),true);
  const p=reviewPayload(vault.state,review);assert.equal(p.from_stage,'待IP对接人初核');assert.equal(p.review_opinion,'疑似侵权·待IP部门复核');assert.equal(p.event_type,'ip_initial_review_submitted');
- assert.equal(p.country_region,'');assert.match(p.summary,/检索目标市场：新加坡/);assert.equal(p.first_found_date,'2026-10-22');
+ assert.equal(p.country_region,'待核实');assert.match(p.summary,/检索目标市场：新加坡/);assert.equal(p.first_found_date,'2026-10-22');
  assert.equal(p.operator_name,'Public store');assert.match(p.summary,/private-review-basis/);
  const same=structuredClone(vault.state);same.rows[0].id='different-device-id';assert.equal(reviewPayload(same,review).source_id,p.source_id);
  for(const action of ['facts','insufficient'])assert.equal(initialReviewTransfer(fixture(action).review),false);
