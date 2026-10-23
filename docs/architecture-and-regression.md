@@ -1169,3 +1169,31 @@ reopen-reason requirements. Existing round histories and evidence are not migrat
 Initial-review notification eligibility no longer depends on nonempty basis text.
 UI labels explicitly mark optional; browser regression submits empty basis through
 both the failed-save rollback and successful initial transfer paths.
+
+## 2026-10-23 browser connection persistence and read recovery
+
+Connection credentials formerly lived exclusively in sessionStorage, so a new
+browser session lost upload permission while local reviews remained pending.
+Add a separate browser-only IndexedDB credential vault with AES-GCM ciphertext
+and a non-exportable CryptoKey, default opt-in shown as “在此浏览器保持连接”.
+Never include these records in ledger serialization, JSON backup, public feeds
+or Git commits. This protects against plaintext storage/export, not a malicious
+same-origin script or another person using the same browser profile. UI explains
+the device trust requirement and provides explicit removal. Restore before auto
+sync; cross-tab changes notify the workbench and existing retry logic handles
+pending original events without new events or fabricated receipts. New devices,
+cleared site storage, and expired/revoked GitHub credentials still need connection.
+
+If raw GitHub and anonymous Contents reads fail, refreshRuntime can use the
+validated Pages public snapshot, visibly dated as fallback rather than live.
+Older fallback status cannot roll newer local service status back. Encrypted
+full-dashboard reads can fall back to the same repository's GitHub Contents API;
+Authorization is sent only to that API, never raw or arbitrary hosts. AES-GCM
+verification still occurs before any merge. Successful full reads clear stale
+read-error banners. No report, checksum or original record is rewritten.
+
+The observed image-only job does not receive FEISHU_BASE_REVIEW_WEBHOOK; its
+missing runtime secret cannot alone establish that the main review workflow's
+integration is absent globally. Wording distinguishes missing/unloaded entry.
+Actual Secrets metadata inspection was denied (403); no secret or permission
+was changed. Feishu row-write success remains unverified.

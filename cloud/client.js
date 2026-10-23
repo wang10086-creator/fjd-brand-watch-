@@ -1,7 +1,10 @@
+import {cloudCredentials,setCloudCredentials} from './credentials.js?v=20261023-connection';
+export {cloudCredentials,setCloudCredentials,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus} from './credentials.js?v=20261023-connection';
+import {readLocalSnapshot} from './local-snapshot.js?v=20261023-connection';
 import {continuationInfo} from '../execution-progress.js?v=20261021-search-recovery';
 import {pendingImageUpdates} from './image-updates.js?v=20261021-first-pass';
 import {pendingPriorityUpdates} from '../priority.js?v=20261021-cycle-r2';
-import {readPublicFile} from './public-reader.js?v=20261020-review';
+import {readPublicFile} from './public-reader.js?v=20261023-connection';
 import {applyPublicFeed,pendingLocalEvents} from './public-feed.js?v=20261021-first-pass';
 import {notionPublicUrl} from '../archive-config.js?v=20261020-review';
 import {seal,unseal,migrationState} from './crypto.js?v=20261020-images';
@@ -19,7 +22,6 @@ async function currentHead(){
  headRequest=(async()=>{const {token}=cloudCredentials(),r=await githubRequest('https://api.github.com/repos/'+REPO+'/git/ref/heads/'+BRANCH+'?t='+Date.now(),{headers:{Accept:'application/vnd.github+json',...(token?{Authorization:'Bearer '+token}:{})},cache:'no-store',signal:AbortSignal.timeout(8000)},{task:'云端版本读取'});if(r.status===404)return null;if(!r.ok)throw await githubFailure(r,{task:'云端版本读取',permission:'Contents 读取',authenticated:!!token});const value=(await r.json()).object?.sha;if(!/^[a-f0-9]{40}$/.test(value||''))throw Error('云端版本校验失败');head=value;headFetchedAt=Date.now();headMaxAge=token?15000:120000;return head;})();
  try{return await headRequest}finally{headRequest=null}
 }
-export function cloudCredentials(){return {password:typeof sessionStorage==='undefined'?'':sessionStorage.getItem('fjd-cloud-password')||'',token:typeof sessionStorage==='undefined'?'':sessionStorage.getItem('fjd-cloud-github')||''}}
 export function requireCloudCredentials(credentials=cloudCredentials(),{token=true}={}){
  const fail=(message,field)=>{throw Object.assign(Error(message),{field})};
  if(!credentials.password)fail('请先填写已有的云端数据密码；本机处理记录尚未上传。','password');
@@ -27,15 +29,14 @@ export function requireCloudCredentials(credentials=cloudCredentials(),{token=tr
  if(token&&!credentials.token?.trim())fail('缺少 GitHub 同步凭据，本次尚未提交。可填写该凭据后重试，或点击“生成加密补传文件”使用免 GitHub 凭据方式。','github-token');
  return credentials;
 }
-export function setCloudCredentials(password,token=''){if(password.length<12)throw Error('云端密码至少 12 个字符');sessionStorage.setItem('fjd-cloud-password',password);if(token)sessionStorage.setItem('fjd-cloud-github',token)}
 export async function publicCloudFile(name){
  if(!['status.json','dashboard.json','public-dashboard.json'].includes(name))throw Error('不允许的云端文件');
  const isPublic=name!=='dashboard.json';let revision;
  try{revision=await currentHead()}catch(error){if(!isPublic&&!error.kind)throw error;revision=null;}
- if(isPublic){const cached=publicCache.get(name);if(revision&&cached?.revision===revision)return cached.value;const value=await readPublicFile(name,{revision});publicCache.set(name,{revision,value});if(name==='status.json'&&value.runtime?.phase==='running')headMaxAge=cloudCredentials().token?15000:60000;return value;}
+ if(isPublic){const cached=publicCache.get(name);if(revision&&cached?.revision===revision)return cached.value;const value=await readPublicFile(name,{revision,token:cloudCredentials().token});publicCache.set(name,{revision,value});if(name==='status.json'&&value.runtime?.phase==='running')headMaxAge=cloudCredentials().token?15000:60000;return value;}
  // The dashboard is already encrypted and public. Reading it never needs a token
  // or the rate-limited ref API. AES-GCM authentication still precedes any merge.
- const r=await githubRequest('https://raw.githubusercontent.com/'+REPO+'/'+(revision||BRANCH)+'/'+name+(revision?'':'?t='+Date.now()),{cache:'no-store',credentials:'omit',signal:AbortSignal.timeout(30000)},{task:'加密台账读取'});if(r.status===404)return null;if(!r.ok)throw await githubFailure(r,{task:'加密台账读取',permission:'Contents 读取'});return r.json();
+ return readEncryptedDashboard(revision);
 }
 export async function readDashboard(){const {password}=cloudCredentials();if(!password)throw Error('请在云端设置页输入数据密码');const cipher=await publicCloudFile('dashboard.json');if(!cipher)throw Error('云端尚无数据，请先配置数据密码并检查云端连接');return unseal(cipher,password,'dashboard');}
 export async function makePayload(data,{large=false}={}){const {password}=cloudCredentials();const text=JSON.stringify(await seal(data,password,'payload'));if(new TextEncoder().encode(text).length>60000&&!large)throw Error('本次内容超过云端单次传输上限，请使用完整台账迁移；未发送任何明文');return text;}
@@ -62,15 +63,16 @@ export async function runCloud(state,{site=null,watch=false}={}){
 export async function refreshRuntime(state){
  const [statusResult,feedResult]=await Promise.allSettled([publicCloudFile('status.json'),publicCloudFile('public-dashboard.json')]);
  const errors=[];let feed=feedResult.status==='fulfilled'?feedResult.value:null,info=statusResult.status==='fulfilled'?statusResult.value:null;
+ if(!feed||!info){const fallback=await readLocalSnapshot();if(fallback){state.publicReadFallbackAt=fallback.feed.updatedAt||fallback.status.updatedAt||null;if(!feed)feed=fallback.feed;if(!info)info=fallback.status;}}else state.publicReadFallbackAt=null;
  if(feed){try{applyPublicFeed(state,feed);state.publicFeedError='';}catch(e){state.publicFeedError=e.message;errors.push(e.message);}}else{state.publicFeedError=feedResult.reason?.message||'云端日报尚未读取';errors.push(state.publicFeedError);}
  state.publicFeedLoading=false;
- if(info?.runtime){state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;const old=state.cloudService||{},newer=Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt||old.startedAt||'1970-01-01');if(newer||!old.phase)state.cloudService={...old,...info.runtime};}
- else errors.push(statusResult.reason?.message||'云端执行状态尚未读取');
+ if(info?.runtime&&(Date.parse(info.updatedAt)||0)>=(Date.parse(state.cloudStatusAt)||0)){state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;const old=state.cloudService||{},newer=Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt||old.startedAt||'1970-01-01');if(newer||!old.phase)state.cloudService={...old,...info.runtime};}
+ else if(!info?.runtime)errors.push(statusResult.reason?.message||'云端执行状态尚未读取');
  state.cloudStatusError=errors.join(' ');return {feed:!!feed,status:!!info?.runtime};
 }
 export async function refreshCloud(state,{switchMode=true}={}){
  const dashboard=await readDashboard();if(!dashboard.ready)throw Error('云端配置尚未升级，请在设置页运行连接检查');if(!dashboard.state?.rows||!dashboard.state.monitor)throw Error('云端尚无可读取的监控台账');
- const live=await publicCloudFile('status.json');state.automation=live?.automation||state.automation;if(live?.runtime&&Date.parse(live.runtime.startedAt)>=Date.parse(dashboard.runtime?.startedAt||0))dashboard.runtime=live.runtime;
+ const live=await publicCloudFile('status.json');state.publicFeedError='';state.cloudStatusError='';state.publicReadFallbackAt=null;state.automation=live?.automation||state.automation;if(live?.runtime&&Date.parse(live.runtime.startedAt)>=Date.parse(dashboard.runtime?.startedAt||0))dashboard.runtime=live.runtime;
  const localTask=state.cloudTaskDirty?Object.fromEntries(['config','selectedBrandIds','customAliases','taskName','schedule','assetIds','customAssets','cloudTaskDirty'].map(k=>[k,state[k]])):{};
  const queued=['queued','submitting'].includes(state.cloudService?.phase)&&Date.parse(state.cloudService.queuedAt)>Date.parse(dashboard.runtime?.startedAt||0)?state.cloudService:null;
  const service={...dashboard.runtime,...queued,lastError:dashboard.lastError,publicUrl:dashboard.publicUrl,archiveError:dashboard.archiveError,notionConfigured:dashboard.notionConfigured,notionCheckedAt:dashboard.notionCheckedAt,lastSyncedAt:dashboard.lastSyncedAt,botConfigured:dashboard.botConfigured,botError:dashboard.botError,pushes:dashboard.pushes,pushStatus:dashboard.pushStatus};
@@ -179,3 +181,12 @@ export {migrationState};
 export {pendingLocalEvents};
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function cloudPanel(state){const reviewSync=reviewSyncStatus(state),a=state.automation||{},cycle=a.policy?continuationInfo(a,state.cloudService):null,s={...state.cloudService,...(a.archive?{notionConfigured:a.archive.configured,archiveError:a.archive.error}:{}),...(a.bot?{botConfigured:a.bot.configured,botError:a.bot.error,lastTest:a.bot.lastTest}: {})},events=state.monitor.updateChain||[],synced=events.filter(e=>state.archive?.receipts?.[e.id]?.status==='synced').length,push=Object.entries(s.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];return `<section class="panel delivery-panel" id="cloud-panel"><div class="panel-head"><div><h2>日报归档与飞书台账</h2><p class="helper">Notion 日报公开阅读 · 飞书保存初核后待IP部门复核的线索 · 日报仍按原计划推送飞书群</p></div><a class="button" href="${notionPublicUrl}" target="_blank" rel="noopener">打开 Notion 日报 ↗</a></div><div class="delivery-grid"><div><b>▣ Notion 归档</b><p>${a.archive?`云端已归档 ${a.archive.synced} 次更新`:`${synced} / ${events.length} 次更新已确认`}</p><small>${esc(s.archiveError||state.archive?.lastError|| (s.notionCheckedAt?'已验证连接，按周期归档固定快照':'自动归档连接尚未验证'))}</small></div><div><b>▤ 飞书监测台账</b><small>初核意见为“疑似侵权·待IP部门复核”时写入</small><p>${a.base?.configured?'写入入口已配置':'写入入口待连接'}</p>${reviewSync.pending?`<p class="warning" role="status">${esc(reviewSync.message)}</p>`:''}<small>${esc(a.base?.configurationError||'')}</small><small>${a.base?`待处理 ${a.base.queued||0} · 已受理 ${a.base.accepted||0} · 待核对 ${(a.base.uncertain||0)+(a.base.blocked||0)} · 失败 ${a.base.failed||0}`:'等待云端连接检查'}。受理后由飞书工作流写入，以表格中的实际记录为准。线索入表不发送群通知；日报定时群推送保留。</small>${baseReviewReceiptView(state)}</div><div><b>✉ 飞书群简报</b><small>卡片通知 · 不支持接收消息或聊天回复</small><p>${a.bot?.lastPush?esc(a.bot.lastPush.day+' '+({sent:'已发送',failed:'发送失败',uncertain:'回执未确认',sending:'发送中'}[a.bot.lastPush.status]||a.bot.lastPush.status)):push?esc(push[0]+' '+({sent:'已发送',sending:'回执待核对',uncertain:'回执未确认',failed:'发送失败'}[push[1].status]||push[1].status)):'尚无发送回执'}</p><small>${esc(s.botError||(s.lastTest?'测试简报：'+({sent:'已确认发送',failed:'失败',uncertain:'回执未确认',sending:'发送中'}[s.lastTest.status]||s.lastTest.status):'')||s.pushStatus||(s.botConfigured?'机器人已配置，等待每日计划':'机器人待配置'))}</small></div><div><b>◷ 云端执行</b><p>${esc(({submitting:'正在提交',queued:'已排队',running:'正在执行',ready:'最近执行结束',failed:'最近执行失败',partial:'检索已保存，归档或推送待处理'})[s.phase]||'尚未读取状态')}</p><small>${esc(s.lastError||(a.enabled?'每日云端自动检索已启用 · 关闭网页仍运行':state.cloudMode?'云端状态读取中':'本浏览器使用页面内检索'))}</small></div></div><div class="actions space"><a class="button" href="./cloud/portal.html">连接设置</a><button data-action="archive-sync">补同步处理记录与日报</button><button data-action="cloud-read">读取云端记录</button>${(a.base?.queued||0)+(a.base?.failed||0)+(a.base?.blocked||0)?'<button data-action="base-review-retry">重试待写及明确失败请求</button>':''}</div>${a.enabled?`<p class="helper space">云端范围：${a.marketCount} 个市场 / ${a.platformCount} 类平台 · 每周期最多 ${a.queryBudget} 条，跨天续查。最近检索：${a.lastRun?esc(new Date(a.lastRun.at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}))+' · 成功 '+a.lastRun.success+' / 失败 '+a.lastRun.failed:'尚无完成记录'}。</p>`:''}${cycle?`<p class="helper" data-cycle-status>日报归属 <b>${esc(cycle.day)}</b> · ${esc(cycle.reason)}<br>本周期已执行 ${cycle.attempted} / ${cycle.budget} 次 · 剩余 ${cycle.remainingBudget} 次<br>下次计划 ${esc(cycle.nextAttemptAt?new Date(cycle.nextAttemptAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false}):"未启用")} · 截止 ${esc(new Date(cycle.cutoffAt).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai",hour12:false}))}</p>`:""}<details class="space"><summary>存储与执行说明</summary><p class="helper">公开站点展示统计和公开线索；内部备注、授权依据留在加密台账。网页内检索完成后，已配置执行权限的浏览器自动提交云端归档。关闭网页后的检索与台账补同步由云端任务执行，可能排队延迟。以实际写入结果为准。</p></details></section>`;}
+
+async function readEncryptedDashboard(revision){
+ const ref=revision||BRANCH,{token}=cloudCredentials();let error;
+ const raw='https://raw.githubusercontent.com/'+REPO+'/'+ref+'/dashboard.json'+(revision?'':'?t='+Date.now());
+ const api='https://api.github.com/repos/'+REPO+'/contents/dashboard.json?ref='+ref;
+ for(const [url,headers] of [[raw,{}],[api,{Accept:'application/vnd.github.raw+json',...(token?{Authorization:'Bearer '+token}:{})}]]){
+  try{const r=await githubRequest(url,{cache:'no-store',credentials:'omit',headers,signal:AbortSignal.timeout(30000)},{task:'加密台账读取'});if(!r.ok)throw await githubFailure(r,{task:'加密台账读取',permission:'Contents 读取',authenticated:url===api&&!!token});return await r.json()}catch(e){error=e}
+ }throw error;
+}

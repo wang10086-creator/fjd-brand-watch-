@@ -1,13 +1,13 @@
 // Public data only. Reads remain available without an execution token or ref API.
 export const PUBLIC_REPO='wang10086-creator/fjd-brand-watch-';
 export function validPublic(name,v){return name==='status.json'?!!v&&typeof v==='object'&&!!v.runtime:!!v&&v.version===1&&Array.isArray(v.rows)&&v.monitor?.version===1&&Array.isArray(v.monitor.observations);}
-export async function readPublicFile(name,{revision=null,fetcher=fetch}={}){
+export async function readPublicFile(name,{revision=null,fetcher=fetch,token=''}={}){
  if(!['status.json','public-dashboard.json'].includes(name))throw Error('备用通道仅允许公开状态与日报');
  const ref=revision||'data-cloud',raw='https://raw.githubusercontent.com/'+PUBLIC_REPO+'/'+ref+'/',api='https://api.github.com/repos/'+PUBLIC_REPO+'/contents/';
  const paths=name==='public-dashboard.json'&&typeof DecompressionStream!=='undefined'?[name+'.gz',name]:[name];let last='';
- for(const origin of ['raw','api'])for(const path of paths){
+ for(const origin of ['raw','api',...(token?['api-auth']:[])])for(const path of paths){
   try{const url=origin==='raw'?raw+path+(revision?'':'?t='+Date.now()):api+path+'?ref='+ref+'&t='+Date.now();
-   const r=await fetcher(url,{cache:'no-store',credentials:'omit',headers:origin==='api'?{Accept:'application/vnd.github.raw+json'}:{},signal:AbortSignal.timeout(path.endsWith('.gz')?10000:20000)});
+   const r=await fetcher(url,{cache:'no-store',credentials:'omit',headers:origin==='raw'?{}:{Accept:'application/vnd.github.raw+json',...(origin==='api-auth'?{Authorization:'Bearer '+token}:{})},signal:AbortSignal.timeout(path.endsWith('.gz')?10000:20000)});
    if(!r.ok){last='HTTP '+r.status;continue;}
    const value=path.endsWith('.gz')?JSON.parse(await new Response(new Blob([await r.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).text()):await r.json();
    if(!validPublic(name,value)){last='数据格式未通过检查';continue;}return value;

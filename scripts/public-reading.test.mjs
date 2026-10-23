@@ -14,3 +14,20 @@ test('same-origin compressed snapshot preserves the full public ledger and valid
 test('unread daily data shows unavailable instead of a misleading zero dashboard',async()=>{
  const {dailyView}=await import('../daily-view.js');const html=dailyView(initMonitor(null,[]),'2026-10-19',{state:{publicFeedError:'network'}});assert.ok(html.includes('云端日报尚未读到'));assert.ok(!html.includes('class="metrics report-metrics"'));
 });
+
+test('remote 403 uses validated site snapshot and keeps newer local status and unreceived reviews',async()=>{
+ const old=fetch,storage=globalThis.sessionStorage,local={id:'local-review',type:'review',at:'2026-10-23T01:00:00Z'},f=feed();
+ globalThis.sessionStorage={getItem:()=>null};
+ globalThis.fetch=async url=>String(url).includes('public-snapshot.json.gz')?new Response(gzipSync(JSON.stringify({version:1,feed:f,status:{updatedAt:'2026-10-19T01:00:00Z',runtime:{phase:'ready'},automation:{base:{configured:false}}}}))):new Response('',{status:403});
+ try{refreshCloudSnapshot();const state={rows:[],monitor:initMonitor(null,[]),cloudStatusAt:'2026-10-23T00:00:00Z',automation:{base:{configured:true}}};state.monitor.updateChain=[local];await refreshRuntime(state);assert.equal(state.rows.length,1);assert.equal(state.publicFeedError,'');assert.equal(state.publicReadFallbackAt,f.updatedAt);assert.equal(state.automation.base.configured,true);assert.ok(state.monitor.updateChain.some(e=>e.id==='local-review'));}finally{globalThis.fetch=old;globalThis.sessionStorage=storage;refreshCloudSnapshot()}
+});
+test('encrypted dashboard raw failure uses authenticated GitHub fallback without leaking token to raw',async()=>{
+ const old=fetch,storage=globalThis.sessionStorage,calls=[];globalThis.sessionStorage={getItem:k=>k==='fjd-cloud-github'?'TEST-ONLY':''};
+ globalThis.fetch=async(url,opts)=>{calls.push({url,opts});if(url.includes('/git/ref/'))return new Response('',{status:403});if(url.includes('raw.githubusercontent.com'))return new Response('',{status:403});return new Response(JSON.stringify({format:'encrypted-fixture'}))};
+ try{refreshCloudSnapshot();assert.equal((await publicCloudFile('dashboard.json')).format,'encrypted-fixture');assert.ok(calls.filter(c=>c.url.includes('raw.githubusercontent.com')).every(c=>!c.opts.headers.Authorization));assert.equal(calls.at(-1).opts.headers.Authorization,'Bearer TEST-ONLY')}finally{globalThis.fetch=old;globalThis.sessionStorage=storage;refreshCloudSnapshot()}
+});
+test('saved token recovers anonymous API throttling and is never sent to raw or snapshot hosts',async()=>{
+ const calls=[],status={runtime:{phase:'ready'},updatedAt:'2026-10-23T00:00:00Z'};
+ const value=await readPublicFile('status.json',{token:'TEST-ONLY',fetcher:async(url,opts)=>{calls.push({url,opts});return opts.headers.Authorization?new Response(JSON.stringify(status)):new Response('',{status:403})}});
+ assert.deepEqual(value,status);assert.equal(calls.length,3);assert.ok(!calls[0].opts.headers.Authorization);assert.ok(!calls[1].opts.headers.Authorization);assert.ok(calls[2].url.startsWith('https://api.github.com/repos/wang10086-creator/fjd-brand-watch-/contents/'));
+});

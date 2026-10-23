@@ -52,7 +52,7 @@ function endpoint(value){
 export function baseReviewStatus(vault,configured=false){
  let configurationError='';
  if(typeof configured==='string'){try{endpoint(configured);configured=true}catch{configured=false;configurationError='飞书台账写入入口格式不正确，请由管理员核对现有配置'}}
- if(!configured&&!configurationError)configurationError='飞书台账写入入口未配置，已保存的复核记录尚不能入表';
+ if(!configured&&!configurationError)configurationError='飞书台账写入入口未配置或未载入当前任务；请核对主工作流配置';
  const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,uncertain:0,failed:0,blocked:0};
  for(const item of values)counts[item.status==='sending'?'uncertain':item.status]=(counts[item.status==='sending'?'uncertain':item.status]||0)+1;
  return {configured,...counts,configurationError,lastAttemptAt:vault.baseReview?.lastAttemptAt||null};
