@@ -5,6 +5,7 @@ import {createGunzip} from 'node:zlib';
 import streamJson from 'stream-json';
 const {parser}=streamJson;
 export async function validateDashboardCompressed(compressed,{maxBytes=2*1024**3,maxMilliseconds=45000,publicFeed=false}={}){
+ if(!Number.isSafeInteger(maxMilliseconds)||maxMilliseconds<=0)throw Error('云端台账流式验证超时，原数据保留');
  const started=Date.now(),source=Readable.from([compressed]),inflate=createGunzip(),tokens=parser({packKeys:true,streamKeys:false,packStrings:false,streamStrings:true,packNumbers:false,streamNumbers:true});
  let plainBytes=0,count=0,rootObject=false,ready=false,stateObject=false,rows=false,monitor=false,version=null,revision=null,numberAt=null,numberText='';const stack=[];
  inflate.on('data',chunk=>{plainBytes+=chunk.length;if(plainBytes>maxBytes)inflate.destroy(Error('云端台账超出安全读取上限，原数据保留'))});
@@ -19,7 +20,8 @@ export async function validateDashboardCompressed(compressed,{maxBytes=2*1024**3
    if(name==='endObject'||name==='endArray'){stack.pop();continue}
    if(['startString','startNumber','trueValue','falseValue','nullValue'].includes(name))mark(path(),name);
   }
-  await pumping;if(!rootObject||!rows||!monitor||(publicFeed?version!==1||!Number.isFinite(revision)||revision<0:!ready||!stateObject))throw Error('云端台账尚未准备完成或结构不完整');
+  await pumping;if(Date.now()-started>=maxMilliseconds)throw Error('云端台账流式验证超时，原数据保留');
+  if(!rootObject||!rows||!monitor||(publicFeed?version!==1||!Number.isFinite(revision)||revision<0:!ready||!stateObject))throw Error('云端台账尚未准备完成或结构不完整');
   return {plainBytes,...(publicFeed?{revision}:{})};
  }catch(error){source.destroy();inflate.destroy();tokens.destroy();await pumping.catch(()=>{});throw error}
 }
