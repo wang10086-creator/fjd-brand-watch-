@@ -1,4 +1,4 @@
-import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared';
+import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r2';
 let endpoint='',configured=false,session=null,lastError='';
 const pending=new Map();
 export function sharedCloudStatus(){return {endpoint,configured,user:session?.user||null,error:lastError}}
@@ -10,7 +10,7 @@ export async function sharedRequest(path,{method='GET',data,anonymous=false,time
  let body,headers={};if(data!==undefined){body=JSON.stringify(data);headers['Content-Type']='application/json';if(body.length>65536&&typeof CompressionStream!=='undefined'){body=await new Response(new Blob([body]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();headers['Content-Encoding']='gzip'}}
  if(!anonymous)headers.Authorization='Bearer '+session.token;
  let response;try{response=await fetch(endpoint+path,{method,headers,...(body!==undefined?{body}:{}),credentials:'omit',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(timeoutMs)})}catch{throw Error(method==='GET'?'统一服务暂无法读取；本机记录保留':'提交回执未确认，请稍后核对；本机记录保留')}
- const value=await response.json();if(!response.ok){if(response.status===401&&!anonymous){session=null;await saveWorkspaceSession(null);signal()}throw Error(value.error||'统一服务请求未完成')}return value;
+ const value=await response.json();if(!response.ok){if(response.status===401&&!anonymous){session=null;await saveWorkspaceSession(null);signal()}throw Object.assign(Error(value.error||'统一服务请求未完成'),{code:value.code,field:value.field})}return value;
 }
 export async function initializeSharedCloud(){
  if(typeof window==='undefined')return;

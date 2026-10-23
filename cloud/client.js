@@ -1,5 +1,5 @@
-import {sharedCloudEnabled,sharedSignedIn,requireSharedSession,sharedRequest,sharedCommand} from './shared-service.js?v=20261023-shared';
-export {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest} from './shared-service.js?v=20261023-shared';
+import {sharedCloudEnabled,sharedSignedIn,requireSharedSession,sharedRequest,sharedCommand} from './shared-service.js?v=20261023-shared-r2';
+export {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest} from './shared-service.js?v=20261023-shared-r2';
 export const canReadCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!cloudCredentials().password;
 export const canWriteCloud=()=>sharedCloudEnabled()?sharedSignedIn():!!(cloudCredentials().password&&cloudCredentials().token);
 import {cloudCredentials,setCloudCredentials} from './credentials.js?v=20261023-connection';

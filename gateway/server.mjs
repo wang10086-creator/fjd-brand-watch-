@@ -1,5 +1,4 @@
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import {gunzipSync} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
@@ -11,13 +10,24 @@ const issue=(status,message)=>Object.assign(Error(message),{status});
 const validUser=s=>typeof s==='string'&&/^[a-zA-Z0-9_.-]{3,64}$/.test(s)&&!Object.hasOwn(Object.prototype,s);
 const validPassword=s=>typeof s==='string'&&s.length>=12&&s.length<=256;
 const safeUser=(name,u)=>({name,role:u.role});
+const connectionIssue=(message,code,field='token')=>Object.assign(issue(502,message),{code,field});
+function connectionToken(value){
+ const token=typeof value==='string'?value.trim().replace(/^(?:Bearer|token)\s+/i,''):'';
+ if(!token||!/^[A-Za-z0-9_]+$/.test(token))throw Object.assign(issue(400,'请粘贴 GitHub 生成的完整个人访问令牌（Token），不要填写账号密码、仓库地址或令牌名称。'),{code:'github-token-format',field:'token'});
+ return token;
+}
 export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[]}={}){
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const allowedOrigin=origin=>!!origin&&(origin===siteOrigin||origin===selfOrigin||testOrigins.includes(origin));
  function limit(key,max,ms){const t=now();for(const [k,v]of limiter)if(v.until<=t)limiter.delete(k);const value=limiter.get(key)||{count:0,until:t+ms};value.count++;limiter.set(key,value);if(value.count>max||limiter.size>3000)throw issue(429,'请求过于频繁，请稍后重试')}
  async function github(path,{token,method='GET',body,raw=false}={}){let r;try{r=await fetcher(API+path,{method,redirect:'error',headers:{Authorization:'Bearer '+token,Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'fjd-shared-sync'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(25000)})}catch{throw issue(502,'GitHub 请求回执未确认，本机记录保留')}
-  if(!r.ok)throw issue(502,'GitHub 服务返回 HTTP '+r.status+'；请由管理员检查后台连接');return r;
+  if(!r.ok){
+   if(r.status===401)throw connectionIssue('GitHub 同步凭据未通过验证（HTTP 401）。凭据可能无效、过期或已撤销；请重新生成并粘贴完整 Token。工作台登录密码和云端数据密码不能代替它。','github-token-rejected');
+   if(r.status===403)throw connectionIssue('GitHub 拒绝访问（HTTP 403）。请检查凭据的仓库权限、有效期及 GitHub 的访问限制。','github-access-denied');
+   if(r.status===404)throw connectionIssue('未能读取原仓库云端文件（HTTP 404）。请确认凭据选择了 fjd-brand-watch- 仓库并具备 Contents 读取权限。请勿重建或清空台账。','github-resource-unavailable');
+   throw connectionIssue('GitHub 服务返回 HTTP '+r.status+'；请稍后重试，原记录保留。','github-unavailable');
+  }return r;
  }
  async function readDashboard(config,{fresh=false}={}){if(!fresh&&dashboardCache?.until>now())return structuredClone(dashboardCache.value);const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});const value=await unseal(await r.json(),config.password,'dashboard');if(!value.ready||!Array.isArray(value.state?.rows)||!value.state?.monitor)throw issue(502,'云端台账尚未准备完成');dashboardCache={until:now()+10000,value};return structuredClone(value)}
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)],user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'请登录工作台，原本机记录保留');return {token,name:session.name,role:user.role}}
@@ -58,9 +68,9 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    if(path==='/setup'&&req.method==='POST'){
     limit('setup',5,900000);if(store.read().config)throw issue(409,'管理员已完成配置，请登录');const v=await body(req);
     if(!validUser(v.username)||!validPassword(v.loginPassword)||typeof v.token!=='string'||typeof v.password!=='string'||v.password.length<12)throw issue(400,'请填写管理员账号、至少12位登录密码及已有云端凭据');
-    const owner=await(await github('/user',{token:v.token})).json();if(owner.login?.toLowerCase()!=='wang10086-creator')throw issue(403,'首次配置必须使用原仓库所有者的凭据');
-    await readDashboard({token:v.token,password:v.password},{fresh:true});const pass=await passwordHash(v.loginPassword);
-    await store.mutate(s=>{if(s.config)throw issue(409,'管理员已完成配置');s.config={token:v.token,password:v.password};s.users[v.username]={...pass,role:'admin',disabled:false}});
+    const token=connectionToken(v.token),owner=await(await github('/user',{token})).json();if(owner.login?.toLowerCase()!=='wang10086-creator')throw Object.assign(issue(403,'首次配置必须使用 wang10086-creator 账号生成的 GitHub 凭据。'),{code:'github-owner-mismatch',field:'token'});
+    await readDashboard({token,password:v.password},{fresh:true});const pass=await passwordHash(v.loginPassword);
+    await store.mutate(s=>{if(s.config)throw issue(409,'管理员已完成配置');s.config={token,password:v.password};s.users[v.username]={...pass,role:'admin',disabled:false}});
     respond(200,await session(v.username));return;
    }
    if(path==='/login'&&req.method==='POST'){
@@ -76,7 +86,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     if(req.method==='POST'){const v=await body(req);if(!validUser(v.username)||v.username===user.name||!['member','admin'].includes(v.role||'member'))throw issue(400,'账号不合法；不能在此修改自己');if(!v.disabled&&!validPassword(v.password))throw issue(400,'登录密码至少12位');const pass=v.disabled?null:await passwordHash(v.password);await store.mutate(s=>{if(v.disabled&&!s.users[v.username])throw issue(404,'账号不存在');s.users[v.username]={...(s.users[v.username]||{}),...pass,role:v.role||'member',disabled:!!v.disabled};for(const [k,vv]of Object.entries(s.sessions))if(vv.name===v.username)delete s.sessions[k]});respond(200,{saved:true});return}
    }
    throw issue(404,'接口不存在或当前账号无权使用');
-  }catch(error){respond(error.status||503,{error:error.status?error.message:'统一同步服务暂不可用，原记录保留'})}
+  }catch(error){respond(error.status||503,{error:error.status?error.message:'统一同步服务暂不可用，原记录保留',...(error.code?.startsWith('github-')?{code:error.code,field:error.field}:{})})}
  });
  server.requestTimeout=60000;server.headersTimeout=10000;
  return {server,store};

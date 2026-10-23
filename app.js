@@ -32,7 +32,7 @@ const reportStyle=document.createElement('style');reportStyle.textContent=execut
 import {cloudProgressView} from './cloud/progress-view.js?v=20261021-search-recovery';
 import {upgradeGlobalScope} from './monitor-policy.js?v=20261020-review';
 import {notionPublicUrl} from './archive-config.js?v=20261020-review';
-import {initializeSharedCloud,canReadCloud,canWriteCloud,sharedCloudEnabled,restoreCloudCredentials,refreshCloudSnapshot,pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,reviewSyncStatus,reviewSavedMessage,retryBaseReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261023-shared';
+import {initializeSharedCloud,canReadCloud,canWriteCloud,sharedCloudEnabled,restoreCloudCredentials,refreshCloudSnapshot,pendingLocalEvents,cloudPanel,cloudCredentials,runCloud,refreshCloud,reviewSyncStatus,reviewSavedMessage,retryBaseReviews,saveCloudTask,cloudRunning,syncArchive,refreshRuntime,dispatch as dispatchCloud} from './cloud/client.js?v=20261023-shared-r2';
 import {finalizeReport,reportPublication} from './report-model.js?v=20261021-first-pass';
 import {chainView,eventChart} from './feishu-client.js?v=20261020-images-r3';
 import {appendRun,appendReview,migrateChain,chainFor,sitePlans,reviewKeys} from './report-chain.js?v=20261021-cycle-r2';
