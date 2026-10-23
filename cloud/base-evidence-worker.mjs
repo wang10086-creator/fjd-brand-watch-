@@ -1,9 +1,33 @@
-import {mkdtemp,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn} from 'node:child_process';
+import {mkdtemp,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn} from 'node:child_process';import {randomBytes} from 'node:crypto';
 import {canonical} from '../model.js';import {detectUrl,saveUrlCheck} from './url-check.mjs';import {validWindow,sha256} from './base-evidence.mjs';import {seal,unseal} from './crypto.js';
+const previewFile=hash=>'private-evidence-preview/'+hash+'.json';
+const previewToken=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{43}$/.test(value);
+const previewError=()=>Object.assign(Error('截图预览保存或回读未确认'),{previewCode:'preview-unconfirmed'});
+let previewOrigin;
+async function previewUrl(hash,token){
+ if(!previewOrigin)try{const service=JSON.parse(await readFile(new URL('./service-config.json',import.meta.url),'utf8')),u=new URL(service.endpoint);if(u.protocol!=='https:'||!u.hostname.endsWith('.up.railway.app')||u.username||u.password||u.port||u.search||u.hash||u.pathname!=='/')throw Error();previewOrigin=u.origin}catch{throw previewError()}
+ return previewOrigin+'/evidence-preview/'+hash+'/'+token+'.png';
+}
 export function evidenceStore(vault,{password,read,write}){
+ async function confirmedWindow(row,hash){
+  const stored=await read('private-evidence/'+hash+'.json');if(!stored?.value)throw previewError();
+  const original=await unseal(stored.value,password,'base-window');const bytes=Buffer.from(original.png||'','base64');
+  if(sha256(bytes)!==hash||!validWindow(original.manifest,bytes,row.url))throw previewError();
+  return {manifest:original.manifest,bytes};
+ }
+ async function readPreview(hash){
+  const saved=await read(previewFile(hash));if(!saved?.value)return null;
+  const value=await unseal(saved.value,password,'base-window-preview');
+  if(value?.version!==1||value.sha256!==hash||!previewToken(value.token)||!Number.isFinite(Date.parse(value.createdAt)))throw previewError();
+  return value;
+ }
  return {
-  async load(row){const info=vault.baseEvidence?.items?.[canonical(row.url)];if(!info?.path||!/^private-evidence\/[a-f0-9]{64}\.json$/.test(info.path))return null;const saved=await read(info.path);if(!saved?.value)return null;const value=await unseal(saved.value,password,'base-window');return {manifest:value.manifest,bytes:Buffer.from(value.png,'base64')};},
-  async save(row,evidence){if(!validWindow(evidence.manifest,evidence.bytes,row.url))throw Error('整窗截图原始文件未通过校验');const path='private-evidence/'+sha256(evidence.bytes)+'.json';if(vault.baseEvidence?.items?.[canonical(row.url)]?.path===path)return;await write(path,await seal({manifest:evidence.manifest,png:evidence.bytes.toString('base64')},password,'base-window'));vault.baseEvidence||={items:{}};vault.baseEvidence.items[canonical(row.url)]={path,sha256:evidence.manifest.sha256,at:evidence.manifest.at};}
+  async load(row){const info=vault.baseEvidence?.items?.[canonical(row.url)];if(!info?.path||!/^private-evidence\/[a-f0-9]{64}\.json$/.test(info.path))return null;const saved=await read(info.path);if(!saved?.value)return null;const value=await unseal(saved.value,password,'base-window'),bytes=Buffer.from(value.png,'base64'),evidence={manifest:value.manifest,bytes};if(validWindow(value.manifest,bytes,row.url))try{const preview=await readPreview(sha256(bytes));if(preview)evidence.previewUrl=await previewUrl(preview.sha256,preview.token)}catch{}return evidence;},
+  async save(row,evidence){if(!validWindow(evidence.manifest,evidence.bytes,row.url))throw Error('整窗截图原始文件未通过校验');const hash=sha256(evidence.bytes),path='private-evidence/'+hash+'.json',key=canonical(row.url);if(vault.baseEvidence?.items?.[key]?.path!==path)await write(path,await seal({manifest:evidence.manifest,png:evidence.bytes.toString('base64')},password,'base-window'));
+   await confirmedWindow(row,hash);vault.baseEvidence||={items:{}};if(vault.baseEvidence.items[key]?.path!==path)vault.baseEvidence.items[key]={path,sha256:hash,at:evidence.manifest.at};},
+  async ensurePreview(row,evidence){if(!validWindow(evidence?.manifest,evidence?.bytes,row.url))throw previewError();const hash=sha256(evidence.bytes),key=canonical(row.url),info=vault.baseEvidence?.items?.[key];if(info?.path!=='private-evidence/'+hash+'.json')throw previewError();await confirmedWindow(row,hash);
+   let preview=await readPreview(hash);if(!preview){const created={version:1,sha256:hash,token:randomBytes(32).toString('base64url'),createdAt:new Date().toISOString()};const writeResult=await write(previewFile(hash),await seal(created,password,'base-window-preview'));if(!/^[a-f0-9]{40}$/.test(writeResult?.sha||''))throw previewError();preview=await readPreview(hash);if(preview?.token!==created.token)throw previewError()}
+   const link=await previewUrl(hash,preview.token);info.previewReady=true;return link;}
  };
 }
 export async function captureWindow(url){
@@ -24,11 +48,11 @@ export function baseEvidenceQueue(vault,{at=Date.now(),limit=2}={}){
  for(const [id,item] of Object.entries(vault.baseReview?.items||{})){
   const key=canonical(item.payload?.url),row=rows.get(key),task=vault.baseEvidenceTasks?.[key];
   const stored=vault.baseEvidence?.items?.[key],imageAt=Date.parse(stored?.at),checkAt=Date.parse(row?.urlCheck?.current?.at);
-  const evidenceReady=['waiting-upload','waiting-permission'].includes(item.status)&&task?.phase==='ready'&&
+  const evidenceReady=['waiting-upload','waiting-permission'].includes(item.status)&&task?.phase==='ready'&&stored?.previewReady===true&&
    /^private-evidence\/[a-f0-9]{64}\.json$/.test(stored?.path||'')&&
    Number.isFinite(imageAt)&&Number.isFinite(checkAt)&&imageAt<=at&&at-imageAt<=86400000&&
    Math.abs(imageAt-checkAt)<=3600000;
-  if(!row||task?.nextAt&&Date.parse(task.nextAt)>at||item.nextAt&&Date.parse(item.nextAt)>at||evidenceReady||
+  if(!row||['preview-accepted','uncertain','sending','failed','blocked'].includes(item.status)||task?.nextAt&&Date.parse(task.nextAt)>at||item.nextAt&&Date.parse(item.nextAt)>at||evidenceReady||
      item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id){index++;continue}
   const timestamp=Date.parse(reviews.get(id)?.at),when=Number.isFinite(timestamp)?timestamp:0;
   const candidate=candidates.get(key);
@@ -52,9 +76,9 @@ export async function supplementBaseEvidence(vault,{store,checkpoint,capture=cap
    else{
     saveUrlCheck(row,r);await checkpoint();
     let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000)evidence=await capture(row.url);
-    await store.save(row,evidence);task.phase='ready';delete task.reason;
+    await store.save(row,evidence);await store.ensurePreview(row,evidence);task.phase='ready';delete task.reason;
    }
-  }catch(error){task.phase='waiting-window';const reasons={'robots-restricted':'原站robots规则不允许此次采集','native-address-unconfirmed':'未取得原生地址栏的可核验读数','native-window-missing':'未找到符合尺寸的真实浏览器窗口','capture-budget':'本轮采集时间或资源预算已用尽','request-failed':'公开网页资源请求未完成','ETIMEDOUT':'原站请求超时','ENOTFOUND':'原站DNS解析失败','EAI_AGAIN':'原站DNS暂不可用','unsafe-url':'目标未通过公开网络安全校验','capture-interrupted':'采集进程中断或超过时间预算'};task.failureKind=Object.hasOwn(reasons,error.captureCode)?error.captureCode:'capture-unconfirmed';task.reason=(reasons[error.captureCode]||'整窗截图采集或原始文件核验未通过')+'；未使用其他图片替代'}
+  }catch(error){task.phase=error.previewCode?'waiting-preview':'waiting-window';const reasons={'robots-restricted':'原站robots规则不允许此次采集','native-address-unconfirmed':'未取得原生地址栏的可核验读数','native-window-missing':'未找到符合尺寸的真实浏览器窗口','capture-budget':'本轮采集时间或资源预算已用尽','request-failed':'公开网页资源请求未完成','ETIMEDOUT':'原站请求超时','ENOTFOUND':'原站DNS解析失败','EAI_AGAIN':'原站DNS暂不可用','unsafe-url':'目标未通过公开网络安全校验','capture-interrupted':'采集进程中断或超过时间预算','preview-unconfirmed':'截图预览地址保存或回读未确认'};const code=error.previewCode||error.captureCode;task.failureKind=Object.hasOwn(reasons,code)?code:'capture-unconfirmed';task.reason=(reasons[code]||'整窗截图采集或原始文件核验未通过')+'；未使用其他图片替代'}
   task.nextAt=new Date(now()+Math.min(86400000,1800000*2**Math.min(task.attempts-1,5))).toISOString();await checkpoint();
  }
  return {attempted,ready:Object.values(vault.baseEvidenceTasks).filter(t=>t.phase==='ready').length,waiting:Object.values(vault.baseEvidenceTasks).filter(t=>t.phase!=='ready').length};

@@ -114,7 +114,7 @@ test('a recent saved native window waiting for upload does not consume capture s
  const vault=queuedEvidence(3),now=Date.parse('2026-10-22T01:00:00Z'),key=vault.state.rows[2].url;
  vault.baseReview.items['review-2'].status='waiting-upload';
  vault.baseEvidenceTasks[key]={phase:'ready'};
- vault.baseEvidence={items:{[key]:{path:'private-evidence/'+'a'.repeat(64)+'.json',at:new Date(now-60000).toISOString()}}};
+ vault.baseEvidence={items:{[key]:{path:'private-evidence/'+'a'.repeat(64)+'.json',at:new Date(now-60000).toISOString(),previewReady:true}}};
  vault.state.rows[2].urlCheck={current:{at:new Date(now-120000).toISOString()}};
  assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),
   ['https://example.com/item-1','https://example.com/item-0']);
@@ -132,6 +132,19 @@ test('missing review time remains deterministic and upload backoff is respected'
  vault.baseReview.items['review-2'].nextAt=new Date(now+1000).toISOString();
  assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),
   ['https://example.com/item-1','https://example.com/item-0']);
+});
+
+test('an accepted screenshot URL does not recapture, while a missing preview can resume',()=>{
+ const vault=queuedEvidence(2),now=Date.parse('2026-10-22T01:00:00Z');
+ vault.baseReview.items['review-1'].status='preview-accepted';
+ assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),['https://example.com/item-0']);
+ vault.baseReview.items['review-1'].status='waiting-preview';
+ assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),[
+  'https://example.com/item-1','https://example.com/item-0']);
+ for(const status of ['uncertain','sending','failed','blocked']){
+  vault.baseReview.items['review-1'].status=status;
+  assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),['https://example.com/item-0']);
+ }
 });
 
 test('the FIFO slot eventually visits every older URL under repeated fresh arrivals',async()=>{

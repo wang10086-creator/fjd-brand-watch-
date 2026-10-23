@@ -4,7 +4,15 @@
 
 自动补传使用 `fjd-base-evidence.yml`，每批最多两个已获准原始线索，避开日报截止与发布时段；失败按半小时至24小时退避。附件原文件和采集清单加密保存，公开页面只显示待处理原因。`verified` 表示记录、状态和附件原始字节回读通过；旧 `accepted` 仅表示工作流曾受理。
 
-需要飞书自建应用的读取字段/记录、新增/更新记录、上传素材、下载素材权限，并把该应用加入目标多维表格的可编辑协作者。按开放平台对应接口的权限要求开通并发布应用；不需要删除记录或发送群消息权限。在原仓库 Actions Secrets 中新增 `FEISHU_BASE_APP_ID` 和对应 `FEISHU_BASE_APP_SECRET`（不要替换原有飞书凭据；同一已授权应用也兼容现有 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`），不要把密钥发送到聊天或提交源码。已有 Webhook 与 Railway 连接不代表拥有这些 API 权限。
+原生附件模式需要飞书自建应用的读取字段/记录、新增/更新记录、上传素材、下载素材权限，并把该应用加入目标多维表格的可编辑协作者。按开放平台对应接口的权限要求开通并发布应用；不需要删除记录或发送群消息权限。在原仓库 Actions Secrets 中新增 `FEISHU_BASE_APP_ID` 和对应 `FEISHU_BASE_APP_SECRET`（不要替换原有飞书凭据；同一已授权应用也兼容现有 `FEISHU_APP_ID` / `FEISHU_APP_SECRET`），不要把密钥发送到聊天或提交源码。已有 Webhook 与 Railway 连接不代表拥有这些 API 权限。
+
+### 可选：截图网址预览（无需新增飞书应用权限）
+
+用户已接受“持有截图网址者可查看截图”的访问方式。云端仍将真实浏览器整窗 PNG 和采集清单加密保存在 `data-cloud`；另为每张经校验的 PNG 保存一份加密的随机访问令牌。现有 Railway 同步服务在 `/evidence-preview/<图片 SHA-256>/<随机令牌>.png` 按令牌读取、解密并校验原始截图后，才返回 `image/png`。明文图片不提交到源码、Pages 或镜像 Release；不能把商品主图、商标图或伪造地址栏当作截图。该网址是访问凭据，不能写入公开台账投影、日志或日报。
+
+飞书现有“简要展示”是附件字段，文本 Webhook 不能把截图网址写成附件。无应用授权的表格配置应新增独立的截图网址字段，由现有 Webhook 将 `screenshot_preview_url`（兼容 `display_image_url`）映射到它；如使用飞书“网页预览”插件，须明确选择截图网址字段，不能沿用默认的“原始网址”。在目标表格中核对真实记录可以打开对应 PNG，并确认展示位置与权限后，才能在仓库 Actions Variables 中启用 `FEISHU_BASE_PREVIEW_MODE=url`。变量未启用时原生附件门槛保持不变；启用后使用截图网址路径，即使已有旧版飞书应用凭据也不会误走附件 API。
+
+网址模式发送前重新确认网址状态、真实整窗截图、原始文件哈希，以及 Railway 图片网址返回的 PNG 字节。Webhook 的 `code=0` 仅记为“截图网址已受理、目标表格和预览待核验”，不能标为附件已上传或表格已成功展示；回执不明时先按稳定线索关联键核对原记录，不盲目新建。历史复核、原始截图、原第一条记录及原生附件模式保持兼容。URL 模式的真实表格字段映射和图片预览，必须在飞书登录界面另行验收。
 
 官方接口：[上传素材](https://open.feishu.cn/document/server-docs/docs/drive-v1/media/upload_all)、[下载素材](https://open.feishu.cn/document/server-docs/docs/drive-v1/media/download)、[新增记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/create)。实际表字段必须读取核对；字段缺失时停止新增，不猜测映射。不改写OIM编号。已有记录只补网址状态和附件，保留其他人工数据与旧附件。
 

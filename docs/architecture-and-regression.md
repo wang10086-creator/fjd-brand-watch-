@@ -1322,6 +1322,21 @@ Recent verified window bytes awaiting attachment upload or permission are reused
 instead of occupying a fresh capture slot; expired evidence can enter again.
 This lets new work start promptly while older requests continue to advance.
 
+An optional URL-preview route retains the original sealed PNG and creates a
+separate sealed 256-bit bearer grant after Git readback. The existing Railway
+gateway can read this grant and the original encrypted image from `data-cloud`,
+validate the native-window proof and image hash, and serve only that PNG to a
+holder of the opaque URL. No plaintext evidence is placed in Pages, main or
+mirror assets. The Base `简要展示` field remains a type-17 attachment: URL
+preview uses a separate Base link field and an explicitly selected preview
+plugin. The Actions variable `FEISHU_BASE_PREVIEW_MODE=url` is activated only
+after that field and workflow mapping have been checked in the actual Base.
+Webhook acceptance is recorded as `preview-accepted`, never as attachment
+verification. Accepted, ambiguous, and explicitly failed requests do not
+consume further screenshot capture slots; a missing preview sidecar may reenter
+the bounded queue. An ambiguous receipt is not blindly resent, and the original
+review and frozen daily reports remain unchanged.
+
 Headed Chromium runs in a fresh X display; Pillow reads the actual framebuffer,
 XTest operates the native address bar, and
 Tk reads that display's clipboard. No fake toolbar, page screenshot or product

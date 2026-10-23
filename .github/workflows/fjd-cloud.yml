@@ -66,6 +66,7 @@ jobs:
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
           FEISHU_BASE_REVIEW_WEBHOOK: ${{ secrets.FEISHU_BASE_REVIEW_WEBHOOK }}
+          FEISHU_BASE_PREVIEW_MODE: ${{ vars.FEISHU_BASE_PREVIEW_MODE }}
           FEISHU_BASE_STATUS_WEBHOOK: ${{ secrets.FEISHU_BASE_STATUS_WEBHOOK }}
           FJD_OPERATION: ${{ inputs.operation }}
           FJD_SCHEDULE: ${{ github.event.schedule }}

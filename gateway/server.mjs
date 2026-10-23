@@ -1,13 +1,44 @@
 import {createServer} from 'node:http';
-import {randomBytes} from 'node:crypto';
+import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {gunzipSync,createGunzip} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
-import {seal,unsealCompressed} from '../cloud/crypto.js';
+import {seal,unseal,unsealCompressed} from '../cloud/crypto.js';
 import {validateDashboardCompressed} from './dashboard-stream.mjs';
 import {publicDashboardBytes} from './public-dashboard.mjs';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
+const previewPath=/^\/evidence-preview\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/;
+const pngSignature=Buffer.from([137,80,78,71,13,10,26,10]);
+const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+async function boundedJson(response,maxBytes){
+ if(!response.body)throw Error('Missing response body');
+ const reader=response.body.getReader(),parts=[];let size=0;
+ try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;
+   if(size>maxBytes)throw Error('Oversized evidence response');parts.push(Buffer.from(value))}
+  return JSON.parse(Buffer.concat(parts,size).toString('utf8'));
+ }finally{try{await reader.cancel()}catch{}}
+}
+// Mirrors the capture-side native-window checks without pulling the scanner and
+// its network dependencies into the small Railway gateway image.
+function validPreviewWindow(manifest,bytes,sha){
+ try{
+  if(!manifest||!Buffer.isBuffer(bytes)||bytes.length<1000||bytes.length>8000000||
+     !bytes.subarray(0,8).equals(pngSignature)||bytes.readUInt32BE(8)!==13||
+     bytes.toString('ascii',12,16)!=='IHDR'||bytes.readUInt32BE(bytes.length-12)!==0||
+     bytes.toString('ascii',bytes.length-8,bytes.length-4)!=='IEND')return false;
+  const source=new URL(manifest.originalUrl),address=new URL(manifest.addressBarUrl);
+  if(![source,address].every(url=>['https:','http:'].includes(url.protocol)&&
+     !url.username&&!url.password&&!/^(?:localhost|metadata)(?:\.|$)|\.(?:localhost|local|internal|home|lan)$/i.test(url.hostname)))return false;
+  const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20);
+  return manifest.method==='x11-native-window'&&manifest.addressReadMethod==='native-omnibox-clipboard'&&
+   manifest.sha256===sha&&digest(bytes)===sha&&manifest.bytes===bytes.length&&
+   width===manifest.width&&height===manifest.height&&width>=1000&&height>=700&&
+   Number.isFinite(Date.parse(manifest.at))&&!!manifest.browserVersion&&
+   /chrom(?:e|ium)/i.test(manifest.windowTree||'')&&
+   manifest.documents?.some(doc=>Number.isInteger(doc.status)&&doc.status>=100);
+ }catch{return false}
+}
 const issue=(status,message)=>Object.assign(Error(message),{status});
 const validUser=s=>typeof s==='string'&&/^[a-zA-Z0-9_.-]{3,64}$/.test(s)&&!Object.hasOwn(Object.prototype,s);
 const validPassword=s=>typeof s==='string'&&s.length>=12&&s.length<=256;
@@ -46,6 +77,21 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(publicCache?.until>now())return publicCache.body;if(publicRead)return publicRead;
   publicRead=(async()=>{const config=store.read().config;const [feed,status]=await Promise.all([github('/repos/'+REPO+'/contents/public-dashboard.json.gz?ref='+BRANCH,{token:config.token,raw:true}),github('/repos/'+REPO+'/contents/status.json?ref='+BRANCH,{token:config.token,raw:true})]);const body=await publicDashboardBytes(Buffer.from(await feed.arrayBuffer()),await status.json());publicCache={until:now()+30000,body};return body})();
   try{return await publicRead}finally{publicRead=null}
+ }
+ async function readEvidencePreview(sha,token){
+  const config=store.read().config;if(!config)throw issue(404,'截图预览不可用');
+  try{
+   const sidecar=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence-preview/'+sha+'.json?ref='+BRANCH,{token:config.token,raw:true}),16384);
+   const grant=await unseal(sidecar,config.password,'base-window-preview');
+   const expected=Buffer.from(typeof grant?.token==='string'?grant.token:'','ascii'),actual=Buffer.from(token,'ascii');
+   if(grant?.version!==1||grant.sha256!==sha||!/^[A-Za-z0-9_-]{43}$/.test(grant.token)||
+      expected.length!==43||actual.length!==43||
+      !timingSafeEqual(expected,actual)||!Number.isFinite(Date.parse(grant.createdAt)))throw Error('Invalid evidence grant');
+   const sealed=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence/'+sha+'.json?ref='+BRANCH,{token:config.token,raw:true}),20*1024*1024);
+   const source=await unseal(sealed,config.password,'base-window'),bytes=Buffer.from(source?.png||'','base64');
+   if(!validPreviewWindow(source?.manifest,bytes,sha))throw Error('Invalid native-window evidence');
+   return bytes;
+  }catch{throw issue(404,'截图预览不可用')}
  }
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)];if(session?.role==='public'&&accessMode==='public'&&state.config&&session.expiresAt>now())return {token,name:session.name,role:'public'};
   const user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'同步会话已过期，请重新连接；原本机记录保留');return {token,name:session.name,role:user.role}}
@@ -87,6 +133,18 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
+   // This holder URL serves only a previously sealed native-window PNG. A
+   // Feishu image fetch may have its own Origin and does not carry a session.
+   if(path.startsWith('/evidence-preview/')){
+    const match=previewPath.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图预览不可用');
+    limit('preview:'+String(req.socket.remoteAddress||'unknown'),120,60000);
+    const bytes=await readEvidencePreview(match[1],match[2]);
+    res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,
+     'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff',
+     'X-Robots-Tag':'noindex, nofollow, noarchive','Referrer-Policy':'no-referrer',
+     'Cross-Origin-Resource-Policy':'cross-origin','Access-Control-Allow-Origin':'*'});
+    res.end(req.method==='HEAD'?undefined:bytes);return;
+   }
    if(origin&&!allowedOrigin(origin))throw issue(403,'此来源未获授权');
    if(req.method==='OPTIONS'){res.writeHead(204,headers);res.end();return}
    if(path==='/'&&req.method==='GET'){res.writeHead(200,{...headers,'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; frame-ancestors 'none'"});res.end('<!doctype html><meta charset="utf-8"><title>丰疆统一同步服务</title><h1>丰疆统一同步服务</h1><p>请打开丰疆品牌监控工作台使用共享同步；后台维护请使用连接设置。</p>');return}
