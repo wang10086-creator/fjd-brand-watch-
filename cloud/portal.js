@@ -4,7 +4,7 @@ import {comparePendingReviews,reviewComparisonView} from './client.js?v=20261023
 import {canonical} from '../model.js?v=20261023-url-r1';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false,reviewTransferUrl='',transferReady=false,statusVersion=0;
 let maintenancePreviewUrl='';
-function clearMaintenancePreview(){maintenancePreviewUrl='';$('#shared-evidence-preview-result').hidden=true;$('#shared-evidence-preview-link').removeAttribute('href');$('#shared-evidence-preview-image').removeAttribute('src');$('#shared-evidence-preview-details').textContent='';$('#shared-evidence-preview-status').textContent=''}
+function clearMaintenancePreview(){maintenancePreviewUrl='';$('#shared-evidence-preview-result').hidden=true;$('#shared-evidence-preview-link').removeAttribute('href');const image=$('#shared-evidence-preview-image');image.onload=null;image.onerror=null;image.removeAttribute('src');$('#shared-evidence-preview-details').textContent='';$('#shared-evidence-preview-status').textContent=''}
 function syncPreviewAccess(){const panel=$('#shared-evidence-preview'),admin=sharedSignedIn()&&sharedCloudStatus().user?.role==='admin';if(!admin&&(!panel.hidden||maintenancePreviewUrl))clearMaintenancePreview();panel.hidden=!admin}
 async function previewSourceId(value){
  const input=String(value||'').trim();if(/^lead-[a-f0-9]{64}$/.test(input))return input;
@@ -65,6 +65,7 @@ if(typeof window!=='undefined'){
    if(sharedCloudStatus().user?.role!=='admin')throw Error('请先使用维护管理员账号登录');
    const sourceId=await previewSourceId(new FormData(e.target).get('source'));
    const result=await sharedRequest('/maintenance/evidence-preview/'+sourceId,{timeoutMs:30000});
+   if(!sharedSignedIn()||sharedCloudStatus().user?.role!=='admin')throw Error('维护会话已结束，请重新登录后核对截图');
    const endpoint=new URL(sharedCloudStatus().endpoint),url=new URL(result.previewUrl);
    if(result.sourceId!==sourceId||!/^[a-f0-9]{64}$/.test(result.sha256||'')||
     url.origin!==endpoint.origin||url.username||url.password||url.search||url.hash||
