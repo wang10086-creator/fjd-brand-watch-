@@ -1,5 +1,5 @@
 // Complements the existing evidence fold. No new ledger, fetches or persisted fields.
-import {canonical,safeUrl} from './core.js?v=20261020-images-r3';
+import {canonical,safeUrl} from './core.js?v=20261023-url-r1';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=t=>t&&!Number.isNaN(Date.parse(t))?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'时间未记录';
 const link=(url,text)=>safeUrl(url)?`<a href="${esc(safeUrl(url))}" target="_blank" rel="noopener noreferrer">${esc(text)} ↗</a>`:'';

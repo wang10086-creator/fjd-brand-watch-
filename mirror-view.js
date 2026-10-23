@@ -1,7 +1,7 @@
-import {readArchiveEvidence} from './archive-data.js?v=20261021-lifecycle-r2';
-import {readEvidenceFeed} from './evidence-data.js?v=20261020-review';
+import {readArchiveEvidence} from './archive-data.js?v=20261023-url-r1';
+import {readEvidenceFeed} from './evidence-data.js?v=20261023-url-r1';
 import {archiveKey} from './archive-model.js?v=20261020-mirrors';
-import {mirrorDocument} from './mirror-model.js?v=20261021-lifecycle-r2';
+import {mirrorDocument} from './mirror-model.js?v=20261023-url-r1';
 const status=document.querySelector('#mirror-status'),frame=document.querySelector('#mirror-fallback');let generation=0;
 async function start(){const version=++generation,url=new URLSearchParams(location.hash.slice(1)).get('url');frame.hidden=true;
  if(!archiveKey(url)){status.textContent='无效的线索地址，请从线索台账打开。';return}

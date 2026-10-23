@@ -1281,3 +1281,7 @@ gateway tests cannot bind Unix sockets in this host (EPERM). Python collected92
 tests; two existing browser/archive tests require the CI browser tools. CI now
 installs the root lockfile before npm test, as the shared gateway introduced a
 stream-json dependency. Remote CI is the full-environment verification.
+
+### Three-tier priority and independent URL checks (2026-10-23)
+
+See `docs/priority-url-status.md` for the current model, queue/security bounds and exact update-only Feishu contract. V2.2 removes pending from current classifications but retains original assessments and immutable reports. Verified page content may update automatic priority using actual evidence; access status alone never changes order or workflow. URL snapshots/history use the existing row storage and public projection, with separate manual pageState. New formal reports freeze URL observations before cutoff; old formal bytes/checksums are untouched. Source/body/priority privacy regression exposed accidental publication of assessment identified snippets; public projection keeps those private as before. Original tests asserting a fourth current priority are updated only to the newly authorized three-tier behavior, retaining all nine-rule, persistence, privacy and workflow assertions.

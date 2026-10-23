@@ -28,5 +28,5 @@ def brief_card(state, day, latest, today, test=False):
               {'tag':'button','text':{'tag':'plain_text','content':'日报总览'},'url':base,'type':'default'}]},
           {'tag':'note','elements':[{'tag':'plain_text','content':'数据截至 '+(cutoff or '尚无记录')+('\n北京时间前日18:00至当日09:20检索，09:30左右发布；云端队列可能延迟。\n每日仅发送一次；正式快照固定，后续处理在实时台账查看。' if state.get('reportPolicy') else '\n北京时间 00:00 起分批检索，10:30 定时汇总已保存数据；云端队列可能延迟。\n每日仅发送一次；后续查询与复核更新同一日报，数字可能增加。')+'\n通知机器人：不支持群内问答。'}]}]
     if pc:
-        q=pc['counts'];body.insert(2,{'tag':'div','text':{'tag':'lark_md','content':f"**当前复核优先级**\n高 {q['high']} · 中 {q['medium']} · 低 {q['low']} · 待评估 {q['pending']}\n仅安排复核顺序，不代表侵权判断。"}})
+        q=pc['counts'];body.insert(2,{'tag':'div','text':{'tag':'lark_md','content':f"**当前复核优先级**\n高 {q.get('high',0)} · 中 {q.get('medium',0)} · 低 {q.get('low',0)}{('（原报告另有 '+str(q['pending'])+' 条旧版未分类结果，原始记录保留）') if q.get('pending') else ''}\n仅安排复核顺序，不代表侵权判断。"}})
     return {'msg_type':'interactive','card':{'config':{'wide_screen_mode':True},'header':{'template':'turquoise','title':{'tag':'plain_text','content':header}},'elements':body}}

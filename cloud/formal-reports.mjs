@@ -1,9 +1,10 @@
+import {urlCheckAt} from '../url-status.js';
 // Fixed public-safe evidence snapshots. State remains the sole operational ledger.
 import {createHash} from 'node:crypto';
 import {REPORT_POLICY,cycleForDay,cycleAt,bjDay,addDay} from '../report-cycle.js';
 import {publicFeed} from './public-feed.js';
 import {reportModel} from '../report-model.js';
-import {priorityCohort} from '../priority.js';
+import {priorityCohort,priorityUrl} from '../priority.js';
 import {reportOverviews} from './report-overviews.mjs';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export function activateReportCycles(vault,at=new Date().toISOString()){
@@ -41,8 +42,9 @@ function buildReport(state,day,at){
  sm.observations=sm.observations.filter(e=>e.day!==day||before(e));
  sm.runs=sm.runs.map(r=>r.reportDay!==day?r:{...r,running:false,...(r.running?{cancelled:true,stopReason:'截止快照仅包含已保存查询，未完成部分后续续查'}:{}),items:r.items.filter(before)});
  sm.updateChain=sm.updateChain.filter(e=>e.day!==day||before(e));
+ const urlByKey=new Map(safe.rows.map(r=>[priorityUrl(r.url),urlCheckAt(r.urlCheck,new Date(cutoff).toISOString())]));
  const report=reportModel(sm,day),frozen=priorityCohort(report.cohort,safe.rows),byKey=new Map(frozen.map(e=>[e.key,e.currentPriority]));
- for(const list of ['cohort','observations','fresh','changed','repeat'])report[list]=report[list].map(e=>({...e,frozenPriority:byKey.get(e.key)||priorityCohort([e],safe.rows)[0].currentPriority}));
+ for(const list of ['cohort','observations','fresh','changed','repeat'])report[list]=report[list].map(e=>({...e,frozenUrlCheck:urlByKey.get(priorityUrl(e.snapshot.url))||null,frozenPriority:byKey.get(e.key)||priorityCohort([e],safe.rows)[0].currentPriority}));
  if(!sm.updateChain.some(e=>e.day===day))sm.updateChain.push({id:'cycle-empty:'+day,day,at:cycle.cutoffAt,type:'schedule',summary:{},entries:[],queries:[]});
  const overview=reportOverviews({rows:safe.rows,monitor:sm}).find(e=>e.day===day);overview.at=cycle.cutoffAt;overview.priorityCurrent.label='封版时优先级 · 当期新增及变化线索';
  report.hasActivity=true;report.unknown=false;

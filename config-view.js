@@ -1,4 +1,4 @@
-import {marketData,platforms,supportedMarkets} from './model.js?v=20261020-review';
+import {marketData,platforms,supportedMarkets} from './model.js?v=20261023-url-r1';
 import {brandGroups} from './brand-groups.js?v=20261020-review';
 import {scopedBrandGroups,territoryModes,platformChoices,territorySummary} from './territory.js?v=20261020-review';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

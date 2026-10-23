@@ -1,7 +1,7 @@
 // Source-backed HTML only; never reads private notes, workflow or priority data.
-import {canonical} from './core.js?v=20261020-priority-r3';
+import {canonical} from './core.js?v=20261023-url-r1';
 import {archiveKey} from './archive-model.js?v=20261020-mirrors';
-import {leadSummary} from './lead-summary.js?v=20261020-evidence';
+import {leadSummary} from './lead-summary.js?v=20261023-url-r1';
 export const mirrorTypes={original:'原始页面镜像',content:'网页内容重建',search:'搜索证据重建',basic:'基础证据记录'};
 export const mirrorVersion='html-2';
 export const mirrorSince='2026-10-20';

@@ -1,5 +1,5 @@
 // Read-only comparisons over the existing monitor observation ledger. No grades or workflow writes.
-import {canonical} from './core.js?v=20261020-priority-r3';
+import {canonical} from './core.js?v=20261023-url-r1';
 const entities={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
 export function contentText(value){return String(value??'').normalize('NFKC')
  .replace(/<\/?(?:strong|em|b|i|u|span)(?:\s[^>]*)?>/gi,'').replace(/<\/?(?:p|div|br|h[1-6]|li|ul|ol|blockquote)(?:\s[^>]*)?>/gi,' ')

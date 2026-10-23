@@ -1,3 +1,4 @@
+import {urlStatusForBase,urlStatusLabels} from '../url-status.js';
 import {canonical,marketData,platforms,safeUrl} from '../model.js';
 import {priorityOf} from '../priority.js';
 
@@ -31,8 +32,8 @@ export function baseFields(row){
   country_region:websiteCountry(row,url),
   operator_name:text(row.seller)||text(row.operator)||company||'待核实（尚未识别经营主体）',
   product_model:text(row.productModel)||text(row.productName)||model?.toUpperCase()||'待核实（尚未识别产品或型号）',
-  page_status:({visible:'正常',changed:'已变更',removed:'已下架',redirect:'跳转',redirected:'跳转',blocked:'无法访问'})[row.pageState]||'待核实',
-  monitor_level:({high:'高',medium:'中',low:'低',pending:'待评估'})[priorityOf(row).level]||'待评估',
+  ...(urlStatusForBase(row)?{page_status:urlStatusLabels[urlStatusForBase(row)]}:{}),
+  monitor_level:({high:'高',medium:'中',low:'低'})[priorityOf(row).level],
   processing_status:'待核查',remarks:'',display_image_url:displayImage,
   platform_lead_url:'https://wang10086-creator.github.io/fjd-brand-watch-/#inbox?lead='+encodeURIComponent(canonical(url))
  };

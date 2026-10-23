@@ -10,15 +10,15 @@ const statLinks=html=>[...html.matchAll(/href="[^"]*scope=(delta)&priority=(\w+)
 test('compact daily counts unite new and changed with independent type links, preserving snapshots and exports',()=>{
  const state=priorityLayoutFixture(),m=state.monitor,d=reportModel(m,state.day),saved=finalizeReport(m,state.day),original=JSON.stringify(m);
  assert.equal(d.fresh.length,3);assert.equal(d.changed.length,2);assert.equal(d.repeat.length,1);
- const expected=[{scope:'delta',level:'high',n:2},{scope:'delta',level:'medium',n:1},{scope:'delta',level:'low',n:1},{scope:'delta',level:'pending',n:1}];
+ const expected=[{scope:'delta',level:'high',n:2},{scope:'delta',level:'medium',n:1},{scope:'delta',level:'low',n:2}];
  for(const html of [dailyView(m,state.day,{state}),dailyHTML(m,state.day,{state,publication:saved})]){assert.deepEqual(statLinks(html),expected);assert.ok(!html.includes('class="panel priority-panel"'));assert.ok(!html.includes('class="priority-card '));assert.match(html,/新增与变化线索/);assert.match(html,/scope=new" data-delta-part="new">新发现线索 <b>3/);assert.match(html,/scope=changed" data-delta-part="changed">旧线索新变化 <b>2/);assert.match(html,/当前优先级分布/);assert.ok(!html.includes('metric-new'));assert.ok(!html.includes('metric-changed'))}
  assert.equal(JSON.stringify(m),original);assert.equal(reportPublication(m,state.day).dirty,false);
- adjustPriority(state.rows[0],'low','Independent current display','2026-10-20T06:00:00Z');const current=statLinks(dailyView(m,state.day,{state}));assert.equal(current.find(x=>x.scope==='delta'&&x.level==='low').n,2);assert.equal(current.filter(x=>x.scope==='delta').reduce((n,x)=>n+x.n,0),5);assert.equal(JSON.stringify(m),original);
+ adjustPriority(state.rows[0],'low','Independent current display','2026-10-20T06:00:00Z');const current=statLinks(dailyView(m,state.day,{state}));assert.equal(current.find(x=>x.scope==='delta'&&x.level==='low').n,3);assert.equal(current.filter(x=>x.scope==='delta').reduce((n,x)=>n+x.n,0),5);assert.equal(JSON.stringify(m),original);
 });
-test('compact priority controls omit an all-grade card, conditionally show pending and retain clear/toggle accessibility',()=>{
+test('compact priority controls omit an all-grade card, always expose only three grades and retain clear/toggle accessibility',()=>{
  const {rows}=priorityLayoutFixture();assert.equal(priorityCards,priorityCounts);
  const html=priorityCounts(rows,{selected:'high'});assert.ok(!html.includes('全部线索'));assert.match(html,/data-priority="high" aria-pressed="true"/);assert.match(html,/再次点击取消筛选/);assert.match(html,/清除优先级筛选/);
- assert.ok(!priorityCounts([rows[0]]).includes('data-priority="pending"'));assert.ok(priorityCounts([rows[0]],{selected:'pending'}).includes('data-priority="pending"'));
+ assert.ok(!priorityCounts([rows[0]]).includes('data-priority="pending"'));assert.ok(!priorityCounts([rows[0]],{selected:'pending'}).includes('data-priority="pending"'));
 });
 test('detail keeps matching automatic/current grades concise, separate adjustment form and folded evidence/history',()=>{
  const {rows}=priorityLayoutFixture(),r=rows[0],original=JSON.stringify(r),html=priorityDetail(r);

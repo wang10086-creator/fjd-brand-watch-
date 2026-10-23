@@ -1,8 +1,8 @@
-import {deltaCohort} from './content-changes.js?v=20261020-changes';
+import {deltaCohort} from './content-changes.js?v=20261023-url-r1';
 import {publicWorkflow} from './review.js?v=20261020-review';
-import {dayOf} from './monitor.js?v=20261021-cycle-r2';
-import {reportModel} from './report-model.js?v=20261021-cycle-r2';
-import {canonical,risk} from './model.js?v=20261020-review';
+import {dayOf} from './monitor.js?v=20261023-url-r1';
+import {reportModel} from './report-model.js?v=20261023-url-r1';
+import {canonical,risk} from './model.js?v=20261023-url-r1';
 export const triggerNames={schedule:'自动检索',manual:'手动检索',refresh:'立即检索','site-retry':'站点补查',retry:'失败重试',watch:'重点复查','public-collector':'公共补充检索',review:'人工复核'};
 export function chainFor(m,day){return (m.formalReports?.[day]?.chain||m.updateChain||[]).filter(e=>e.day===day).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id));}
 const tally=items=>({new:items.filter(x=>x.kind==='new').length,changed:items.filter(x=>x.kind==='changed').length,repeat:items.filter(x=>x.kind==='repeat').length});

@@ -19,5 +19,5 @@ def sections(event):
     pc=event.get('priorityCurrent')
     if pc:
         counts=pc['counts']
-        result.insert(1,('priority','线索复核优先级｜当前',f"当日新增及变化去重 {pc['total']} 条：高优先级 {counts['high']} 条，中优先级 {counts['medium']} 条，低优先级 {counts['low']} 条，待评估 {counts['pending']} 条。"+pc.get('disclaimer','')+' 此处展示当前等级，不替代历史时点结论；人工调整保留自动依据。'))
+        result.insert(1,('priority','线索复核优先级｜当前',f"当日新增及变化去重 {pc['total']} 条：高优先级 {counts['high']} 条，中优先级 {counts['medium']} 条，低优先级 {counts['low']} 条。"+pc.get('disclaimer','')+(f" 原报告另有 {counts['pending']} 条旧版未分类结果，原始记录保留；当前等级见实时台账。" if counts.get('pending') else '')+' 此处展示当前等级，不替代历史时点结论；人工调整保留自动依据。'))
     return result

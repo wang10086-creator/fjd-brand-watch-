@@ -1,5 +1,5 @@
 // Read-only UI projection. Never writes registration conclusions into a lead or report.
-import {rowBrands} from './brand-ownership.js?v=20261020-review';
+import {rowBrands} from './brand-ownership.js?v=20261023-url-r1';
 import {worldMarkets} from './world-markets.js?v=20261020-review';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

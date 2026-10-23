@@ -1,7 +1,7 @@
 import {activityDay,mergeFormalReports} from './report-cycle.js';
-import {normalizedContent,changedContent,changeId,mergeContentChanges} from './content-changes.js?v=20261020-changes';
+import {normalizedContent,changedContent,changeId,mergeContentChanges} from './content-changes.js?v=20261023-url-r1';
 import {manualReviewFields} from './review.js?v=20261020-review';
-import {canonical, safeUrl, risk} from './model.js?v=20261020-review';
+import {canonical, safeUrl, risk} from './model.js?v=20261023-url-r1';
 
 export const dayOf=(value=new Date())=>{const d=new Date(value);return Number.isNaN(+d)?'':new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)};
 export const shiftDay=(day,delta)=>new Date(Date.parse(day+'T12:00:00+08:00')+delta*86400000).toISOString().slice(0,10);

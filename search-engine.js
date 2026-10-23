@@ -1,4 +1,4 @@
-import {normalizeResults,canonical} from './model.js?v=20261020-review';
+import {normalizeResults,canonical} from './model.js?v=20261023-url-r1';
 const endpoint='https://api.tavily.com/search';
 const quote=s=>'"'+String(s).replaceAll('"','')+'"';
 export function simplifiedQuery(p){const aliases=[...p.aliases].sort((a,b)=>(p.country==='CN'?Number(/[\u4e00-\u9fff]/.test(b))-Number(/[\u4e00-\u9fff]/.test(a)):0));const offset=Math.max(0,Number(p.aliasOffset)||0)%Math.max(1,aliases.length);const selected=Array.from({length:Math.min(2,aliases.length)},(_,i)=>aliases[(offset+i)%aliases.length]);return ['('+selected.map(a=>{const rule=p.termRules?.find(r=>r.text===a);return rule?.requiresContext?quote(a)+' ('+rule.contextTerms.slice(0,5).map(quote).join(' OR ')+')':quote(a)}).join(' OR ')+')',...((p.terms||[]).length?['('+p.terms.map(quote).join(' OR ')+')']:[]),...(p.models||[]).map(quote),...(p.excluded||[]).map(x=>'-'+quote(x))].join(' ');}

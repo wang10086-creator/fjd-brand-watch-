@@ -1,4 +1,4 @@
-import {evaluatePriority} from './priority.js?v=20261021-cycle-r2';
+import {evaluatePriority} from './priority.js?v=20261023-url-r1';
 import {priorityBrands} from './priority-brands.js';
 const clean=v=>String(v||'').replace(/\s+/g,' ').trim();
 const fold=v=>clean(v).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');

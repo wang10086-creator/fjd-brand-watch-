@@ -37,9 +37,9 @@ test('ordinary official quotations, negated claims and unrelated commerce do not
  assert.ok(!ids(row('We are not an authorized dealer of FJDynamics')).includes('H3'));
  assert.ok(!ids(row('FJDynamics products are not for sale')).includes('H2'));
 });
-test('source failures, bare brand mentions, image similarity and closed stages cannot force low priority',()=>{
- for(const fields of [{},{pageState:'blocked'},{imageMatch:'similar'},{status:'cleared',reviewOutcome:'authorized'},{reviewWorkflow:{version:1,stage:'closed',round:1,opinion:'exclude',closure:{reason:'authorized'},rounds:[]}}])assert.equal(evaluatePriority(row('FJDynamics scanner',fields)).level,'pending');
- assert.equal(evaluatePriority(row('Access denied 403')).level,'pending');
+test('limited information uses low review ordering without inventing L1/L3 or treating access failure as an exclusion',()=>{
+ for(const fields of [{},{pageState:'blocked'},{imageMatch:'similar'},{status:'cleared',reviewOutcome:'authorized'},{reviewWorkflow:{version:1,stage:'closed',round:1,opinion:'exclude',closure:{reason:'authorized'},rounds:[]}}])assert.equal(evaluatePriority(row('FJDynamics scanner',fields)).level,'low');
+ assert.equal(evaluatePriority(row('Access denied 403')).level,'low');
 });
 test('an actual matched reference image can identify a sold product without inferring authorization',()=>{
  const r=row('Add to cart: laser scanner',{imageAnalysis:{status:'matched',match:{brandIds:['brand-fjd-not-real']} }});assert.ok(!ids(r).includes('H3'));
@@ -95,8 +95,8 @@ test('report current-priority overlay partitions only its deduplicated daily coh
 test('criteria and detail share nine rule definitions and keep priority and workflow form actions separate',()=>{
  const html=priorityCriteria();assert.equal(priorityRules.length,9);for(const r of priorityRules)assert.ok(html.includes(r.id+' '+r.name));const detail=priorityDetail(row('FJDynamics AT2 for sale'));assert.ok(detail.includes('id="priority-form"'));assert.ok(!detail.includes('id="review-form"'));assert.ok(!detail.includes('确认处理'));assert.ok(detail.includes('保存优先级'));
 });
-test('sorting includes pending evidence last and classification counts partition the current range',()=>{
- const rows=[row('FJDynamics scanner'),row('FJDynamics AT2 for sale'),row('FJDynamics P2 review'),row('FJD means Fijian dollar currency')];const c=prioritySummary(rows);assert.deepEqual(c,{high:1,medium:1,low:1,pending:1});assert.deepEqual(sortPriority(rows,'priority-desc').map(r=>priorityOf(r).level),['high','medium','low','pending']);assert.deepEqual(sortPriority(rows,'priority-asc').map(r=>priorityOf(r).level),['low','medium','high','pending']);
+test('three-tier sorting and classification counts partition the current range',()=>{
+ const rows=[row('FJDynamics scanner'),row('FJDynamics AT2 for sale'),row('FJDynamics P2 review'),row('FJD means Fijian dollar currency')];const c=prioritySummary(rows);assert.deepEqual(c,{high:1,medium:1,low:2});assert.deepEqual(sortPriority(rows,'priority-desc').map(r=>priorityOf(r).level),['high','medium','low','low']);assert.deepEqual(sortPriority(rows,'priority-asc').map(r=>priorityOf(r).level),['low','low','medium','high']);
 });
 test('historic production records and event checksums are unchanged by initial evaluation',()=>{
  const f=JSON.parse(gunzipSync(fs.readFileSync(new URL('../public-snapshot.json.gz',import.meta.url)))).feed,original=structuredClone(f);refreshPriorities(f);assert.equal(f.rows.length,original.rows.length);assert.deepEqual(f.monitor,original.monitor);for(let i=0;i<f.rows.length;i++){const next={...f.rows[i]},prior={...original.rows[i]},beforePriority=prior.priorityV2,afterPriority=next.priorityV2;delete next.priorityV2;delete prior.priorityV2;assert.deepEqual(next,prior);if(beforePriority){assert.deepEqual(afterPriority.manual,beforePriority.manual);assert.deepEqual(afterPriority.history,beforePriority.history);if(beforePriority.auto.version===PRIORITY_VERSION)assert.deepEqual(afterPriority,beforePriority);else assert.ok(afterPriority.assessments.some(a=>JSON.stringify(a)===JSON.stringify(beforePriority.auto)),'previous automatic evidence must remain in assessment history')}}

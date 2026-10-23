@@ -1,6 +1,6 @@
-import {leadSummary} from './lead-summary.js?v=20261020-evidence';
+import {leadSummary} from './lead-summary.js?v=20261023-url-r1';
 import {archiveUrl,archivePath} from './archive-model.js?v=20261020-evidence';
-import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261021-lifecycle-r2';
+import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261023-url-r1';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=t=>t&&!Number.isNaN(Date.parse(t))?new Date(t).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}):'未记录';
 export function evidenceSummaryView(row,data={}, {day='',mirrorAction=true}={}){

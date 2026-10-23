@@ -1,7 +1,7 @@
 import {cycleForDay} from './report-cycle.js';
 import {siteCoverage} from './coverage.js?v=20261021-search-recovery';
 import {outcomeOf,workflowOf} from './review.js?v=20261020-review';
-import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261021-cycle-r2';
+import {dayReport,shiftDay,dayOf} from './monitor.js?v=20261023-url-r1';
 // Report cohort = unique pages newly found or changed on the selected Beijing day.
 // A later day's reviews never rewrite that day's review assessment.
 export function reportModel(m,day){

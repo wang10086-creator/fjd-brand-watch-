@@ -1,6 +1,6 @@
-import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261021-lifecycle-r2';
-import {readArchiveIndex,readArchivePage,verifiedMirror} from './archive-data.js?v=20261021-lifecycle-r2';
-import {leadSummary} from './lead-summary.js?v=20261020-mirrors';
+import {mirrorRoute,mirrorTypes} from './mirror-model.js?v=20261023-url-r1';
+import {readArchiveIndex,readArchivePage,verifiedMirror} from './archive-data.js?v=20261023-url-r1';
+import {leadSummary} from './lead-summary.js?v=20261023-url-r1';
 import {archiveKey,archiveUrl,archivePath,archiveLabels,sameArchiveSite} from './archive-model.js?v=20261020-mirrors';
 import {safePublicUrl,evidenceUrl,accessLinks} from './lead-access.js?v=20261020-review';
 const root=document.querySelector('#archive'),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

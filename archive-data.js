@@ -1,6 +1,6 @@
 import {accessGate} from './page-access.js?v=20261021-lifecycle-r2';
 import {archiveKey,archivePath} from './archive-model.js?v=20261020-mirrors';
-import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261021-lifecycle-r2';
+import {mirrorPath,escapeHTML} from './mirror-model.js?v=20261023-url-r1';
 let cache;
 async function boundedJSON(response,gzip=false){
  if(!response.ok)throw Error('存档读取 HTTP '+response.status);

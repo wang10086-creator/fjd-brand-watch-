@@ -1,7 +1,7 @@
 import {priorityBrands} from './priority-brands.js?v=20261020-priority-r3';
 
-export const PRIORITY_VERSION='V2.1-20261020';
-export const priorityLabels={high:'高优先级',medium:'中优先级',low:'低优先级',pending:'待评估'};
+export const PRIORITY_VERSION='V2.2-20261023';
+export const priorityLabels={high:'高优先级',medium:'中优先级',low:'低优先级'};
 export const priorityDisclaimer='优先级仅用于安排 IP 对接人的线索复核顺序，不代表是否构成侵权，也不决定线索的后续处理结论。';
 export const priorityRules=[
  {id:'H1',level:'high',name:'域名',summary:'直接经营品牌商品或相关业务',condition:'域名指向目标品牌，且页面经营的产品类型与目标品牌相符。'},
@@ -14,7 +14,7 @@ export const priorityRules=[
  {id:'L2',level:'low',name:'偶然提及',summary:'弱关联、偶然提及或已核实的稳定使用',condition:'品牌只在其他主题中偶然出现，未涉及品牌经营、适配、合作或资料发布。'},
  {id:'L3',level:'low',name:'稳定使用',summary:'弱关联、偶然提及或已核实的稳定使用',condition:'有效核实记录覆盖当前主体、站点、行为及使用范围，且无新增变化或矛盾；曾处理或结案不自动满足。'}
 ];
-const rank={high:3,medium:2,low:1,pending:0},fold=x=>String(x||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''),clean=x=>String(x||'').normalize('NFKC').replace(/\s+/g,' ').trim();
+const rank={high:3,medium:2,low:1},fold=x=>String(x||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''),clean=x=>String(x||'').normalize('NFKC').replace(/\s+/g,' ').trim();
 const hash=x=>{let a=2166136261;for(const c of JSON.stringify(x))a=Math.imul(a^c.charCodeAt(0),16777619);return (a>>>0).toString(16)};
 const escapeRE=x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function nameRE(name){const chars=[...String(name).normalize('NFKC')].filter(c=>/[\p{L}\p{N}]/u.test(c));return new RegExp((/^[a-z0-9]/i.test(chars[0]||'')?'(?<![a-z0-9])':'')+chars.map(escapeRE).join('[\\s._-]*')+(/[a-z0-9]$/i.test(chars.at(-1)||'')?'(?![a-z0-9])':''),'iu')}
@@ -32,9 +32,10 @@ const cooperationRE=/\b(?:partnership with|partner(?:s|ed|ing)? with|joint(?:ly)
 const incidentalRE=/\b(?:mentioned in passing|briefly mentions?|also mentions?|incidental(?:ly)?|passing reference|among (?:many )?other brands)\b|顺带提及|順帶提及|偶然提到|偶然提及|仅提及|僅提及|顺带提到|順帶提到|众多品牌之一|眾多品牌之一/iu;
 const unrelatedRE=/\b(?:Fijian dollar|currency|exchange rate|angiotensin|receptor|molecular|gene expression|board game|video game|automotive relay)\b|斐济元|斐濟元|汇率|匯率|受体|受體|基因|同名人物|游戏角色|遊戲角色/iu;
 export function priorityUrl(value){try{const u=new URL(value);u.hash='';for(const k of [...u.searchParams.keys()])if(/^(utm_|ref$|spm$|fbclid$|gclid$|msclkid$|srsltid$|_ga$|_gl$|igshid$)/i.test(k))u.searchParams.delete(k);u.searchParams.sort();return u.href.replace(/\/$/,'')}catch{return ''}}
-export function priorityEvidenceHash(row){return hash([priorityUrl(row.url),clean(row.title),clean(row.snippet),clean(row.body||row.pageText||row.content),clean(row.seller||row.operator),row.imageMatch||'',row.imageAnalysis?.status==='matched'?row.imageAnalysis.match?.brandIds||row.imageAnalysis.match?.referenceFile||'matched':'',!!row.priorityContradiction])}
+function actualPage(row){const records=[...(row.urlCheck?.history||[]),row.urlCheck?.current].filter(r=>r?.snapshotKey).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0));const page=row.urlCheck?.snapshots?.[records.at(-1)?.snapshotKey];return page?.verification==='page-fetched'?page:null}
+export function priorityEvidenceHash(row){const input=[priorityUrl(row.url),clean(row.title),clean(row.snippet),clean(row.body||row.pageText||row.content),clean(row.seller||row.operator),row.imageMatch||'',row.imageAnalysis?.status==='matched'?row.imageAnalysis.match?.brandIds||row.imageAnalysis.match?.referenceFile||'matched':'',!!row.priorityContradiction],page=actualPage(row);if(page&&(clean(page.title)!==clean(row.title)||clean(page.body)!==clean(row.body||row.pageText||row.content)))input.push(['direct-page',clean(page.title),clean(page.body)]);return hash(input)}
 export function priorityContext(catalog,config={}){const brands=structuredClone(catalog?.entries?.map(e=>({id:e.id,name:e.canonicalName,aliases:e.searchTerms,rules:e.termRules||[],contextTerms:e.contextTerms||[]}))||priorityBrands);for(const alias of config.aliases||[])if(!brands.some(b=>(b.aliases||[]).includes(alias)))brands.push({id:'custom-'+fold(alias),name:alias,aliases:[alias],contextTerms:[]});return {brands,models:String(config.models||'').split(/[,，\n]/).map(clean).filter(Boolean)}}
-function sources(row){return [['title',row.title],['snippet',row.snippet],['body',row.body||row.pageText||row.content]].filter(([,v])=>v).map(([source,text])=>({source,text:clean(text).slice(0,100000)}))}
+function sources(row){const page=actualPage(row);return [['title',row.title],['snippet',row.snippet],['body',row.body||row.pageText||row.content],...(page?[['page-title',page.title],['body',page.body]]:[])].filter(([,v])=>v).map(([source,text])=>({source,text:clean(text).slice(0,100000)}))}
 function findTargets(row,ctx,parts){
  const text=parts.map(p=>p.text).join(' '),imageIds=row.imageAnalysis?.status==='matched'?row.imageAnalysis.match?.brandIds||[]:[];
  const brands=ctx.brands||priorityBrands,all=[...brands];
@@ -63,11 +64,11 @@ export function evaluatePriority(row,context={},at=new Date().toISOString()){
   if(compat)add('M1',p,'页面明确展示适用于目标品牌或型号的第三方配件或兼容产品。');
   const brandPositions=names.map(n=>t.search(nameRE(n))).filter(i=>i>=0);
   const salesAt=t.search(salesRE),brandSale=salesAt>=0&&brandPositions.some(i=>Math.abs(i-salesAt)<=180);
-  const subjectGoods=(p.source==='title'||hasModel(t)||productRE.test(t)||originalRE.test(t)||/\b(?:products?|equipment|parts?)\b|产品|產品|设备|設備/iu.test(t));
+  const subjectGoods=(['title','page-title'].includes(p.source)||hasModel(t)||productRE.test(t)||originalRE.test(t)||/\b(?:products?|equipment|parts?)\b|产品|產品|设备|設備/iu.test(t));
   const referencesOtherSales=/\b(?:does not sell|not for sale|no longer sells?|used to sell|other (?:shops?|stores?) sell)\b|不销售|不銷售|不出售|已停止销售|已停止銷售|其他商店.*销售/iu.test(t);
   if(brandSale&&subjectGoods&&!compat&&!(primaryCompat&&p.source!=='title'&&!targetOriginal(t))&&!referencesOtherSales&&!quotedClaimRE.test(t)&&!(contentRE.test(t)&&!/(?:add to (?:cart|basket)|request (?:a )?quote|shop now|立即购买|立即購買|询价|詢價)/iu.test(t)))add('H2',p,'页面指向目标品牌商品，并存在销售、报价或转卖信息。');
   const identityText=names.reduce((text,name)=>text.replace(nameRE(name),'TARGET'),t),identity=identityRE.test(t)||/\b(?:official|authori[sz]ed|exclusive|regional)\s+TARGET\s+(?:store|shop|dealer|distributor|agent|service)\b/iu.test(identityText);
-  if(identity&&!quotedClaimRE.test(t)&&(p.source==='title'||selfRE.test(t)||new RegExp(names.map(n=>escapeRE(n)).join('|')+'\\s*(?:官方店|授权经销商|授權經銷商|区域代理|區域代理)','iu').test(t)))add('H3',p,'当前经营者以目标品牌官方或渠道服务身份作出声明。');
+  if(identity&&!quotedClaimRE.test(t)&&(['title','page-title'].includes(p.source)||selfRE.test(t)||new RegExp(names.map(n=>escapeRE(n)).join('|')+'\\s*(?:官方店|授权经销商|授權經銷商|区域代理|區域代理)','iu').test(t)))add('H3',p,'当前经营者以目标品牌官方或渠道服务身份作出声明。');
   if(cooperationRE.test(t)&&!/(?:not (?:a )?partner|no partnership|未.*合作|没有.*合作|沒有.*合作)/iu.test(t))add('M2',p,'页面明确描述与目标品牌的合作、联合开发或集成关系。');
  }
  // A distinctive known equipment model plus its product type can identify goods without a wordmark.
@@ -91,8 +92,11 @@ export function evaluatePriority(row,context={},at=new Date().toISOString()){
  const stable=v?.status==='verified'&&clean(v.basis)&&v.verifiedAt&&Date.parse(v.verifiedAt)<=Date.parse(at)&&(!v.validUntil||Date.parse(v.validUntil)>Date.parse(at))&&scope?.subject&&scope?.site&&Array.isArray(scope.behaviors)&&scope.behaviors.length&&scope.usage&&priorityUrl(scope.site)===priorityUrl(row.url)&&clean(scope.subject)===clean(row.seller||row.operator)&&v.evidenceHash===inputHash&&!v.contradiction&&!row.priorityContradiction&&scopeCovers;
  if(stable)add('L3',{source:'verified record',text:clean(v.basis)},'有效核实记录完整覆盖当前主体、站点、行为与使用范围，现有证据未变化。');
  matches.sort((a,b)=>rank[b.level]-rank[a.level]||a.id.localeCompare(b.id));
- const level=stable?'low':matches[0]?.level||'pending';
- return {version:PRIORITY_VERSION,level,matches,inputHash,contextHash,verifyHash,evaluatedAt:at,...(stable&&v.validUntil?{validUntil:v.validUntil}:{}),reason:matches.length?(stable?matches.find(m=>m.id==='L3').reason:matches[0].reason):'现有证据尚不足以对应九项规则；访问失败或图片缺失不作为低优先级依据。'};
+ const limitedBusiness=!!targets.length&&sentences.some(p=>hasBrand(p.text)&&productRE.test(p.text)&&/\b(?:contact|enquir\w*|inquir\w*|business|sales team|wholesale)\b|联系方式|聯絡|联系|业务咨询|业务合作/iu.test(p.text));
+ const level=stable?'low':matches[0]?.level||(limitedBusiness?'medium':'low');
+ const evidenceLimited=!matches.length,limitations=evidenceLimited?'现有信息有限，需结合原页面核实具体经营、适配、合作或内容传播行为；访问失败不证明这些行为不存在。':'';
+ const identified=parts.map(p=>({source:p.source,text:p.text.slice(0,480)})).slice(0,3);
+ return {version:PRIORITY_VERSION,level,matches,classificationMethod:evidenceLimited?'limited-evidence':'rule-match',evidenceLimited,identified,limitations,inputHash,contextHash,verifyHash,evaluatedAt:at,...(stable&&v.validUntil?{validUntil:v.validUntil}:{}),reason:matches.length?(stable?matches.find(m=>m.id==='L3').reason:matches[0].reason):(limitedBusiness?'中优先级：现有内容指向目标品牌产品及商业联系，但尚不足以确认具体高优先级规则，按中等复核顺序安排。':'低优先级：当前仅有标题、网址或品牌词，尚无支持中高优先级的具体行为证据，按较低复核顺序安排。')+' '+limitations};
 }
 function eventsOf(p){return (p?.history||[]).filter(e=>e&&e.id&&e.at&&(e.to==='auto'||['high','medium','low'].includes(e.to)))}
 const eventSort=(a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id);
@@ -129,8 +133,8 @@ export function applyPriorityUpdates(state,updates){
  return state;
 }
 export function pendingPriorityUpdates(state,remote){const accepted=new Set((remote?.rows||[]).flatMap(r=>eventsOf(r.priorityV2).map(e=>e.id)));return (state.rows||[]).flatMap(row=>eventsOf(row.priorityV2).filter(e=>e.url&&e.reason&&!accepted.has(e.id)).map(event=>({url:row.url,event:structuredClone(event)})))}
-export function publicPriority(p){if(!p)return undefined;return {version:1,auto:p.auto?{version:p.auto.version,level:p.auto.level,inputHash:p.auto.inputHash,contextHash:p.auto.contextHash,verifyHash:p.auto.verifyHash,evaluatedAt:p.auto.evaluatedAt,reason:p.auto.reason,matches:p.auto.matches.map(m=>({id:m.id,name:m.name,level:m.level,reason:m.reason}))}:undefined,manual:p.manual?{...p.manual}:null,history:eventsOf(p).map(e=>({id:e.id,at:e.at,to:e.to,autoHash:e.autoHash}))}}
-export function prioritySummary(rows){const count={high:0,medium:0,low:0,pending:0};for(const row of rows)count[priorityOf(row).level]++;return count}
+export function publicPriority(p){if(!p)return undefined;return {version:1,auto:p.auto?{version:p.auto.version,level:p.auto.level,inputHash:p.auto.inputHash,contextHash:p.auto.contextHash,verifyHash:p.auto.verifyHash,evaluatedAt:p.auto.evaluatedAt,reason:p.auto.reason,classificationMethod:p.auto.classificationMethod,evidenceLimited:p.auto.evidenceLimited,limitations:p.auto.limitations,matches:(p.auto.matches||[]).map(m=>({id:m.id,name:m.name,level:m.level,reason:m.reason}))}:undefined,manual:p.manual?{...p.manual}:null,history:eventsOf(p).map(e=>({id:e.id,at:e.at,to:e.to,autoHash:e.autoHash}))}}
+export function prioritySummary(rows){const count={high:0,medium:0,low:0};for(const row of rows)count[priorityOf(row).level]++;return count}
 export const priorityMatch=(row,level)=>!level||priorityOf(row).level===level;
-export function sortPriority(rows,mode='recent'){return [...rows].sort((a,b)=>{const order=mode==='priority-desc'?rank[priorityOf(b).level]-rank[priorityOf(a).level]:mode==='priority-asc'?(priorityOf(a).level==='pending'?4:rank[priorityOf(a).level])-(priorityOf(b).level==='pending'?4:rank[priorityOf(b).level]):0;return order||String(b.lastSeen||'').localeCompare(String(a.lastSeen||''))})}
-export function priorityCohort(cohort,rows=[]){const map=new Map(rows.map(r=>[priorityUrl(r.url),r]));return cohort.map(e=>({...e,currentPriority:e.frozenPriority?structuredClone(e.frozenPriority):priorityOf(map.get(priorityUrl(e.snapshot.url))||e.snapshot)}))}
+export function sortPriority(rows,mode='recent'){return [...rows].sort((a,b)=>{const order=mode==='priority-desc'?rank[priorityOf(b).level]-rank[priorityOf(a).level]:mode==='priority-asc'?rank[priorityOf(a).level]-rank[priorityOf(b).level]:0;return order||String(b.lastSeen||'').localeCompare(String(a.lastSeen||''))})}
+export function priorityCohort(cohort,rows=[]){const map=new Map(rows.map(r=>[priorityUrl(r.url),r]));return cohort.map(e=>({...e,currentUrlCheck:e.frozenUrlCheck||map.get(priorityUrl(e.snapshot.url))?.urlCheck||e.snapshot.urlCheck||null,urlStatusCurrent:!e.frozenUrlCheck,priorityReclassified:!!e.frozenPriority&&!priorityLabels[e.frozenPriority.level],currentPriority:e.frozenPriority&&priorityLabels[e.frozenPriority.level]?structuredClone(e.frozenPriority):priorityOf(map.get(priorityUrl(e.snapshot.url))||e.snapshot)}))}
