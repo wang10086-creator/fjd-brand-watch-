@@ -83,4 +83,5 @@ if __name__=='__main__':
     try:
         request=json.load(sys.stdin);print(json.dumps(capture(request['url'],request['output']),ensure_ascii=False))
     except Exception as e:
-        print(json.dumps({'deferred':True,'reason':'native-window-capture-unconfirmed','kind':type(e).__name__}));sys.exit(1)
+        reason=str(e) if str(e) in {'robots-restricted','native-address-unconfirmed','native-window-missing','capture-budget','noarchive','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url'} else 'native-window-capture-unconfirmed'
+        print(json.dumps({'deferred':True,'reason':reason,'kind':type(e).__name__}));sys.exit(1)
