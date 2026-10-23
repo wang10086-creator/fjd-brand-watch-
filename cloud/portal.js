@@ -1,7 +1,17 @@
 import {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedIsPublic,sharedPublicAccess,sharedLogin,sharedSetup,sharedLogout,sharedRequest,canReadCloud,canWriteCloud,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus,verifyBrowserSync,cloudCredentials,requireCloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,prepareReviewTransfer,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261023-url-r1';
 import {loadState,persist,flush} from '../storage.js?v=20261020-review';
 import {comparePendingReviews,reviewComparisonView} from './client.js?v=20261023-url-r1';
+import {canonical} from '../model.js?v=20261023-url-r1';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false,reviewTransferUrl='',transferReady=false,statusVersion=0;
+let maintenancePreviewUrl='';
+function clearMaintenancePreview(){maintenancePreviewUrl='';$('#shared-evidence-preview-result').hidden=true;$('#shared-evidence-preview-link').removeAttribute('href');$('#shared-evidence-preview-image').removeAttribute('src');$('#shared-evidence-preview-details').textContent='';$('#shared-evidence-preview-status').textContent=''}
+function syncPreviewAccess(){const panel=$('#shared-evidence-preview'),admin=sharedSignedIn()&&sharedCloudStatus().user?.role==='admin';if(!admin&&(!panel.hidden||maintenancePreviewUrl))clearMaintenancePreview();panel.hidden=!admin}
+async function previewSourceId(value){
+ const input=String(value||'').trim();if(/^lead-[a-f0-9]{64}$/.test(input))return input;
+ const url=canonical(input);if(!url||!/^https?:\/\//.test(url))throw Error('请输入线索原始网址或完整 source_id');
+ const bytes=new TextEncoder().encode(url),hash=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+ return 'lead-'+[...hash].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
 const status=(text,{warning=false}={})=>{statusVersion++;const box=$('#status');box.textContent=text;box.classList.toggle('warning',warning);box.setAttribute('role',warning?'alert':'status')};
 function showCredentials(){const c=cloudCredentials();$('#credential-status').textContent=(connectionStorageStatus().remembered?'此浏览器已保持连接：':'当前会话：')+'数据密码'+(c.password?'已填写':'未填写')+' · GitHub 同步凭据'+(c.token?'已填写':'未填写')+'。填写不等于核验通过，请以云端回执为准。'+connectionStorageStatus().warning}
 async function connect({requireToken=false}={}){if(sharedCloudEnabled()){requireCloudCredentials();return;}const old=cloudCredentials(),credentials={password:$('#password').value||old.password,token:$('#github-token').value.trim()||old.token};requireCloudCredentials(credentials,{token:requireToken});setCloudCredentials(credentials.password,credentials.token);await rememberCloudCredentials($('#remember-connection').checked);$('#password').value='';$('#github-token').value='';refreshCloudSnapshot();showCredentials();}
@@ -22,10 +32,10 @@ $('#forget').onclick=()=>perform(async()=>{await clearCloudCredentials();session
 $('#copy').onclick=()=>perform(async()=>{await navigator.clipboard.writeText($('#encrypted').value);status('已复制加密内容。请粘贴到工作流 payload。')});
 await Promise.all([restoreCloudCredentials(),initializeSharedCloud()]);
 if(typeof window!=='undefined')window.addEventListener('fjd-connection-restored',()=>{refreshCloudSnapshot();showCredentials();sharedUI();refresh({explicit:true})});
-document.querySelectorAll('button').forEach(button=>button.disabled=false);document.documentElement.dataset.cloudReady='true';showCredentials();refresh();setInterval(refresh,10000);
+document.querySelectorAll('button').forEach(button=>button.disabled=false);document.documentElement.dataset.cloudReady='true';showCredentials();refresh();setInterval(()=>{syncPreviewAccess();refresh()},10000);
 
 async function syncLocalShared(){const state=await loadState();await syncArchive(state,{force:true});persist(state);const result=await flush();if(!result.fullOK)throw Error('本机同步状态尚未保存，原记录保留');const review=reviewSyncStatus(state);status(review.message||(state.archive?.syncState==='submitted'?'已提交共享同步队列，等待云端接收；尚未确认实际保存。':'已核对当前共享记录，没有待提交的新工作。'));}
-function sharedUI(){const s=sharedCloudStatus(),active=sharedSignedIn(),publicAccess=s.configured&&s.accessMode==='public',publicUser=sharedIsPublic();$('#shared-connection').hidden=!s.endpoint;if(!s.endpoint)return;
+function sharedUI(){const s=sharedCloudStatus(),active=sharedSignedIn(),publicAccess=s.configured&&s.accessMode==='public',publicUser=sharedIsPublic();syncPreviewAccess();$('#shared-connection').hidden=!s.endpoint;if(!s.endpoint)return;
  $('#shared-intro').textContent=publicAccess?'打开网站即可自动连接共享同步，无需登录或填写 GitHub 凭据。只读取公开线索和公开处理进度；内部处理依据仍保留在加密台账。':'各设备共用同一云端台账。后台维护凭据不会分发给其他用户。';
  $('#shared-status').textContent=s.error||(!s.configured?'共享后台尚未连接，需维护人员完成一次后台配置；本机记录保留。':active?(publicUser?'共享同步已连接 · 无需登录；提交后以云端接收回执为准。':'维护登录：'+s.user.name+' · 本机操作通过统一后台同步，以云端接收回执为准。'):publicAccess?'共享同步正在自动重连；本机记录保留。':'后台已配置，请使用工作台账号登录。');
  $('#shared-login').hidden=active&&!publicUser||!s.configured;$('#shared-maintenance').hidden=active&&!publicUser||!s.configured;if(!publicAccess)$('#shared-maintenance').open=true;
@@ -49,4 +59,25 @@ if(typeof window!=='undefined'){
  $('#shared-logout').onclick=()=>sharedAction(()=>sharedLogout());
  $('#shared-sync').onclick=()=>sharedAction(async()=>{const state=await loadState();await syncArchive(state,{force:true});persist(state);const r=await flush();if(!r.fullOK)throw Error('本机同步回执未保存，请保留当前页面');const status=reviewSyncStatus(state);if(status.pending)throw Error(status.message)});
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();
+ $('#shared-evidence-preview-form').onsubmit=async e=>{
+  e.preventDefault();clearMaintenancePreview();const button=e.target.querySelector('button'),message=$('#shared-evidence-preview-status');button.disabled=true;message.textContent='正在只读核验该线索已保存的截图…';
+  try{
+   if(sharedCloudStatus().user?.role!=='admin')throw Error('请先使用维护管理员账号登录');
+   const sourceId=await previewSourceId(new FormData(e.target).get('source'));
+   const result=await sharedRequest('/maintenance/evidence-preview/'+sourceId,{timeoutMs:30000});
+   const endpoint=new URL(sharedCloudStatus().endpoint),url=new URL(result.previewUrl);
+   if(result.sourceId!==sourceId||!/^[a-f0-9]{64}$/.test(result.sha256||'')||
+    url.origin!==endpoint.origin||url.username||url.password||url.search||url.hash||
+    !new RegExp('^/evidence-preview/'+result.sha256+'/[A-Za-z0-9_-]{43}\\.png$').test(url.pathname))throw Error('截图查询回执未通过地址校验');
+   maintenancePreviewUrl=url.href;
+   $('#shared-evidence-preview-details').textContent='原始网址：'+result.originalUrl+' · 地址栏网址：'+result.addressBarUrl+' · 截图时间：'+result.at+' · SHA-256：'+result.sha256;
+   $('#shared-evidence-preview-link').href=maintenancePreviewUrl;
+   const image=$('#shared-evidence-preview-image');image.onload=()=>{message.textContent='已在本浏览器读取原始截图；飞书记录中的预览仍须单独回读核验。'};
+   image.onerror=()=>{message.textContent='截图链接未能在本浏览器显示；暂不能作为飞书预览验收结果。'};
+   image.src=maintenancePreviewUrl;$('#shared-evidence-preview-result').hidden=false;
+   message.textContent='截图元数据已核验，正在读取原始 PNG…';
+  }catch(error){sharedUI();message.textContent=error.message||'单条截图尚不可用，请核对该线索的证据任务状态'}
+  finally{button.disabled=false}
+ };
+ $('#shared-evidence-preview-copy').onclick=async()=>{const message=$('#shared-evidence-preview-status');if(!maintenancePreviewUrl||sharedCloudStatus().user?.role!=='admin')return;try{await navigator.clipboard.writeText(maintenancePreviewUrl);message.textContent='截图网址已复制；持有网址者可查看该截图，请仅用于获准的飞书记录。'}catch{message.textContent='浏览器未允许复制，请使用“打开原始整窗截图”核验。'}};
 }

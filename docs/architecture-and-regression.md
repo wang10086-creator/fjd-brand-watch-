@@ -1350,6 +1350,17 @@ of the large Noto CJK archive. A real production run stalled while downloading
 the 61 MB Noto package and timed out before capture; this keeps CJK fallback
 available without making that large download a prerequisite for each run.
 
+For one-record preview acceptance, the evidence worker may add a sealed,
+readback-confirmed source-ID index for an already saved native-window screenshot.
+It does not publish the bearer URL or change the original review event. The
+Railway gateway resolves only an explicitly requested source ID for an existing
+administrator session, checks the sealed index, saved grant and PNG proof, and
+returns the one preview link in a no-store response. Public and member sessions
+cannot enumerate or resolve screenshots. The maintenance page offers this lookup
+without storing the link after logout. This check does not prove the Feishu Base
+row displays the picture; the production URL mode stays disabled until the
+same real row is mapped and read back in Feishu.
+
 Headed Chromium runs in a fresh X display; Pillow reads the actual framebuffer,
 XTest operates the native address bar, and
 Tk reads that display's clipboard. No fake toolbar, page screenshot or product

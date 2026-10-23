@@ -9,6 +9,7 @@ import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
 const previewPath=/^\/evidence-preview\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/;
+const maintenancePreviewPath=/^\/maintenance\/evidence-preview\/(lead-[a-f0-9]{64})$/;
 const pngSignature=Buffer.from([137,80,78,71,13,10,26,10]);
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function boundedJson(response,maxBytes){
@@ -78,20 +79,47 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   publicRead=(async()=>{const config=store.read().config;const [feed,status]=await Promise.all([github('/repos/'+REPO+'/contents/public-dashboard.json.gz?ref='+BRANCH,{token:config.token,raw:true}),github('/repos/'+REPO+'/contents/status.json?ref='+BRANCH,{token:config.token,raw:true})]);const body=await publicDashboardBytes(Buffer.from(await feed.arrayBuffer()),await status.json());publicCache={until:now()+30000,body};return body})();
   try{return await publicRead}finally{publicRead=null}
  }
- async function readEvidencePreview(sha,token){
+ async function readPreviewGrant(sha,maintenance=false){
   const config=store.read().config;if(!config)throw issue(404,'截图预览不可用');
   try{
    const sidecar=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence-preview/'+sha+'.json?ref='+BRANCH,{token:config.token,raw:true}),16384);
    const grant=await unseal(sidecar,config.password,'base-window-preview');
-   const expected=Buffer.from(typeof grant?.token==='string'?grant.token:'','ascii'),actual=Buffer.from(token,'ascii');
    if(grant?.version!==1||grant.sha256!==sha||!/^[A-Za-z0-9_-]{43}$/.test(grant.token)||
-      expected.length!==43||actual.length!==43||
-      !timingSafeEqual(expected,actual)||!Number.isFinite(Date.parse(grant.createdAt)))throw Error('Invalid evidence grant');
+      !Number.isFinite(Date.parse(grant.createdAt)))throw Error('Invalid evidence grant');
+   return grant;
+  }catch(error){if(maintenance&&error?.status===502&&error.code!=='github-resource-unavailable')throw error;throw issue(404,'截图预览不可用')}
+ }
+ async function readEvidencePreview(sha,token,knownGrant=null,maintenance=false){
+  const config=store.read().config;if(!config)throw issue(404,'截图预览不可用');
+  try{
+   const grant=knownGrant||await readPreviewGrant(sha,maintenance);
+   const expected=Buffer.from(typeof grant?.token==='string'?grant.token:'','ascii'),actual=Buffer.from(token,'ascii');
+   if(grant.version!==1||grant.sha256!==sha||expected.length!==43||actual.length!==43||
+      !timingSafeEqual(expected,actual))throw Error('Invalid evidence grant');
    const sealed=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence/'+sha+'.json?ref='+BRANCH,{token:config.token,raw:true}),20*1024*1024);
    const source=await unseal(sealed,config.password,'base-window'),bytes=Buffer.from(source?.png||'','base64');
    if(!validPreviewWindow(source?.manifest,bytes,sha))throw Error('Invalid native-window evidence');
-   return bytes;
-  }catch{throw issue(404,'截图预览不可用')}
+   return {bytes,manifest:source.manifest};
+  }catch(error){if(maintenance&&error?.status===502&&error.code!=='github-resource-unavailable')throw error;throw issue(404,'截图预览不可用')}
+ }
+ async function readMaintenancePreview(sourceId){
+  const config=store.read().config;if(!config)throw issue(404,'线索截图尚未就绪');
+  try{
+   const sealed=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence-by-source/'+sourceId+'.json?ref='+BRANCH,{token:config.token,raw:true}),16384);
+   const pointer=await unseal(sealed,config.password,'base-window-source');
+   if(pointer?.version!==1||pointer.sourceId!==sourceId||!/^[a-f0-9]{64}$/.test(pointer.sha256)||
+      !Number.isFinite(Date.parse(pointer.capturedAt))||!Number.isFinite(Date.parse(pointer.createdAt))||
+      typeof pointer.originalUrl!=='string')throw Error('Invalid evidence pointer');
+   const grant=await readPreviewGrant(pointer.sha256,true);
+   const {bytes,manifest}=await readEvidencePreview(pointer.sha256,grant.token,grant,true);
+   if(pointer.originalUrl!==manifest.originalUrl||pointer.capturedAt!==manifest.at)throw Error('Evidence source mismatch');
+   const origin=new URL(selfOrigin);
+   if(origin.protocol!=='https:'||!origin.hostname.endsWith('.up.railway.app')||origin.username||origin.password||
+      origin.port||origin.pathname!=='/'||origin.search||origin.hash)throw Error('Unconfirmed preview origin');
+   return {sourceId,originalUrl:manifest.originalUrl,addressBarUrl:manifest.addressBarUrl,
+    at:manifest.at,sha256:pointer.sha256,bytes:bytes.length,
+    previewUrl:origin.origin+'/evidence-preview/'+pointer.sha256+'/'+grant.token+'.png'};
+  }catch(error){if(error?.status===502&&error.code!=='github-resource-unavailable')throw issue(502,'截图存储暂无法读取，请稍后重试；原证据保留');throw issue(404,'线索截图尚未就绪或证据未通过核验')}
  }
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');const state=store.read(),session=state.sessions[hash(token)];if(session?.role==='public'&&accessMode==='public'&&state.config&&session.expiresAt>now())return {token,name:session.name,role:'public'};
   const user=session&&state.users[session.name];if(!session||session.expiresAt<=now()||!user||user.disabled)throw issue(401,'同步会话已过期，请重新连接；原本机记录保留');return {token,name:session.name,role:user.role}}
@@ -138,7 +166,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    if(path.startsWith('/evidence-preview/')){
     const match=previewPath.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图预览不可用');
     limit('preview:'+String(req.socket.remoteAddress||'unknown'),120,60000);
-    const bytes=await readEvidencePreview(match[1],match[2]);
+    const {bytes}=await readEvidencePreview(match[1],match[2]);
     res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,
      'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff',
      'X-Robots-Tag':'noindex, nofollow, noarchive','Referrer-Policy':'no-referrer',
@@ -171,6 +199,12 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path.startsWith('/maintenance/evidence-preview/')){
+    if(req.method!=='GET'||user.role!=='admin')throw issue(403,'仅管理员可核对单条截图');
+    const match=maintenancePreviewPath.exec(path);if(!match)throw issue(404,'线索截图入口不存在');
+    limit('maintenance-preview:'+user.name,20,60000);
+    respond(200,await readMaintenancePreview(match[1]));return;
+   }
    if(path==='/session'&&req.method==='GET'){respond(200,{user:{name:user.role==='public'?'共享协作':user.name,role:user.role}});return}
    if(path==='/logout'&&req.method==='POST'){await store.mutate(s=>{delete s.sessions[hash(user.token)]});respond(200,{signedOut:true});return}
    if(path==='/dashboard'&&req.method==='GET'){
