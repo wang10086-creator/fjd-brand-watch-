@@ -19,6 +19,8 @@ export function entryPrerequisites(row,evidence,now=Date.now()){
  if(!r||!r.environment||!r.reason||!r.source||canonical(r.url)!==canonical(row.url)||!Number.isFinite(age)||age<0||age>86400000||['robots','noarchive','body-limit','unsafe-url','budget'].includes(r.errorKind))return {phase:'waiting-url',reason:'初核已保存，等待有效网址核查，尚未写入飞书'};
  if(!evidence||!validWindow(evidence.manifest,evidence.bytes,row.url))return {phase:'waiting-window',reason:'初核已保存，等待真实浏览器地址栏截图，尚未写入飞书'};
  if(canonical(evidence.manifest.addressBarUrl)!==canonical(r.finalUrl||r.url))return {phase:'waiting-window',reason:'地址栏网址与本次检测最终网址不一致，等待重新核对'};
+ const observed=evidence.manifest.documents.at(-1);
+ if(observed.status>=400&&r.status!=='unavailable'||observed.status>=300&&observed.status<400)return {phase:'waiting-url',reason:'网址核查与截图的实际HTTP结果不一致，等待复查，尚未写入飞书'};
  const delta=Math.abs(Date.parse(evidence.manifest.at)-Date.parse(r.at));
  if(delta>3600000||Date.parse(evidence.manifest.at)>now||now-Date.parse(evidence.manifest.at)>86400000)return {phase:'waiting-window',reason:'截图与检测时间不一致，等待重新采集，尚未写入飞书'};
  return {phase:'ready',status:urlStatusLabels[r.status],record:r};
