@@ -1,6 +1,6 @@
-import {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest,canReadCloud,canWriteCloud,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus,verifyBrowserSync,cloudCredentials,requireCloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,prepareReviewTransfer,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261023-shared-r2';
+import {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedLogin,sharedSetup,sharedLogout,sharedRequest,canReadCloud,canWriteCloud,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus,verifyBrowserSync,cloudCredentials,requireCloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,prepareReviewTransfer,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261023-shared-r3';
 import {loadState,persist,flush} from '../storage.js?v=20261020-review';
-import {comparePendingReviews,reviewComparisonView} from './client.js?v=20261023-shared-r2';
+import {comparePendingReviews,reviewComparisonView} from './client.js?v=20261023-shared-r3';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false,reviewTransferUrl='',transferReady=false,statusVersion=0;
 const status=(text,{warning=false}={})=>{statusVersion++;const box=$('#status');box.textContent=text;box.classList.toggle('warning',warning);box.setAttribute('role',warning?'alert':'status')};
 function showCredentials(){const c=cloudCredentials();$('#credential-status').textContent=(connectionStorageStatus().remembered?'此浏览器已保持连接：':'当前会话：')+'数据密码'+(c.password?'已填写':'未填写')+' · GitHub 同步凭据'+(c.token?'已填写':'未填写')+'。填写不等于核验通过，请以云端回执为准。'+connectionStorageStatus().warning}
@@ -25,15 +25,22 @@ if(typeof window!=='undefined')window.addEventListener('fjd-connection-restored'
 document.querySelectorAll('button').forEach(button=>button.disabled=false);document.documentElement.dataset.cloudReady='true';showCredentials();refresh();setInterval(refresh,10000);
 
 function sharedUI(){const s=sharedCloudStatus(),active=sharedSignedIn();$('#shared-connection').hidden=!s.endpoint;if(!s.endpoint)return;
- $('#shared-status').textContent=s.error||(!s.configured?'统一后台已部署，等待管理员完成一次配置。':active?'已登录：'+s.user.name+' · 本机操作将通过统一后台同步，以云端接收回执为准。':'统一后台已配置，请使用工作台账号登录。');
+ $('#shared-status').textContent=s.error||(!s.configured?'全站同步尚未启用。请在“首次管理员配置”中点击“验证并启用全站同步服务”；下方的浏览器连接仅对本机生效。':active?'已登录：'+s.user.name+' · 本机操作将通过统一后台同步，以云端接收回执为准。':'统一后台已配置，请使用工作台账号登录。');
  $('#shared-login').hidden=active||!s.configured;$('#shared-signed-in').hidden=!active;$('#shared-setup').hidden=s.configured;$('#shared-accounts').hidden=!active||s.user.role!=='admin';
  $('#browser-connection').hidden=s.configured;document.querySelector('.setup-step').hidden=s.configured;
  for(const id of ['manual','prepare-review-transfer','verify-browser','check'])$('#'+id).hidden=s.configured;
 }
-async function sharedAction(fn){const feedback=$('#shared-status'),buttons=$('#shared-connection').querySelectorAll('button');buttons.forEach(b=>b.disabled=true);try{await fn();refreshCloudSnapshot();sharedUI();await refresh({explicit:true});}catch(e){feedback.textContent=e.message;feedback.setAttribute('role','alert');if(e.field==='token')$('#shared-setup-form [name=token]').focus()}finally{buttons.forEach(b=>b.disabled=false)}}
+function sharedFeedback(form,message,warning=false){
+ const box=form?.querySelector('[data-action-feedback]');if(!box)return;
+ box.hidden=false;box.textContent=message;box.classList.toggle('warning',warning);box.setAttribute('role',warning?'alert':'status');
+ if(warning)box.scrollIntoView({block:'nearest'});
+}
+async function sharedAction(fn,{form=null}={}){const feedback=$('#shared-status'),buttons=$('#shared-connection').querySelectorAll('button');buttons.forEach(b=>b.disabled=true);sharedFeedback(form,'正在验证连接，请稍候…');try{await fn();refreshCloudSnapshot();sharedUI();sharedFeedback(form,'管理员配置已完成。');await refresh({explicit:true});}catch(e){feedback.textContent=e.message;feedback.setAttribute('role','alert');if(['username','loginPassword','password','token'].includes(e.field)){const input=form?.elements.namedItem(e.field);input?.setAttribute('aria-invalid','true');input?.focus({preventScroll:true})}sharedFeedback(form,'未完成配置：'+e.message,true)}finally{buttons.forEach(b=>b.disabled=false)}}
+
 if(typeof window!=='undefined'){
  $('#shared-login').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedLogin(f.get('username'),f.get('password'));e.target.reset()})};
- $('#shared-setup-form').onsubmit=e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target)),old=cloudCredentials();sharedAction(async()=>{await sharedSetup({...v,password:v.password||old.password,token:v.token.trim()||old.token});e.target.reset()})};
+ $('#shared-setup-form').onsubmit=e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.target)),old=cloudCredentials();sharedAction(async()=>{await sharedSetup({...v,password:v.password||old.password,token:v.token.trim()||old.token});e.target.reset()},{form:e.target})};
+ const setupForm=$('#shared-setup-form');setupForm.addEventListener('invalid',e=>{const messages={username:'管理员账号须为3至64位英文、数字、下划线、点或短横线。',loginPassword:'请设置至少12位工作台登录密码。'};e.target.setAttribute('aria-invalid','true');sharedFeedback(setupForm,messages[e.target.name]||'请检查当前输入字段。',true)},true);setupForm.addEventListener('input',e=>e.target.removeAttribute('aria-invalid'));
  $('#shared-logout').onclick=()=>sharedAction(()=>sharedLogout());
  $('#shared-sync').onclick=()=>sharedAction(async()=>{const state=await loadState();await syncArchive(state,{force:true});persist(state);const r=await flush();if(!r.fullOK)throw Error('本机同步回执未保存，请保留当前页面');const status=reviewSyncStatus(state);if(status.pending)throw Error(status.message)});
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();

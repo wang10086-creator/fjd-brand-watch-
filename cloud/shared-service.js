@@ -1,4 +1,4 @@
-import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r2';
+import {saveWorkspaceSession,restoreWorkspaceSession} from './shared-session.js?v=20261023-shared-r3';
 let endpoint='',configured=false,session=null,lastError='';
 const pending=new Map();
 export function sharedCloudStatus(){return {endpoint,configured,user:session?.user||null,error:lastError}}

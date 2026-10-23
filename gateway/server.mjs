@@ -16,7 +16,7 @@ function connectionToken(value){
  if(!token||!/^[A-Za-z0-9_]+$/.test(token))throw Object.assign(issue(400,'请粘贴 GitHub 生成的完整个人访问令牌（Token），不要填写账号密码、仓库地址或令牌名称。'),{code:'github-token-format',field:'token'});
  return token;
 }
-export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[]}={}){
+export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{}}={}){
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const allowedOrigin=origin=>!!origin&&(origin===siteOrigin||origin===selfOrigin||testOrigins.includes(origin));
@@ -67,7 +67,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    const ip=req.socket.remoteAddress||'unknown';
    if(path==='/setup'&&req.method==='POST'){
     limit('setup',5,900000);if(store.read().config)throw issue(409,'管理员已完成配置，请登录');const v=await body(req);
-    if(!validUser(v.username)||!validPassword(v.loginPassword)||typeof v.token!=='string'||typeof v.password!=='string'||v.password.length<12)throw issue(400,'请填写管理员账号、至少12位登录密码及已有云端凭据');
+    const invalid=(message,field)=>{throw Object.assign(issue(400,message),{code:'setup-input-invalid',field})};
+    if(!validUser(v?.username))invalid('管理员账号须为3至64位英文字母、数字、下划线、点或短横线，例如 wang10086。','username');
+    if(!validPassword(v.loginPassword))invalid('请设置12至256位工作台登录密码；这是今后登录工作台使用的新密码。','loginPassword');
+    if(typeof v.password!=='string'||v.password.length<12)invalid('请填写已有云端数据密码（MONITOR_CLOUD_PASSWORD，至少12位）。浏览器中未找到可复用密码，请勿另设新值。','password');
+    if(typeof v.token!=='string'||!v.token.trim())invalid('请填写完整 GitHub 同步 Token；当前提交没有可用凭据。','token');
     const token=connectionToken(v.token),owner=await(await github('/user',{token})).json();if(owner.login?.toLowerCase()!=='wang10086-creator')throw Object.assign(issue(403,'首次配置必须使用 wang10086-creator 账号生成的 GitHub 凭据。'),{code:'github-owner-mismatch',field:'token'});
     await readDashboard({token,password:v.password},{fresh:true});const pass=await passwordHash(v.loginPassword);
     await store.mutate(s=>{if(s.config)throw issue(409,'管理员已完成配置');s.config={token,password:v.password};s.users[v.username]={...pass,role:'admin',disabled:false}});
@@ -86,12 +90,14 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     if(req.method==='POST'){const v=await body(req);if(!validUser(v.username)||v.username===user.name||!['member','admin'].includes(v.role||'member'))throw issue(400,'账号不合法；不能在此修改自己');if(!v.disabled&&!validPassword(v.password))throw issue(400,'登录密码至少12位');const pass=v.disabled?null:await passwordHash(v.password);await store.mutate(s=>{if(v.disabled&&!s.users[v.username])throw issue(404,'账号不存在');s.users[v.username]={...(s.users[v.username]||{}),...pass,role:v.role||'member',disabled:!!v.disabled};for(const [k,vv]of Object.entries(s.sessions))if(vv.name===v.username)delete s.sessions[k]});respond(200,{saved:true});return}
    }
    throw issue(404,'接口不存在或当前账号无权使用');
-  }catch(error){respond(error.status||503,{error:error.status?error.message:'统一同步服务暂不可用，原记录保留',...(error.code?.startsWith('github-')?{code:error.code,field:error.field}:{})})}
+  }catch(error){const safeDetail=error.code?.startsWith('github-')||error.code==='setup-input-invalid'?{code:error.code,field:error.field}:{};
+   if(path==='/setup')try{diagnostic({event:'gateway-setup-rejected',status:error.status||503,code:safeDetail.code||'setup-failed',...(safeDetail.field?{field:safeDetail.field}:{})})}catch{}
+   respond(error.status||503,{error:error.status?error.message:'统一同步服务暂不可用，原记录保留',...safeDetail})}
  });
  server.requestTimeout=60000;server.headersTimeout=10000;
  return {server,store};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  const port=Number(process.env.PORT||8080),selfOrigin=process.env.RAILWAY_PUBLIC_DOMAIN?'https://'+process.env.RAILWAY_PUBLIC_DOMAIN:'';
- const {server}=await createGateway({directory:process.env.FJD_GATEWAY_DATA_DIR||'/data',selfOrigin});server.listen(port,'0.0.0.0',()=>console.log('FJD shared gateway listening'));
+ const {server}=await createGateway({directory:process.env.FJD_GATEWAY_DATA_DIR||'/data',selfOrigin,diagnostic:entry=>console.warn(JSON.stringify(entry))});server.listen(port,'0.0.0.0',()=>console.log('FJD shared gateway listening'));
 }
