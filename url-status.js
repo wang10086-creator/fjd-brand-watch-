@@ -1,7 +1,7 @@
 // URL observations are independent of manual pageState, workflow and priority.
 export const URL_STATUS_VERSION=1;
 export const urlStatusLabels={normal:'正常',changed:'已变更',removed:'已下架',redirect:'跳转',unavailable:'无法访问'};
-const valid=r=>r&&urlStatusLabels[r.status]&&typeof r.id==='string'&&Number.isFinite(Date.parse(r.at));
+const valid=r=>r&&Object.hasOwn(urlStatusLabels,r.status)&&typeof r.id==='string'&&Number.isFinite(Date.parse(r.at));
 const compare=(a,b)=>(Date.parse(a?.at)||0)-(Date.parse(b?.at)||0)||String(a?.id||'').localeCompare(String(b?.id||''));
 export function mergeUrlChecks(a,b){
  if(!a)return b?structuredClone(b):undefined;if(!b)return structuredClone(a);
