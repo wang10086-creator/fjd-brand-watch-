@@ -1,3 +1,4 @@
+import {currentBaseReview} from './base-review-eligibility.mjs';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn} from 'node:child_process';import {randomBytes} from 'node:crypto';
 import {canonical} from '../model.js';import {detectUrl,saveUrlCheck} from './url-check.mjs';import {entryPrerequisites,validWindow,sha256} from './base-evidence.mjs';import {seal,unseal} from './crypto.js';
 const previewFile=hash=>'private-evidence-preview/'+hash+'.json';
@@ -59,11 +60,11 @@ export function evidenceStore(vault,{password,read,write}){
   }
  };
 }
-export async function captureWindow(url){
+export async function captureWindow(url,{urlCheck}={}){
  const dir=await mkdtemp(join(tmpdir(),'fjd-native-window-'));try{
   const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>['PATH','HOME','DISPLAY','HTTPS_PROXY','HTTP_PROXY','NO_PROXY','SSL_CERT_FILE','SSL_CERT_DIR','NODE_EXTRA_CA_CERTS','FJD_CHROME'].includes(k)));
   const python=new URL('./browser_window.py',import.meta.url).pathname;
-  await new Promise((resolve,reject)=>{const child=spawn(env.DISPLAY?'python3':'xvfb-run',env.DISPLAY?[python]:['-a','-s','-screen 0 1360x1000x24','python3',python],{env,detached:true,stdio:['pipe','pipe','ignore']});let output='';child.stdout.on('data',b=>{output=(output+b.toString()).slice(-16000)});const timer=setTimeout(()=>{try{process.kill(-child.pid,'SIGTERM')}catch{}},55000);child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('exit',n=>{clearTimeout(timer);n===0?resolve():reject(Object.assign(Error('整窗截图采集未完成'),{captureCode:(()=>{try{return JSON.parse(output).reason}catch{return 'capture-interrupted'}})()}))});child.stdin.end(JSON.stringify({url,output:dir}));});
+  await new Promise((resolve,reject)=>{const child=spawn(env.DISPLAY?'python3':'xvfb-run',env.DISPLAY?[python]:['-a','-s','-screen 0 1360x1000x24','python3',python],{env,detached:true,stdio:['pipe','pipe','ignore']});let output='';child.stdout.on('data',b=>{output=(output+b.toString()).slice(-16000)});const timer=setTimeout(()=>{try{process.kill(-child.pid,'SIGTERM')}catch{}},55000);child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('exit',n=>{clearTimeout(timer);n===0?resolve():reject(Object.assign(Error('整窗截图采集未完成'),{captureCode:(()=>{try{return JSON.parse(output).reason}catch{return 'capture-interrupted'}})()}))});child.stdin.end(JSON.stringify({url,output:dir,...(urlCheck?{urlCheckId:urlCheck.id,urlCheckedAt:urlCheck.at}:{})}));});
   return {manifest:JSON.parse(await readFile(join(dir,'manifest.json'),'utf8')),bytes:await readFile(join(dir,'window.png'))};
  }finally{await rm(dir,{recursive:true,force:true})}
 }
@@ -75,6 +76,7 @@ export function baseEvidenceQueue(vault,{at=Date.now(),limit=2}={}){
  const reviews=new Map((vault.state.monitor?.reviews||[]).map(review=>[review.id,review]));
  const candidates=new Map();let index=0;
  for(const [id,item] of Object.entries(vault.baseReview?.items||{})){
+  if(!currentBaseReview(vault,id).eligible){index++;continue;}
   const key=canonical(item.payload?.url),row=rows.get(key),task=vault.baseEvidenceTasks?.[key];
   const stored=vault.baseEvidence?.items?.[key],imageAt=Date.parse(stored?.at),checkAt=Date.parse(row?.urlCheck?.current?.at);
   const evidenceReady=['waiting-upload','waiting-permission'].includes(item.status)&&task?.phase==='ready'&&stored?.previewReady===true&&
@@ -135,7 +137,7 @@ export async function supplementBaseEvidence(vault,{store,checkpoint,capture=cap
     const gate=entryPrerequisites(row,null,now());
     if(gate.phase==='waiting-url'){task.phase='waiting-url';task.reason=r.reason||gate.reason;}
     else{
-     let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000)evidence=await capture(row.url);
+     let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000||entryPrerequisites(row,evidence,now()).phase!=='ready')evidence=await capture(row.url,{urlCheck:row.urlCheck.current});
      await store.save(row,evidence);await store.ensurePreview(row,evidence);task.phase='ready';delete task.reason;
      // A pointer failure must not invalidate otherwise valid screenshot proof
      // or stop the original Feishu evidence queue; the next pass backfills it.

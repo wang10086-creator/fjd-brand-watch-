@@ -1,4 +1,4 @@
-import {initialReviewTransfer} from './base-review.mjs';
+import {initialReviewTransfer,currentBaseReview} from './base-review-eligibility.mjs';
 
 const workflow='/actions/workflows/fjd-base-evidence.yml/dispatches';
 
@@ -10,7 +10,7 @@ export function newEvidenceRequests(beforeIds,vault){
  return Object.entries(vault?.baseReview?.items||{}).filter(([id,item])=>
   !previous.has(id)&&item?.payload?.event_id==='review:'+id&&
   item.status!=='blocked'&&item.status!=='verified'&&
-  initialReviewTransfer(reviews.get(id))
+  initialReviewTransfer(reviews.get(id))&&currentBaseReview(vault,id).eligible
  ).map(([id])=>id);
 }
 

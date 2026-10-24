@@ -1,4 +1,5 @@
-// Read-only inspection of existing approved evidence; artifacts remain recipient-encrypted.
+// Inspect existing evidence; optional explicitly scoped recapture never delivers a review.
+// Exported artifacts remain recipient-encrypted.
 import {createPublicKey,randomBytes,publicEncrypt,createCipheriv,constants} from 'node:crypto';
 import {gunzipSync} from 'node:zlib';
 import {writeFile} from 'node:fs/promises';
@@ -35,7 +36,22 @@ async function main(){
  const commit=(await(await get('/git/ref/heads/data-cloud')).json()).object.sha;
  const read=async name=>(await get('/contents/'+name+'?ref='+commit,true)).json();
  const feed=JSON.parse(gunzipSync(Buffer.from(await(await get('/contents/public-dashboard.json.gz?ref='+commit,true)).arrayBuffer())));
- const records=await auditEvidence({ids:JSON.parse(process.env.AUDIT_SOURCE_IDS),read,password:process.env.MONITOR_CLOUD_PASSWORD,feed});
+ const ids=JSON.parse(process.env.AUDIT_SOURCE_IDS),password=process.env.MONITOR_CLOUD_PASSWORD;
+ let records=await auditEvidence({ids,read,password,feed});
+ if(process.env.AUDIT_REFRESH_SOURCE){
+  const selected=records.find(r=>r.sourceId===process.env.AUDIT_REFRESH_SOURCE);if(!selected)throw Error('Refresh source outside approved scope');
+  const {evidenceStore,captureWindow}=await import('./base-evidence-worker.mjs');
+  const {createGithubStore}=await import('./github-store.mjs');
+  const storage=createGithubStore({repository:'wang10086-creator/fjd-brand-watch-',branch:'data-cloud',token});
+  const row={id:selected.rowId,url:selected.url};
+  const vault={baseEvidence:{items:{[canonical(row.url)]:{path:'private-evidence/'+selected.manifest.sha256+'.json',sha256:selected.manifest.sha256,at:selected.manifest.at}}}};
+  const store=evidenceStore(vault,{password,read:storage.readJSON,write:storage.putJSON});
+  const evidence=await captureWindow(row.url);
+  if(evidence.manifest.navigationError||canonical(evidence.manifest.pageUrl)!==canonical(evidence.manifest.addressBarUrl)||!evidence.manifest.documents.some(d=>d.mainDocument===true&&canonical(d.url)===canonical(evidence.manifest.addressBarUrl)&&d.status>=200&&(d.status<300||d.status>=400)))throw Error('Final navigation evidence incomplete');
+  await store.save(row,evidence);await store.ensurePreview(row,evidence);await store.ensureSourceIndex(row,evidence);
+  records=await auditEvidence({ids,read:async path=>(await storage.readJSON(path)).value,password,feed});
+ }
+
  const envelope=recipientEnvelope({commit,records},Buffer.from(process.env.AUDIT_RECIPIENT_KEY,'base64').toString());
  await writeFile('evidence-audit.enc.json',JSON.stringify(envelope),{mode:0o600});
  if(process.env.AUDIT_SAVE_ENCRYPTED_OUTPUT==='1'){
@@ -45,4 +61,4 @@ async function main(){
  }
  console.log('Existing evidence integrity checked: '+records.length+'; original business data unchanged; no delivery performed.');
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Read-only evidence audit did not complete; original evidence preserved.');process.exitCode=1});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Evidence audit did not complete; existing evidence versions preserved.');process.exitCode=1});

@@ -1439,3 +1439,13 @@ maintenance operator must inspect the actual image and independently read the ta
 When artifact downloads are unavailable, the same recipient-encrypted envelope is
 created once at `data-cloud/maintenance-audits/<run-id>.enc.json` using a create-only
 Contents request. It never overwrites an existing file or any production ledger.
+
+## 2026-10-24 截图跳转证据及当前轮次入表保护
+
+截图 v2 保存每次实际主文档 HTTP 响应及 Location，按原网址到最终地址校验链；最终网页状态不能取 documents 最后一项（可能是 iframe），也不能从图片预览 HTTP 200 推断。浏览器显示经过原有安全传输取得的真实最终文档，原生地址栏截图继续保留，资源受限时如实显示。旧仅含 301 的截图不改写，要求补采；新截图可绑定网址核查 ID 和时间。
+
+入表、证据调度及发送前均检查稳定线索键、原初核事件、当前轮次和有效阶段。结案或重新打开后旧事件保留但不再发送；等待证据仍保留原初核决定。已受理同源事件必须核对已有记录，不能换轮次盲目新增。即时调度仍在原保存确认后触发，定时仅恢复。
+
+维护 evidence-audit 工作流默认只读取已有证据；显式 refresh_source 仅允许已选既有历史获准线索，采集新加密版本并更新受保护源索引，绝不重放原事件或修改人工决定。原版本保留。采集证据成功不等于当前轮次允许入表。飞书 URL 模式在可见预览和回读验收前保持关闭。
+
+回归：evidence-consistency.test.mjs 覆盖初始 301/最终 200、子框架干扰、错误版本/时间、重开第 3 轮、发送前竞态和同源重复事件；test_window_navigation.py 覆盖真实响应链、逐跳 robots、访问失败、循环与非法地址。

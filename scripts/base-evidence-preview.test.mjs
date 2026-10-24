@@ -1,3 +1,4 @@
+import {qualifyReviewFixture} from './base-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -12,9 +13,10 @@ const webhook='https://fjdynamics.feishu.cn/base/workflow/webhook/event/syntheti
 const headers={'content-type':'image/png','content-length':String(png.length)};
 function fixture(){
  const row={id:'lead-1',url,title:'Actually saved title',urlCheck:{current:{id:'check-1',url,finalUrl:url,at,status:'normal',source:'direct-http',environment:'fixture',reason:'Target content retrieved'}},reviewWorkflow:{stage:'ip'},note:'PRIVATE REVIEW NOTE'};
+ const qualified=qualifyReviewFixture(row,'review-1',at);
  const manifest={version:1,method:'x11-native-window',addressReadMethod:'native-omnibox-clipboard',at,originalUrl:url,addressBarUrl:url,pageUrl:url,sha256:sha256(png),bytes:png.length,width:1360,height:1000,browserVersion:'test',windowTree:'0x123 Chromium native window',documents:[{url,status:200}]};
- const evidence={manifest,bytes:png,previewUrl},item={status:'queued',attempts:0,payload:{event_id:'review:review-1',source_id:'stable-source',url,summary:'original review',display_image_url:'https://example.com/original.png'}};
- const vault={state:{rows:[row],monitor:{reviews:[{id:'review-1',at}]}},baseReview:{items:{'review-1':item}}};
+ const evidence={manifest,bytes:png,previewUrl},item={status:'queued',attempts:0,payload:{event_id:'review:review-1',source_id:qualified.sourceId,url,summary:'original review',display_image_url:'https://example.com/original.png'}};
+ const vault={state:{rows:[row],monitor:{reviews:[qualified.review]}},baseReview:{items:{'review-1':item}}};
  const calls=[],options={previewMode:'url',webhook,evidenceLoader:async()=>evidence,now:()=>at,checkpoint:async()=>calls.push({type:'save',status:item.status}),
   fetcher:async(target,init)=>{calls.push({type:init.method,url:target,status:item.status,payload:init.body?JSON.parse(init.body):null});
    if(init.method==='HEAD')return new Response(null,{status:200,headers});

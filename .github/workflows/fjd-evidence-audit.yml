@@ -1,10 +1,14 @@
-name: 只读截图证据验收
+name: 单条截图采集与证据验收
 on:
   workflow_dispatch:
     inputs:
       source_ids:
         description: '1-3 existing stable lead IDs (JSON array)'
         required: true
+      refresh_source:
+        description: 'Optional: capture ONLY this existing source ID; no review or Feishu mutation'
+        required: false
+        default: ''
       recipient_key:
         description: 'Maintenance recipient RSA public key (base64 PEM); never a private key'
         required: true
@@ -20,13 +24,20 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci --ignore-scripts
-      - name: 只读核验与接收方加密
+      - name: 单条采集依赖（仅显式要求重采时）
+        if: ${{ inputs.refresh_source != '' }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
+          python3 -m pip install --quiet Pillow==11.3.0 playwright==1.55.0
+      - name: 证据核验与接收方加密
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           AUDIT_SOURCE_IDS: ${{ inputs.source_ids }}
           AUDIT_RECIPIENT_KEY: ${{ inputs.recipient_key }}
           AUDIT_SAVE_ENCRYPTED_OUTPUT: '1'
+          AUDIT_REFRESH_SOURCE: ${{ inputs.refresh_source }}
         run: node cloud/evidence-audit.mjs
       - uses: actions/upload-artifact@v4
         with:

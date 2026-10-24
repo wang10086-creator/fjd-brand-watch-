@@ -1,3 +1,4 @@
+import {qualifyReviewFixture} from './base-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {workflowValues} from '../review.js';
@@ -77,8 +78,8 @@ function queuedEvidence(count=5){
  const rows=[],reviews=[],items={};
  for(let i=0;i<count;i++){
   const url=`https://example.com/item-${i}`,id=`review-${i}`;
-  rows.push({url});reviews.push({id,at:new Date(Date.parse('2026-10-22T00:00:00Z')+i*60000).toISOString()});
-  items[id]={status:'queued',payload:{url,event_id:'review:'+id}};
+  const row={url},at=new Date(Date.parse('2026-10-22T00:00:00Z')+i*60000).toISOString(),qualified=qualifyReviewFixture(row,id,at);rows.push(row);reviews.push(qualified.review);
+  items[id]={status:'queued',payload:{url,event_id:'review:'+id,source_id:qualified.sourceId}};
  }
  return {state:{rows,monitor:{reviews}},baseReview:{items},baseEvidenceTasks:{}};
 }
@@ -154,9 +155,10 @@ test('a recent saved native window waiting for upload does not consume capture s
  assert.equal(baseEvidenceQueue(vault,{at:now+86400001})[0].key,key);
 });
 
-test('missing review time remains deterministic and upload backoff is respected',()=>{
+test('unprovable review times cannot trigger capture; valid event upload backoff is respected',()=>{
  const vault=queuedEvidence(3),now=Date.parse('2026-10-22T01:00:00Z');
- for(const review of vault.state.monitor.reviews)delete review.at;
+ const invalid=structuredClone(vault);for(const review of invalid.state.monitor.reviews)delete review.at;
+ assert.deepEqual(baseEvidenceQueue(invalid,{at:now}),[]);
  assert.deepEqual(baseEvidenceQueue(vault,{at:now}).map(x=>x.key),
   ['https://example.com/item-2','https://example.com/item-0']);
  vault.baseReview.items['review-2'].nextAt=new Date(now+1000).toISOString();

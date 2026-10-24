@@ -69,10 +69,10 @@ test('legacy throttled requests cannot retry around the new evidence prerequisit
  await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},now:()=>new Date(Date.parse(at)+3600000).toISOString(),fetcher:()=>assert.fail('must not retry text-only creation')});
  assert.equal(vault.baseReview.items[review.id].attempts,1);assert.equal(vault.baseReview.items[review.id].status,'waiting-url');
 });
-test('two review rounds retain their original identities while evidence is pending',async()=>{
+test('unlinked duplicate event is retained but cannot bypass original review lookup',async()=>{
  const {vault,review}=fixture();enqueueBaseReviews(vault,[review,{...review,id:'another-review'}]);
  await deliverBaseReviews(vault,{webhook,checkpoint:async()=>{},fetcher:()=>assert.fail('no evidence')});
- assert.equal(Object.keys(vault.baseReview.items).length,2);assert.equal(baseReviewStatus(vault)['waiting-url'],1);assert.equal(baseReviewStatus(vault).queued,1);
+ assert.equal(Object.keys(vault.baseReview.items).length,2);assert.equal(baseReviewStatus(vault)['waiting-url'],1);assert.equal(baseReviewStatus(vault)['inactive-review'],1);
 });
 
 function submission(){

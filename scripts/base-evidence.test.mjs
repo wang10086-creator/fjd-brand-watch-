@@ -1,3 +1,4 @@
+import {qualifyReviewFixture} from './base-fixture.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {png} from './window-fixture.mjs';import {entryPrerequisites,validWindow,sha256} from '../cloud/base-evidence.mjs';
 import {deliverBaseReviews} from '../cloud/base-review.mjs';import {baseFields} from '../cloud/base-fields.mjs';
@@ -5,9 +6,10 @@ import {feishuBaseApi} from '../cloud/feishu-base-api.mjs';
 const at='2026-10-23T10:00:00.000Z',url='https://example.com/item';
 function fixture(){
  const row={id:'original',url,title:'Actual saved title',urlCheck:{current:{id:'check',url,finalUrl:url,at,status:'normal',source:'direct-http',environment:'fixture',reason:'Target content retrieved'}},reviewWorkflow:{stage:'ip'},note:'private'};
+ const qualified=qualifyReviewFixture(row,'original',at);
  const manifest={version:1,method:'x11-native-window',addressReadMethod:'native-omnibox-clipboard',at,originalUrl:url,addressBarUrl:url,pageUrl:url,sha256:sha256(png),bytes:png.length,width:1360,height:1000,browserVersion:'test',windowTree:'0x123 Chromium native window',documents:[{url,status:200}]};
- const evidence={manifest,bytes:png},item={status:'queued',attempts:0,payload:{...baseFields(row),url,source_id:'stable-source',event_id:'review:original'}};
- const vault={state:{rows:[row],monitor:{reviews:[{id:'original',at}],updateChain:[{checksum:'immutable'}]}},baseReview:{items:{original:item}}};
+ const evidence={manifest,bytes:png},item={status:'queued',attempts:0,payload:{...baseFields(row),url,source_id:qualified.sourceId,event_id:'review:original'}};
+ const vault={state:{rows:[row],monitor:{reviews:[qualified.review],updateChain:[{checksum:'immutable'}]}},baseReview:{items:{original:item}}};
  let writes=0,uploads=0,existing=null,checkpoints=0;
  const api={schema:async()=>[],find:async()=>existing,upload:async()=>{uploads++;return 'token'},write:async p=>{writes++;assert.equal(item.status,'sending');assert.ok(checkpoints);existing={record_id:'rec-original',fields:{human:'keep'}};return existing},verify:async()=>({recordId:'rec-original',sha256:manifest.sha256})};
  const options={checkpoint:async()=>{checkpoints++},baseApi:api,evidenceLoader:async()=>evidence,now:()=>at};
@@ -47,7 +49,7 @@ test('attachment verification reads record AND original media bytes, rejects a t
  let downloads=0;const api=feishuBaseApi({appId:'fake',appSecret:'fake',fetcher:async u=>{if(u.includes('/auth/'))return Response.json({code:0,tenant_access_token:'fake'});if(u.endsWith('/download')){downloads++;return new Response(png)}return Response.json({code:0,data:{record:{fields:{'网址当前状态':'正常','简要展示':[{file_token:'token'}]}}}})}});
  const r=await api.verify('first','token',png,'正常');assert.equal(r.sha256,sha256(png));assert.equal(downloads,1);await assert.rejects(api.verify('first','missing',png,'正常'),/回读未确认/);
 });
-test('403 evidence remains unavailable, never removed; no remarks populated',()=>{const f=fixture();f.row.urlCheck.current.status='unavailable';f.row.urlCheck.current.httpStatus=403;assert.equal(entryPrerequisites(f.row,f.evidence,Date.parse(at)).status,'无法访问');assert.equal(baseFields(f.row).remarks,'');assert.equal(validWindow({containsAddressBar:true},png,url),false)});
+test('403 evidence remains unavailable, never removed; no remarks populated',()=>{const f=fixture();f.row.urlCheck.current.status='unavailable';f.row.urlCheck.current.httpStatus=403;f.evidence.manifest.documents[0].status=403;assert.equal(entryPrerequisites(f.row,f.evidence,Date.parse(at)).status,'无法访问');assert.equal(baseFields(f.row).remarks,'');assert.equal(validWindow({containsAddressBar:true},png,url),false)});
 
 test('fresh prerequisites are checked again immediately before mutation',async()=>{const f=fixture();f.api.upload=async()=>{delete f.row.urlCheck;return 'token'};await deliverBaseReviews(f.vault,f.options);assert.equal(f.writes(),0);assert.notEqual(f.item.status,'verified')});
 test('a lost create response cannot be blindly repeated even after evidence retry',async()=>{const f=fixture();f.api.write=async()=>{throw Error('network unknown')};await deliverBaseReviews(f.vault,f.options);assert.equal(f.item.status,'uncertain');assert.ok(f.item.dispatchStartedAt);delete f.item.nextAt;let writes=0;f.api.write=async()=>{writes++;return {record_id:'new'}};await deliverBaseReviews(f.vault,f.options);assert.equal(writes,0)});

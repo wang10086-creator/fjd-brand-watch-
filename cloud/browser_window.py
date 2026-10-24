@@ -7,9 +7,10 @@ from pathlib import Path
 from datetime import datetime,timezone
 from PIL import ImageGrab
 from playwright.sync_api import sync_playwright
+from window_navigation import main_document
 ROOT=Path(__file__).resolve().parent
 
-def capture(url,output):
+def capture(url,output,urlCheckId=None,urlCheckedAt=None):
     started=time.monotonic(); requests=0; size=0; policies={}; documents=[]
     def fetch(target):
         nonlocal requests,size
@@ -30,7 +31,8 @@ def capture(url,output):
             else:policies[origin]=False
         rule=policies[origin]
         return rule if isinstance(rule,bool) else rule.can_fetch('FJD-Brand-Monitor',target)
-    if not allowed(url):raise ValueError('robots-restricted')
+    documents, main_response, main_bytes=main_document(url,fetch,allowed)
+    final_url=documents[-1]['url']
     output=Path(output);output.mkdir(parents=True,exist_ok=True,mode=0o700)
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=False,executable_path=os.environ.get('FJD_CHROME') or shutil.which('google-chrome') or shutil.which('chromium'),args=['--window-position=0,0','--window-size=1360,1000','--force-device-scale-factor=1','--disable-background-networking','--disable-quic','--force-webrtc-ip-handling-policy=disable_non_proxied_udp'])
@@ -39,15 +41,18 @@ def capture(url,output):
             req=route.request
             try:
                 if req.method!='GET' or req.resource_type in ('media','websocket','eventsource') or not allowed(req.url):raise ValueError('blocked')
-                r,data=fetch(req.url)
+                if req.is_navigation_request() and req.frame==page.main_frame:
+                    if req.url!=final_url:raise ValueError('untracked-navigation')
+                    r,data=main_response,main_bytes
+                else:r,data=fetch(req.url)
                 if 'noarchive' in r['headers'].get('x-robots-tag','').lower() or req.resource_type=='document' and b'noarchive' in data.lower():raise ValueError('noarchive')
-                if req.resource_type=='document':documents.append({'url':req.url,'status':r['status']})
+                if req.resource_type=='document' and req.frame!=page.main_frame:documents.append({'url':req.url,'status':r['status'],'mainDocument':False})
                 route.fulfill(status=r['status'],headers=r['headers'],body=data)
             except Exception:route.abort('blockedbyclient')
         context.route('**/*',route_handler)
         if hasattr(context,'route_web_socket'):context.route_web_socket('**/*',lambda ws:ws.close())
         page=context.new_page(); navigation_error=False
-        try:page.goto(url,wait_until='domcontentloaded',timeout=38000)
+        try:page.goto(final_url,wait_until='domcontentloaded',timeout=38000)
         except Exception:navigation_error=True
         page.wait_for_timeout(700)
         # Native omnibox selection/copy. The clipboard is read from this isolated X display.
@@ -76,12 +81,14 @@ def capture(url,output):
         window=subprocess.run(['xwininfo','-root','-tree'],capture_output=True,text=True,check=True).stdout
         # Full OS framebuffer includes Chrome's actual toolbar; no compositing or cropping.
         image=ImageGrab.grab(xdisplay=os.environ['DISPLAY']);path=output/'window.png';image.save(path)
-        raw=path.read_bytes();manifest={'version':1,'method':'x11-native-window','at':datetime.now(timezone.utc).isoformat(),'originalUrl':url,'addressBarUrl':address,'pageUrl':page.url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'width':image.width,'height':image.height,'browserVersion':browser.version,'windowTree':window,'addressReadMethod':'native-omnibox-clipboard','navigationError':navigation_error,'documents':documents,'environment':'isolated-headed-chromium','scripts':'disabled','requests':requests}
+        raw=path.read_bytes();manifest={'version':2,'method':'x11-native-window','at':datetime.now(timezone.utc).isoformat(),'originalUrl':url,'addressBarUrl':address,'pageUrl':page.url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'width':image.width,'height':image.height,'browserVersion':browser.version,'windowTree':window,'addressReadMethod':'native-omnibox-clipboard','navigationError':navigation_error,'documents':documents,'environment':'isolated-headed-chromium','scripts':'disabled','requests':requests}
+        if urlCheckId:manifest['urlCheckId']=urlCheckId
+        if urlCheckedAt:manifest['urlCheckedAt']=urlCheckedAt
         (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False));browser.close()
         return manifest
 if __name__=='__main__':
     try:
-        request=json.load(sys.stdin);print(json.dumps(capture(request['url'],request['output']),ensure_ascii=False))
+        request=json.load(sys.stdin);print(json.dumps(capture(request['url'],request['output'],request.get('urlCheckId'),request.get('urlCheckedAt')),ensure_ascii=False))
     except Exception as e:
         reason=str(e) if str(e) in {'robots-restricted','native-address-unconfirmed','native-window-missing','capture-budget','noarchive','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url'} else 'native-window-capture-unconfirmed'
         print(json.dumps({'deferred':True,'reason':reason,'kind':type(e).__name__}));sys.exit(1)

@@ -215,7 +215,7 @@ export function baseReviewLeadNotice(state,row){
 export function baseReviewReceiptView(state){
  const receipts=Object.entries(state.baseReviewReceipts||{}).sort(([,a],[,b])=>(b.at||'').localeCompare(a.at||'')).slice(0,10);
  if(!receipts.length)return '';
- const labels={verified:'初核已保存 · 飞书网址状态和附件已回读核验','preview-accepted':'初核已保存 · 截图网址已受理，飞书记录和预览待核验','waiting-url':'初核已保存 · 等待网址核查，尚未写入飞书','waiting-window':'初核已保存 · 等待地址栏截图，尚未写入飞书','waiting-preview':'初核已保存 · 等待截图网址可访问，尚未写入飞书','waiting-permission':'初核已保存 · 等待附件上传及回读授权','waiting-upload':'初核已保存 · 等待附件上传及回读确认',queued:'云端已保存 · 等待写入请求',accepted:'云端已保存 · 工作流已受理，实际入表待核验',uncertain:'云端已保存 · 回执未确认，请先核对台账',failed:'云端已保存 · 请求失败，可修正后重试',blocked:'云端已保存 · 资料待核对'};
+ const labels={'inactive-review':'历史初核事件已停用 · 等待当前轮次的有效初核决定',verified:'初核已保存 · 飞书网址状态和附件已回读核验','preview-accepted':'初核已保存 · 截图网址已受理，飞书记录和预览待核验','waiting-url':'初核已保存 · 等待网址核查，尚未写入飞书','waiting-window':'初核已保存 · 等待地址栏截图，尚未写入飞书','waiting-preview':'初核已保存 · 等待截图网址可访问，尚未写入飞书','waiting-permission':'初核已保存 · 等待附件上传及回读授权','waiting-upload':'初核已保存 · 等待附件上传及回读确认',queued:'云端已保存 · 等待写入请求',accepted:'云端已保存 · 工作流已受理，实际入表待核验',uncertain:'云端已保存 · 回执未确认，请先核对台账',failed:'云端已保存 · 请求失败，可修正后重试',blocked:'云端已保存 · 资料待核对'};
  return `<details class="space"><summary>逐条写表回执</summary>${receipts.map(([id,r])=>{const review=state.monitor?.reviews?.find(x=>'review:'+x.id===id);return `<p>${esc(review?.title||'已保存的初核线索')}：${esc(labels[r.status]||'等待核对')}${r.error?' · '+esc(r.error):''}</p>`}).join('')}</details>`;
 }
 export {migrationState};

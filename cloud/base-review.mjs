@@ -5,14 +5,8 @@ import {canonical,marketData,safeUrl} from '../model.js';
 import {workflowOf} from '../review.js';
 import {baseFields} from './base-fields.mjs';
 
-export function initialReviewTransfer(review){
- if(!review?.id||!review.after?.reviewWorkflow)return false;
- const before=workflowOf(review.before),after=workflowOf(review.after);
- const last=after.rounds?.find(r=>r.number===after.round)?.events?.at(-1);
- return before.stage==='initial'&&after.stage==='ip'&&after.opinion==='suspected'&&
-  before.round===after.round&&last?.action==='suspected'&&last.fromStage==='initial'&&
-  last.toStage==='ip'&&last.opinion==='suspected'&&last.at===review.at;
-}
+import {initialReviewTransfer,currentBaseReview} from './base-review-eligibility.mjs';
+export {initialReviewTransfer} from './base-review-eligibility.mjs';
 const day=value=>{const t=Date.parse(value);if(!Number.isFinite(t))throw Error('线索日期缺失，保留待核对');return new Date(t+8*3600000).toISOString().slice(0,10)};
 export function reviewPayload(state,review){
  if(!initialReviewTransfer(review))return null;
@@ -51,19 +45,20 @@ export function baseReviewStatus(vault,configured=false){
  let configurationError='';
  if(typeof configured==='string'){try{endpoint(configured);configured=true}catch{configured=false;configurationError='飞书台账写入入口格式不正确，请由管理员核对现有配置'}}
  if(!configured&&!configurationError)configurationError='飞书台账写入入口未配置或未载入当前任务；请核对主工作流配置';
- const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,'preview-accepted':0,uncertain:0,failed:0,blocked:0,'waiting-url':0,'waiting-window':0,'waiting-permission':0,'waiting-upload':0,'waiting-preview':0,verified:0};
+ const values=Object.values(vault.baseReview?.items||{}),counts={queued:0,accepted:0,'preview-accepted':0,uncertain:0,failed:0,blocked:0,'waiting-url':0,'waiting-window':0,'waiting-permission':0,'waiting-upload':0,'waiting-preview':0,verified:0,'inactive-review':0};
  for(const item of values)counts[item.status==='sending'?'uncertain':item.status]=(counts[item.status==='sending'?'uncertain':item.status]||0)+1;
  return {configured,...counts,configurationError,lastAttemptAt:vault.baseReview?.lastAttemptAt||null};
 }
 
 export function baseReviewReceipts(vault){
  return Object.fromEntries(Object.entries(vault.baseReview?.items||{}).map(([id,item])=>['review:'+id,
-  {status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
+  {eligibility:item.eligibility||null,status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
 }
 
 export function retryBaseReviewEvents(vault,eventIds){
  if(!Array.isArray(eventIds)||eventIds.length>1000)throw Error('写表重试范围无效');
  const ids=[...new Set(eventIds)].map(id=>String(id).replace(/^review:/,''));
+ for(const id of ids)if(!currentBaseReview(vault,id).eligible)throw Error('仅允许重试当前有效轮次的原初核事件');
  for(const id of ids)if(!vault.baseReview?.items?.[id]||!['queued','failed','blocked'].includes(vault.baseReview.items[id].status))throw Error('只允许重试待写或明确失败的原请求；已受理和回执未确认的请求须先核对飞书台账');
  for(const id of ids){
   const item=vault.baseReview.items[id];
