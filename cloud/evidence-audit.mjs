@@ -31,6 +31,7 @@ export async function auditEvidence({ids,read,password,feed}){
  }
  return output;
 }
+const safeAuditErrors=new Set(['Read-only evidence request failed','Source scope rejected','Existing lead missing','Original approved review missing','Source pointer mismatch','Evidence integrity mismatch','Paired evidence integrity mismatch','Preview grant mismatch','Refresh source outside approved scope','Existing lead context missing','Paired evidence save unconfirmed']);
 let auditStage='initial-read';
 async function main(){
  const root='https://api.github.com/repos/wang10086-creator/fjd-brand-watch-',token=process.env.GITHUB_TOKEN;
@@ -39,6 +40,7 @@ async function main(){
  const read=async name=>(await get('/contents/'+name+'?ref='+commit,true)).json();
  const feed=JSON.parse(gunzipSync(Buffer.from(await(await get('/contents/public-dashboard.json.gz?ref='+commit,true)).arrayBuffer())));
  const ids=JSON.parse(process.env.AUDIT_SOURCE_IDS),password=process.env.MONITOR_CLOUD_PASSWORD;
+ auditStage='source-integrity';
  let records=await auditEvidence({ids,read,password,feed});
  if(process.env.AUDIT_REFRESH_SOURCE){
   const selected=records.find(r=>r.sourceId===process.env.AUDIT_REFRESH_SOURCE);if(!selected)throw Error('Refresh source outside approved scope');
@@ -67,4 +69,4 @@ async function main(){
  }
  console.log('Existing evidence integrity checked: '+records.length+'; original business data unchanged; no delivery performed.');
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{const reason=/^(同次|初核已保存|截图|网址核查|地址栏|整窗截图)/.test(error.message||'')?error.message:'unconfirmed';console.error(JSON.stringify({stage:auditStage,reason,kind:error.name||'Error'}));process.exitCode=1});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{const reason=(safeAuditErrors.has(error.message)||/^(同次|初核已保存|截图|网址核查|地址栏|整窗截图)/.test(error.message||''))?error.message:'unconfirmed';console.error(JSON.stringify({stage:auditStage,reason,kind:error.name||'Error'}));process.exitCode=1});
