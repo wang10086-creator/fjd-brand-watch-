@@ -23,7 +23,10 @@ export async function auditEvidence({ids,read,password,feed}){
   const pointer=await unseal(await read('private-evidence-by-source/'+sourceId+'.json'),password,'base-window-source');
   if(pointer.sourceId!==sourceId||canonical(pointer.originalUrl)!==canonical(row.url)||!/^[a-f0-9]{64}$/.test(pointer.sha256))throw Error('Source pointer mismatch');
   const source=await unseal(await read('private-evidence/'+pointer.sha256+'.json'),password,'base-window'),bytes=Buffer.from(source.png,'base64');
-  if(!validWindow(source.manifest,bytes,row.url)||sha256(bytes)!==pointer.sha256||pointer.capturedAt!==source.manifest.at)throw Error('Evidence integrity mismatch');
+  if(!validWindow(source.manifest,bytes,row.url)||sha256(bytes)!==pointer.sha256||pointer.capturedAt!==source.manifest.at){
+   console.error(JSON.stringify({stage:'source-integrity',formatValid:validWindow(source.manifest,bytes,row.url),hashMatches:sha256(bytes)===pointer.sha256,timeMatches:pointer.capturedAt===source.manifest.at,bytes:bytes.length,sourceMatches:canonical(source.manifest?.originalUrl)===canonical(row.url),width:source.manifest?.width,height:source.manifest?.height}));
+   throw Error('Evidence integrity mismatch');
+  }
   if(source.urlCheck&&entryPrerequisites({url:row.url,urlCheck:{current:source.urlCheck}},{manifest:source.manifest,bytes},Date.parse(source.manifest.at)).phase!=='ready')throw Error('Paired evidence integrity mismatch');
   const grant=await unseal(await read('private-evidence-preview/'+pointer.sha256+'.json'),password,'base-window-preview');
   if(grant.sha256!==pointer.sha256||!/^[A-Za-z0-9_-]{43}$/.test(grant.token))throw Error('Preview grant mismatch');
