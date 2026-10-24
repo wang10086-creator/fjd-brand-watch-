@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime,timezone
 from PIL import ImageGrab
 from playwright.sync_api import sync_playwright
-from window_navigation import main_document
+from window_navigation import main_document, save_window_png
 ROOT=Path(__file__).resolve().parent
 
 def capture(url,output,urlCheckId=None,urlCheckedAt=None):
@@ -80,8 +80,9 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None):
         if not address.startswith(('https://','http://')):raise ValueError('native-address-unconfirmed')
         window=subprocess.run(['xwininfo','-root','-tree'],capture_output=True,text=True,check=True).stdout
         # Full OS framebuffer includes Chrome's actual toolbar; no compositing or cropping.
-        image=ImageGrab.grab(xdisplay=os.environ['DISPLAY']);path=output/'window.png';image.save(path)
-        raw=path.read_bytes();manifest={'version':2,'method':'x11-native-window','at':datetime.now(timezone.utc).isoformat(),'originalUrl':url,'addressBarUrl':address,'pageUrl':page.url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'width':image.width,'height':image.height,'browserVersion':browser.version,'windowTree':window,'addressReadMethod':'native-omnibox-clipboard','navigationError':navigation_error,'documents':documents,'environment':'isolated-headed-chromium','scripts':'disabled','requests':requests}
+        image=ImageGrab.grab(xdisplay=os.environ['DISPLAY']);path=output/'window.png'
+        captured_at=datetime.now(timezone.utc).isoformat();save_window_png(image,path,captured_at)
+        raw=path.read_bytes();manifest={'version':2,'method':'x11-native-window','at':captured_at,'originalUrl':url,'addressBarUrl':address,'pageUrl':page.url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'width':image.width,'height':image.height,'browserVersion':browser.version,'windowTree':window,'addressReadMethod':'native-omnibox-clipboard','navigationError':navigation_error,'documents':documents,'environment':'isolated-headed-chromium','scripts':'disabled','requests':requests}
         if urlCheckId:manifest['urlCheckId']=urlCheckId
         if urlCheckedAt:manifest['urlCheckedAt']=urlCheckedAt
         (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False));browser.close()

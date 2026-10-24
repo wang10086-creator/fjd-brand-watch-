@@ -21,3 +21,16 @@ class NavigationTests(unittest.TestCase):
   for location,reason in [('javascript:alert(1)','unsafe-url'),('/item','redirect-loop')]:
    with self.assertRaisesRegex(ValueError,reason):main_document('https://example.com/item',lambda u:({'status':301,'headers':{'location':location}},b''),lambda u:True)
 if __name__=='__main__':unittest.main()
+
+class CaptureVersionTests(unittest.TestCase):
+    def test_same_pixels_keep_distinct_actual_acquisition_times(self):
+        from PIL import Image
+        from window_navigation import save_window_png
+        import io, hashlib
+        image=Image.new('RGB',(20,20),'white');outputs=[]
+        for at in ('2026-10-24T01:00:00+00:00','2026-10-24T02:00:00+00:00'):
+            out=io.BytesIO();save_window_png(image,out,at);data=out.getvalue();outputs.append(data)
+            restored=Image.open(io.BytesIO(data))
+            self.assertEqual(restored.tobytes(),image.tobytes())
+            self.assertEqual(restored.info['CaptureTime'],at)
+        self.assertNotEqual(hashlib.sha256(outputs[0]).digest(),hashlib.sha256(outputs[1]).digest())

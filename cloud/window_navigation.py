@@ -23,3 +23,11 @@ def main_document(url, fetch, allowed, max_hops=6):
             doc['location']=headers['location'];url=urljoin(url,doc['location']);continue
         return documents, response, data
     raise ValueError('redirect-limit')
+
+
+def save_window_png(image, path, captured_at):
+    """Keep original framebuffer pixels; distinguish genuine acquisition versions."""
+    from PIL.PngImagePlugin import PngInfo
+    metadata=PngInfo()
+    metadata.add_text('CaptureTime', captured_at)
+    image.save(path, pnginfo=metadata)

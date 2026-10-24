@@ -44,15 +44,21 @@ async function main(){
  const feed=JSON.parse(gunzipSync(Buffer.from(await(await get('/contents/public-dashboard.json.gz?ref='+commit,true)).arrayBuffer())));
  const ids=JSON.parse(process.env.AUDIT_SOURCE_IDS),password=process.env.MONITOR_CLOUD_PASSWORD;
  auditStage='source-integrity';
- let records=await auditEvidence({ids,read,password,feed});
- if(process.env.AUDIT_REFRESH_SOURCE){
-  const selected=records.find(r=>r.sourceId===process.env.AUDIT_REFRESH_SOURCE);if(!selected)throw Error('Refresh source outside approved scope');
+ const refresh=process.env.AUDIT_REFRESH_SOURCE;
+ if(!Array.isArray(ids)||!ids.length||ids.length>3||ids.some(id=>!/^lead-[a-f0-9]{64}$/.test(id))||refresh&&!ids.includes(refresh))throw Error('Source scope rejected');
+ let records=[];
+ if(!refresh)records=await auditEvidence({ids,read,password,feed});
+ if(refresh){
+  // An explicitly authorized re-capture must not depend on an already broken
+  // old index. Scope still comes from the existing ledger, never a supplied URL.
+  const selected=feed.rows.find(r=>'lead-'+sha256(canonical(r.url))===refresh);
+  if(!selected)throw Error('Existing lead missing');
   const {evidenceStore,captureCheckedWindow}=await import('./base-evidence-worker.mjs');
   const {createGithubStore}=await import('./github-store.mjs');
   const storage=createGithubStore({repository:'wang10086-creator/fjd-brand-watch-',branch:'data-cloud',token});
-  const row=structuredClone(feed.rows.find(r=>r.id===selected.rowId&&canonical(r.url)===canonical(selected.url)));
+  const row=structuredClone(selected);
   if(!row)throw Error('Existing lead context missing');
-  const vault={baseEvidence:{items:{[canonical(row.url)]:{path:'private-evidence/'+selected.manifest.sha256+'.json',sha256:selected.manifest.sha256,at:selected.manifest.at}}}};
+  const vault={baseEvidence:{items:{}}};
   const store=evidenceStore(vault,{password,read:storage.readJSON,write:storage.putJSON});
   auditStage='paired-capture';
   const evidence=await captureCheckedWindow(row);
@@ -60,7 +66,7 @@ async function main(){
   await store.save(row,evidence);await store.ensurePreview(row,evidence);await store.ensureSourceIndex(row,evidence);
   auditStage='paired-readback';
   records=await auditEvidence({ids,read:async path=>(await storage.readJSON(path)).value,password,feed});
-  const confirmed=records.find(r=>r.sourceId===selected.sourceId);if(!confirmed?.pairedCheck||confirmed.urlCheck.id!==evidence.urlCheck.id||confirmed.manifest.sha256!==evidence.manifest.sha256)throw Error('Paired evidence save unconfirmed');
+  const confirmed=records.find(r=>r.sourceId===refresh);if(!confirmed?.pairedCheck||confirmed.urlCheck.id!==evidence.urlCheck.id||confirmed.manifest.sha256!==evidence.manifest.sha256)throw Error('Paired evidence save unconfirmed');
  }
 
  const envelope=recipientEnvelope({commit,records},Buffer.from(process.env.AUDIT_RECIPIENT_KEY,'base64').toString());
