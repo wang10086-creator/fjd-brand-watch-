@@ -1423,3 +1423,15 @@ This does not enable FEISHU_BASE_PREVIEW_MODE or send any table/report requests.
 Validation uses synthetic test-only PNG and mocked GitHub, with real local HTTP,
 AES-GCM persistence and Chromium on desktop/390px. Production acceptance still needs
 the user's genuine screenshot, visual review, then Feishu URL mapping/preview/readback.
+
+### 2026-10-24 Read-only screenshot acceptance
+
+The manually dispatched `fjd-evidence-audit.yml` reads at most three existing stable
+lead IDs from one pinned data-cloud commit. It verifies an original approved initial
+review, the encrypted source pointer, PNG/hash/native-window metadata and matching
+preview grant. No website request, table call, state update or preview-mode change
+is performed. The artifact is AES-GCM encrypted under a fresh key wrapped with the
+maintenance recipient's RSA-OAEP public key (>=3072 bits); credentials are not exported.
+Original PNGs and holder grants never appear in workflow logs or plaintext artifacts.
+Integrity alone does not establish visible webpage content or a Feishu record: the
+maintenance operator must inspect the actual image and independently read the table.
