@@ -1397,3 +1397,29 @@ for the existing Mercado Libre FV2000 URL showed HTTP403 and an actual error pag
 this is restricted-access evidence, not a product display or proof of removal.
 Real Feishu attachment permissions, schema and readback must be verified separately
 before declaring the production backfill complete.
+
+### 2026-10-24 Administrator manual window evidence
+
+`cloud/portal.html` adds an administrator-only upload inside the existing single-lead
+preview panel. `gateway/manual-evidence.mjs` verifies PNG signature, chunk CRCs,
+bounded decoded scanlines, dimensions, URLs and declared time. Native address-bar
+presence cannot be proven from raster bytes: administrator attestation and subsequent
+visual review are explicitly required. No automatic browser/version/status metadata
+is fabricated. Current input supports noninterlaced 8-bit RGB/RGBA PNG, <=8 MB,
+>=600x400 and <=20 million pixels; other formats are rejected without conversion.
+
+The authenticated server identity supplies uploader/time. The original URL must
+exactly exist in the current encrypted dashboard; canonical SHA-256 must match the
+requested lead key. Reads stream the rows rather than materializing histories.
+Manual evidence uses separate AES-GCM roles and `private-manual-evidence/<lead>/<hash>`
+immutable ciphertext; `private-manual-index/<lead>` is a CAS-updated encrypted version
+list on data-cloud. Same lead/hash reuses the original record and metadata. Lost PUT
+receipts are read back; failed index updates retain the object for idempotent retry.
+Old automatic evidence paths and manual review data are untouched. Admin lookup
+prefers the saved manual version; bearer PNG preview is intentionally shareable by
+holders, never placed in public feeds/logs. Logout clears the displayed URL/file.
+This does not enable FEISHU_BASE_PREVIEW_MODE or send any table/report requests.
+
+Validation uses synthetic test-only PNG and mocked GitHub, with real local HTTP,
+AES-GCM persistence and Chromium on desktop/390px. Production acceptance still needs
+the user's genuine screenshot, visual review, then Feishu URL mapping/preview/readback.

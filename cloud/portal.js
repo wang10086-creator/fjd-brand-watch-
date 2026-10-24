@@ -4,7 +4,7 @@ import {comparePendingReviews,reviewComparisonView} from './client.js?v=20261023
 import {canonical} from '../model.js?v=20261023-url-r1';
 const $=s=>document.querySelector(s);let polling=false,actionError='',busy=false,reviewTransferUrl='',transferReady=false,statusVersion=0;
 let maintenancePreviewUrl='';
-function clearMaintenancePreview(){maintenancePreviewUrl='';$('#shared-evidence-preview-result').hidden=true;$('#shared-evidence-preview-link').removeAttribute('href');const image=$('#shared-evidence-preview-image');image.onload=null;image.onerror=null;image.removeAttribute('src');$('#shared-evidence-preview-details').textContent='';$('#shared-evidence-preview-status').textContent=''}
+function clearMaintenancePreview(){if(!sharedSignedIn()||sharedCloudStatus().user?.role!=='admin'){$('#manual-window-upload')?.reset();if($('#manual-upload-status'))$('#manual-upload-status').textContent=''}maintenancePreviewUrl='';$('#shared-evidence-preview-result').hidden=true;$('#shared-evidence-preview-link').removeAttribute('href');const image=$('#shared-evidence-preview-image');image.onload=null;image.onerror=null;image.removeAttribute('src');$('#shared-evidence-preview-details').textContent='';$('#shared-evidence-preview-status').textContent=''}
 function syncPreviewAccess(){const panel=$('#shared-evidence-preview'),admin=sharedSignedIn()&&sharedCloudStatus().user?.role==='admin';if(!admin&&(!panel.hidden||maintenancePreviewUrl))clearMaintenancePreview();panel.hidden=!admin}
 async function previewSourceId(value){
  const input=String(value||'').trim();if(/^lead-[a-f0-9]{64}$/.test(input))return input;
@@ -69,9 +69,9 @@ if(typeof window!=='undefined'){
    const endpoint=new URL(sharedCloudStatus().endpoint),url=new URL(result.previewUrl);
    if(result.sourceId!==sourceId||!/^[a-f0-9]{64}$/.test(result.sha256||'')||
     url.origin!==endpoint.origin||url.username||url.password||url.search||url.hash||
-    !new RegExp('^/evidence-preview/'+result.sha256+'/[A-Za-z0-9_-]{43}\\.png$').test(url.pathname))throw Error('截图查询回执未通过地址校验');
+    !new RegExp(result.evidenceType==='manual-window'?'^/manual-evidence-preview/'+sourceId+'/'+result.sha256+'/[A-Za-z0-9_-]{43}\\.png$':'^/evidence-preview/'+result.sha256+'/[A-Za-z0-9_-]{43}\\.png$').test(url.pathname))throw Error('截图查询回执未通过地址校验');
    maintenancePreviewUrl=url.href;
-   $('#shared-evidence-preview-details').textContent='原始网址：'+result.originalUrl+' · 地址栏网址：'+result.addressBarUrl+' · 截图时间：'+result.at+' · SHA-256：'+result.sha256;
+   $('#shared-evidence-preview-details').textContent=(result.evidenceType==='manual-window'?'人工上传证据（须目视验收） · 上传人：'+result.uploadedBy+' · 上传时间：'+result.uploadedAt+' · 保存版本：'+result.versions.length+' · ':'')+'原始网址：'+result.originalUrl+' · 地址栏网址：'+result.addressBarUrl+' · 截图时间：'+result.at+' · SHA-256：'+result.sha256;
    $('#shared-evidence-preview-link').href=maintenancePreviewUrl;
    const image=$('#shared-evidence-preview-image');image.onload=()=>{message.textContent='已在本浏览器读取原始截图；飞书记录中的预览仍须单独回读核验。'};
    image.onerror=()=>{message.textContent='截图链接未能在本浏览器显示；暂不能作为飞书预览验收结果。'};
@@ -80,5 +80,6 @@ if(typeof window!=='undefined'){
   }catch(error){sharedUI();message.textContent=error.message||'单条截图尚不可用，请核对该线索的证据任务状态'}
   finally{button.disabled=false}
  };
+ $('#manual-window-upload').onsubmit=async e=>{e.preventDefault();const form=e.target,button=form.querySelector('button'),message=$('#manual-upload-status');button.disabled=true;message.textContent='正在校验、加密保存并回读；请保留原图…';try{if(sharedCloudStatus().user?.role!=='admin')throw Error('仅维护管理员可上传');const f=new FormData(form),file=f.get('picture');if(!file?.size||file.size>8000000)throw Error('请选择不超过 8 MB 的原始 PNG');const png=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('图片读取失败'));reader.readAsDataURL(file)});const originalUrl=f.get('originalUrl').trim(),sourceId=await previewSourceId(originalUrl);await sharedRequest('/maintenance/evidence-upload/'+sourceId,{method:'POST',timeoutMs:180000,data:{originalUrl,addressBarUrl:f.get('addressBarUrl').trim(),capturedAt:new Date(f.get('capturedAt')).toISOString(),attested:f.has('attested'),png}});if(!sharedSignedIn()||sharedCloudStatus().user?.role!=='admin')throw Error('会话已结束，请重新登录查询保存回执');message.textContent='人工证据已加密保存并回读；未写入飞书，预览模式未开启。请查看下方原图，确认地址栏和内容。';$('#shared-evidence-preview-form [name=source]').value=sourceId;$('#shared-evidence-preview-form').requestSubmit();form.reset()}catch(error){message.textContent=error.message}finally{button.disabled=false}};
  $('#shared-evidence-preview-copy').onclick=async()=>{const message=$('#shared-evidence-preview-status');if(!maintenancePreviewUrl||sharedCloudStatus().user?.role!=='admin')return;try{await navigator.clipboard.writeText(maintenancePreviewUrl);message.textContent='截图网址已复制；持有网址者可查看该截图，请仅用于获准的飞书记录。'}catch{message.textContent='浏览器未允许复制，请使用“打开原始整窗截图”核验。'}};
 }

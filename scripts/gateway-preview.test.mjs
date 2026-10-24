@@ -28,6 +28,7 @@ async function fixture(){
  const dashboard=await seal({ready:true,state:{rows:[],monitor:{updateChain:[]}}},password,'dashboard');
  const fetcher=async(url,options)=>{
   calls.push({url,method:options.method});
+  if(url.includes('/contents/private-manual-'))return Response.json({}, {status:404});
   if(url.endsWith('/user'))return Response.json({login:'wang10086-creator'});
   if(url.includes('/contents/dashboard.json'))return Response.json(dashboard);
   if(failedPath&&url.includes(failedPath)){
@@ -115,6 +116,8 @@ test('single-record lookup denies public and member sessions and does not list p
   assert.equal(publicSession.status,200);
   const publicToken=JSON.parse(publicSession.bytes.toString()).token;
   assert.equal((await f.request(maintenancePath(),{origin,bearer:publicToken})).status,403);
+  assert.equal((await f.request('/maintenance/evidence-upload/'+sourceId,{method:'POST',origin,bearer:publicToken,body:{}})).status,403);
+  assert.equal((await f.request('/maintenance/evidence-upload/'+sourceId,{method:'POST',origin,bearer:f.admin,body:{png:png.toString('base64'),originalUrl,addressBarUrl:originalUrl,capturedAt:manifest.at,attested:true}})).status,400);
   assert.equal((await f.request('/accounts',{method:'POST',origin,bearer:f.admin,body:{username:'member',password:'member-password-123',role:'member'}})).status,200);
   const memberSession=await f.request('/login',{method:'POST',origin,body:{username:'member',password:'member-password-123'}});
   assert.equal(memberSession.status,200);

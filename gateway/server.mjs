@@ -3,7 +3,9 @@ import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {gunzipSync,createGunzip} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {seal,unseal,unsealCompressed} from '../cloud/crypto.js';
-import {validateDashboardCompressed} from './dashboard-stream.mjs';
+import {manualStore} from './manual-store.mjs';
+import {manualSourceId,validateManual} from './manual-evidence.mjs';
+import {dashboardHasUrl,validateDashboardCompressed} from './dashboard-stream.mjs';
 import {publicDashboardBytes} from './public-dashboard.mjs';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
@@ -102,7 +104,9 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    return {bytes,manifest:source.manifest};
   }catch(error){if(maintenance&&error?.status===502&&error.code!=='github-resource-unavailable')throw error;throw issue(404,'截图预览不可用')}
  }
+ const manual=manualStore({fetcher,config:()=>store.read().config,origin:selfOrigin,now});
  async function readMaintenancePreview(sourceId){
+  const uploaded=await manual.query(sourceId);if(uploaded)return uploaded;
   const config=store.read().config;if(!config)throw issue(404,'线索截图尚未就绪');
   try{
    const sealed=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence-by-source/'+sourceId+'.json?ref='+BRANCH,{token:config.token,raw:true}),16384);
@@ -163,6 +167,9 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   try{
    // This holder URL serves only a previously sealed native-window PNG. A
    // Feishu image fetch may have its own Origin and does not carry a session.
+   if(path.startsWith('/manual-evidence-preview/')){
+    const match=/^\/manual-evidence-preview\/(lead-[a-f0-9]{64})\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图不可用');limit('manual-preview:'+req.socket.remoteAddress,60,60000);const bytes=await manual.image(...match.slice(1));res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex, noarchive','Referrer-Policy':'no-referrer'});res.end(req.method==='HEAD'?undefined:bytes);return;
+   }
    if(path.startsWith('/evidence-preview/')){
     const match=previewPath.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图预览不可用');
     limit('preview:'+String(req.socket.remoteAddress||'unknown'),120,60000);
@@ -199,6 +206,12 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path.startsWith('/maintenance/evidence-upload/')){
+    if(req.method!=='POST'||user.role!=='admin')throw issue(403,'仅管理员可上传人工截图');
+    const match=/^\/maintenance\/evidence-upload\/(lead-[a-f0-9]{64})$/.exec(path);if(!match)throw issue(404,'上传入口不存在');limit('manual-upload:'+user.name,6,60000);
+    const input=await body(req,11000000);validateManual(input,now());if(manualSourceId(input.originalUrl)!==match[1]||!await dashboardHasUrl(await readDashboard(store.read().config,{fresh:true}),input.originalUrl))throw issue(400,'原网址与已有台账线索不一致，请使用台账保存的原始网址');
+    respond(200,await manual.upload(match[1],input,user));return;
+   }
    if(path.startsWith('/maintenance/evidence-preview/')){
     if(req.method!=='GET'||user.role!=='admin')throw issue(403,'仅管理员可核对单条截图');
     const match=maintenancePreviewPath.exec(path);if(!match)throw issue(404,'线索截图入口不存在');

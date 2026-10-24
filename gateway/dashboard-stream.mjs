@@ -25,3 +25,12 @@ export async function validateDashboardCompressed(compressed,{maxBytes=2*1024**3
   return {plainBytes,...(publicFeed?{revision}:{})};
  }catch(error){source.destroy();inflate.destroy();tokens.destroy();await pumping.catch(()=>{});throw error}
 }
+
+// Extract one lead without expanding the complete encrypted ledger in memory.
+export async function dashboardHasUrl(compressed,url){
+ const {default:Pick}=await import('stream-json/filters/Pick.js');
+ const {default:StreamArray}=await import('stream-json/streamers/StreamArray.js');
+ let found=false;
+ await pipeline(Readable.from([compressed]),createGunzip(),parser(),Pick.pick({filter:'state.rows'}),StreamArray.streamArray(),async source=>{for await(const {value} of source)if(value?.url===url)found=true},{signal:AbortSignal.timeout(45000)});
+ return found;
+}
