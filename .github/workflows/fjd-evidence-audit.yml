@@ -9,7 +9,7 @@ on:
         description: 'Maintenance recipient RSA public key (base64 PEM); never a private key'
         required: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -26,6 +26,7 @@ jobs:
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           AUDIT_SOURCE_IDS: ${{ inputs.source_ids }}
           AUDIT_RECIPIENT_KEY: ${{ inputs.recipient_key }}
+          AUDIT_SAVE_ENCRYPTED_OUTPUT: '1'
         run: node cloud/evidence-audit.mjs
       - uses: actions/upload-artifact@v4
         with:

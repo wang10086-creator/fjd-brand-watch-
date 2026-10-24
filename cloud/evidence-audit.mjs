@@ -37,6 +37,12 @@ async function main(){
  const feed=JSON.parse(gunzipSync(Buffer.from(await(await get('/contents/public-dashboard.json.gz?ref='+commit,true)).arrayBuffer())));
  const records=await auditEvidence({ids:JSON.parse(process.env.AUDIT_SOURCE_IDS),read,password:process.env.MONITOR_CLOUD_PASSWORD,feed});
  const envelope=recipientEnvelope({commit,records},Buffer.from(process.env.AUDIT_RECIPIENT_KEY,'base64').toString());
- await writeFile('evidence-audit.enc.json',JSON.stringify(envelope),{mode:0o600});console.log('Existing evidence integrity checked: '+records.length+'; no production mutation or delivery performed.');
+ await writeFile('evidence-audit.enc.json',JSON.stringify(envelope),{mode:0o600});
+ if(process.env.AUDIT_SAVE_ENCRYPTED_OUTPUT==='1'){
+  const id=process.env.GITHUB_RUN_ID;if(!/^\d{1,24}$/.test(id||''))throw Error('Invalid audit run');
+  const saved=await fetch(root+'/contents/maintenance-audits/'+id+'.enc.json',{method:'PUT',redirect:'error',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({branch:'data-cloud',message:'Save recipient-encrypted evidence acceptance output',content:Buffer.from(JSON.stringify(envelope)).toString('base64')}),signal:AbortSignal.timeout(45000)});
+  if(!saved.ok)throw Error('Encrypted audit output save unconfirmed');
+ }
+ console.log('Existing evidence integrity checked: '+records.length+'; original business data unchanged; no delivery performed.');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Read-only evidence audit did not complete; original evidence preserved.');process.exitCode=1});
