@@ -30,4 +30,4 @@ def save_window_png(image, path, captured_at):
     from PIL.PngImagePlugin import PngInfo
     metadata=PngInfo()
     metadata.add_text('CaptureTime', captured_at)
-    image.save(path, pnginfo=metadata)
+    image.save(path, format="PNG", pnginfo=metadata)
