@@ -125,6 +125,11 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    item.failureStage='schema-read';const fields=await baseApi.schema();item.failureStage='record-lookup';const existing=await baseApi.find(item.payload);
    if(!existing&&(item.legacyReceipt||item.dispatchStartedAt||previousSourceDispatch(vault,item))){item.status='uncertain';item.error='既有请求已发送但未找到唯一记录，先核对实际台账，不盲目重发';item.nextAt=new Date(Date.parse(now())+1800000).toISOString();await checkpoint();continue}
    row=await activeRow(vault,id,item,checkpoint);if(!row)continue;
+   if(existing&&baseApi.matchingAttachment){
+    item.failureStage='attachment-readback';
+    const matched=await baseApi.matchingAttachment(existing,evidence.bytes);
+    if(matched){item.attachment={fileToken:matched,sha256:evidence.manifest.sha256};await checkpoint()}
+   }
    if(!item.attachment||item.attachment.sha256!==evidence.manifest.sha256){
     item.status='waiting-upload';item.error='初核已保存，等待附件上传与回读，尚未确认写入飞书';await checkpoint();
     item.failureStage='attachment-upload';item.attachment={fileToken:await baseApi.upload(evidence.bytes),sha256:evidence.manifest.sha256};await checkpoint();

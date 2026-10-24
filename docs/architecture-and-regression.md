@@ -1455,3 +1455,13 @@ Contents request. It never overwrites an existing file or any production ledger.
 维护单条重采现在先调用既有 detectUrl，再把检测 ID/时间绑定至 captureWindow；entryPrerequisites 完整通过才保存新版本。专用检测记录与 PNG 一起加密，audit 将其与实时台账旧检测明确分开，不修改原台账或人工决定。普通后台 captureWindow 同样保留已绑定检测记录。此机制不解除有效初核和飞书发送前门槛，也不授权重建人工删除的行。自动实际写表仍由原保存确认后即时 dispatch 触发，定时恢复保留。测试覆盖未完成检测不得继续、版本不符拒绝、加密保存读取及原台账不变。
 
 同像素重复采集修复：旧实现仅以 PNG 哈希保存元数据，重复画面可能覆盖前次采集时间，再遇中断导致索引与文件不一致。新原始截图由 Pillow 写入实际 CaptureTime 标准 PNG 文本元数据，画面像素不变，不添加或拼接地址栏；各次采集文件独立。配对证据保存拒绝用相同哈希覆盖不同原始元数据。显式单条重采从既有台账确认稳定键，不依赖损坏旧索引，生成新版本后才更新索引；默认读取仍严格验证旧索引，不放宽时间限制。
+
+## 2026-10-24 native attachment follow-up (not production acceptance)
+
+The user manually uploaded the preserved original PNG for OIM-0002 and confirmed native preview and persistence after reopening. This is user-observed single-record acceptance, not an API readback or automated-pipeline acceptance. Do not replay that review or touch OIM-0001.
+
+Dependency path: original eligible review → evidence prerequisites → Feishu schema/record lookup → attachment upload → record write → original-byte readback. The API adapter previously assumed legacy names while the observed ledger uses 关联线索 / 页面标题 / URL / 国家/地区 / 页面所属公司/店铺/经销商 / 产品名称/型号. Resolve only these explicit aliases from the actual schema, refuse ambiguous aliases, and never silently omit mandatory creation fields. Record association must agree with both source URL and its stable hash; a same-URL record missing its association blocks creation.
+
+Before uploading, compare existing attachment bytes with the verified original hash. Reuse a matching manual attachment regardless of filename. Download errors or excessive attachment counts stop the operation instead of assuming absence. Existing eligibility, evidence age and final-page HTTP checks remain unchanged. This does not make read/modify/write atomic against simultaneous manual edits. No feature flag, permissions or production records are changed by this patch. Live API permissions, actual schema and integrations remain unverified until an authorized environment can read them.
+
+Local validation: targeted attachment suite 25/25 passed. Full JavaScript suite: 494/511 passed, 17 gateway tests failed with EPERM when binding local Unix sockets. Python suite: 96/98 passed; two real Chromium/SingleFile rendering tests failed in this environment. No live Feishu/Notion/browser integration acceptance was performed. This change remains a draft pending CI and authorized API verification.
