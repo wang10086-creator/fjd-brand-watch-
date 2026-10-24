@@ -34,8 +34,13 @@ export function evidenceStore(vault,{password,read,write}){
   }catch{throw previewError()}
  }
  return {
-  async load(row){const info=vault.baseEvidence?.items?.[canonical(row.url)];if(!info?.path||!/^private-evidence\/[a-f0-9]{64}\.json$/.test(info.path))return null;const saved=await read(info.path);if(!saved?.value)return null;const value=await unseal(saved.value,password,'base-window'),bytes=Buffer.from(value.png,'base64'),evidence={manifest:value.manifest,bytes};if(validWindow(value.manifest,bytes,row.url))try{const preview=await readPreview(sha256(bytes));if(preview)evidence.previewUrl=await previewUrl(preview.sha256,preview.token)}catch{}return evidence;},
-  async save(row,evidence){if(!validWindow(evidence.manifest,evidence.bytes,row.url))throw Error('整窗截图原始文件未通过校验');const hash=sha256(evidence.bytes),path='private-evidence/'+hash+'.json',key=canonical(row.url);if(vault.baseEvidence?.items?.[key]?.path!==path)await write(path,await seal({manifest:evidence.manifest,png:evidence.bytes.toString('base64')},password,'base-window'));
+  async load(row){const info=vault.baseEvidence?.items?.[canonical(row.url)];if(!info?.path||!/^private-evidence\/[a-f0-9]{64}\.json$/.test(info.path))return null;const saved=await read(info.path);if(!saved?.value)return null;const value=await unseal(saved.value,password,'base-window'),bytes=Buffer.from(value.png,'base64'),evidence={manifest:value.manifest,bytes,...(value.urlCheck?{urlCheck:value.urlCheck}:{})};if(validWindow(value.manifest,bytes,row.url))try{const preview=await readPreview(sha256(bytes));if(preview)evidence.previewUrl=await previewUrl(preview.sha256,preview.token)}catch{}return evidence;},
+  async save(row,evidence){if(!validWindow(evidence.manifest,evidence.bytes,row.url))throw Error('整窗截图原始文件未通过校验');const hash=sha256(evidence.bytes),path='private-evidence/'+hash+'.json',key=canonical(row.url);
+   if(evidence.urlCheck){
+    if(evidence.manifest.urlCheckId!==evidence.urlCheck.id||evidence.manifest.urlCheckedAt!==evidence.urlCheck.at||entryPrerequisites({url:row.url,urlCheck:{current:evidence.urlCheck}},evidence,Date.parse(evidence.manifest.at)).phase!=='ready')throw Error('同次证据绑定未通过核验');
+    const existing=await read(path);if(existing?.value){const original=await unseal(existing.value,password,'base-window');if(JSON.stringify(original.manifest)!==JSON.stringify(evidence.manifest)||JSON.stringify(original.urlCheck)!==JSON.stringify(evidence.urlCheck))throw Error('同图旧版本已存在，保留原证据并等待重新采集');}
+   }
+   if(vault.baseEvidence?.items?.[key]?.path!==path)await write(path,await seal({manifest:evidence.manifest,png:evidence.bytes.toString('base64'),...(evidence.urlCheck?{urlCheck:evidence.urlCheck}:{})},password,'base-window'));
    await confirmedWindow(row,hash);vault.baseEvidence||={items:{}};if(vault.baseEvidence.items[key]?.path!==path)vault.baseEvidence.items[key]={path,sha256:hash,at:evidence.manifest.at};},
   async ensurePreview(row,evidence){if(!validWindow(evidence?.manifest,evidence?.bytes,row.url))throw previewError();const hash=sha256(evidence.bytes),key=canonical(row.url),info=vault.baseEvidence?.items?.[key];if(info?.path!=='private-evidence/'+hash+'.json')throw previewError();await confirmedWindow(row,hash);
    let preview=await readPreview(hash);if(!preview){const created={version:1,sha256:hash,token:randomBytes(32).toString('base64url'),createdAt:new Date().toISOString()};const writeResult=await write(previewFile(hash),await seal(created,password,'base-window-preview'));if(!/^[a-f0-9]{40}$/.test(writeResult?.sha||''))throw previewError();preview=await readPreview(hash);if(preview?.token!==created.token)throw previewError()}
@@ -65,8 +70,23 @@ export async function captureWindow(url,{urlCheck}={}){
   const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>['PATH','HOME','DISPLAY','HTTPS_PROXY','HTTP_PROXY','NO_PROXY','SSL_CERT_FILE','SSL_CERT_DIR','NODE_EXTRA_CA_CERTS','FJD_CHROME'].includes(k)));
   const python=new URL('./browser_window.py',import.meta.url).pathname;
   await new Promise((resolve,reject)=>{const child=spawn(env.DISPLAY?'python3':'xvfb-run',env.DISPLAY?[python]:['-a','-s','-screen 0 1360x1000x24','python3',python],{env,detached:true,stdio:['pipe','pipe','ignore']});let output='';child.stdout.on('data',b=>{output=(output+b.toString()).slice(-16000)});const timer=setTimeout(()=>{try{process.kill(-child.pid,'SIGTERM')}catch{}},55000);child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('exit',n=>{clearTimeout(timer);n===0?resolve():reject(Object.assign(Error('整窗截图采集未完成'),{captureCode:(()=>{try{return JSON.parse(output).reason}catch{return 'capture-interrupted'}})()}))});child.stdin.end(JSON.stringify({url,output:dir,...(urlCheck?{urlCheckId:urlCheck.id,urlCheckedAt:urlCheck.at}:{})}));});
-  return {manifest:JSON.parse(await readFile(join(dir,'manifest.json'),'utf8')),bytes:await readFile(join(dir,'window.png'))};
+  return {manifest:JSON.parse(await readFile(join(dir,'manifest.json'),'utf8')),bytes:await readFile(join(dir,'window.png')),...(urlCheck?{urlCheck:structuredClone(urlCheck)}:{})};
  }finally{await rm(dir,{recursive:true,force:true})}
+}
+// Maintenance uses the same detector and capture gate, but never changes the ledger
+// or creates/replays a human review. Both observations survive in one encrypted version.
+export async function captureCheckedWindow(row,{detector=detectUrl,capture=captureWindow,now=Date.now}={}){
+ const copy=structuredClone(row),at=new Date(now()).toISOString();
+ const result=await detector(copy,{at,timeoutMs:9000,environment:'github-actions-direct-http'});
+ if(result.deferred||!result.status)throw Error('同次网址核查尚未完成，保留旧证据');
+ saveUrlCheck(copy,result);
+ const preliminary=entryPrerequisites(copy,null,now());
+ if(preliminary.phase==='waiting-url')throw Error(preliminary.reason);
+ const evidence=await capture(copy.url,{urlCheck:copy.urlCheck.current});
+ evidence.urlCheck=structuredClone(copy.urlCheck.current);
+ const gate=entryPrerequisites(copy,evidence,now());
+ if(gate.phase!=='ready')throw Error(gate.reason);
+ return evidence;
 }
 // One recent original review gets a prompt attempt, while the second slot
 // continues the oldest eligible URL. Build the list by URL so two review rounds

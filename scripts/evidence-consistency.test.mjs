@@ -39,3 +39,20 @@ test('a changed current round during evidence read or saved send intent blocks a
 test('a prior accepted event for the same stable key forces reconciliation rather than a new webhook row',async()=>{
  const f=fixture();f.vault.baseReview.items.old={status:'accepted',acceptedAt:at,payload:{...f.item.payload,event_id:'review:old'}};await deliverEvidence(f.vault,f.options);assert.equal(f.item.status,'uncertain');assert.ok(!f.calls.includes('POST'));assert.equal(f.vault.baseReview.items.old.acceptedAt,at);
 });
+
+test('same-session maintenance capture binds a fresh check without changing review or stale ledger evidence',async()=>{
+ const {captureCheckedWindow,evidenceStore}=await import('../cloud/base-evidence-worker.mjs');
+ const f=fixture(),before=JSON.stringify(f.row),calls=[];
+ const evidence=await captureCheckedWindow(f.row,{now:()=>Date.parse(at),detector:async(row,opts)=>{calls.push('detect');assert.equal(opts.at,at.replace('Z','.000Z'));return {...f.row.urlCheck.current,id:'fresh-check',at:opts.at}},capture:async(url,{urlCheck})=>{calls.push('capture');assert.equal(urlCheck.id,'fresh-check');return {...f.evidence,manifest:{...f.evidence.manifest,urlCheckId:urlCheck.id,urlCheckedAt:urlCheck.at}}}});
+ assert.deepEqual(calls,['detect','capture']);assert.equal(JSON.stringify(f.row),before);assert.equal(evidence.urlCheck.id,'fresh-check');
+ const files=new Map(),vault={},store=evidenceStore(vault,{password:'isolated-test-password',read:async p=>files.has(p)?{value:files.get(p)}:null,write:async(p,v)=>{files.set(p,v);return {sha:'a'.repeat(40)}}});
+ await store.save(f.row,evidence);await store.ensurePreview(f.row,evidence);await store.ensureSourceIndex(f.row,evidence);
+ const restored=await store.load(f.row);assert.deepEqual(restored.urlCheck,evidence.urlCheck);assert.equal(restored.manifest.urlCheckId,restored.urlCheck.id);assert.equal(entryPrerequisites({url:f.row.url,urlCheck:{current:restored.urlCheck}},restored,Date.parse(at)).phase,'ready');assert.equal(JSON.stringify(f.row),before);
+ const prior=JSON.stringify([...files]);const conflicting={...evidence,urlCheck:{...evidence.urlCheck,id:'another-check'},manifest:{...evidence.manifest,urlCheckId:'another-check'}};
+ await assert.rejects(store.save(f.row,conflicting),/同图旧版本/);assert.equal(JSON.stringify([...files]),prior);
+});
+test('paired capture refuses deferred detection and never loosens HTTP or version checks',async()=>{
+ const {captureCheckedWindow}=await import('../cloud/base-evidence-worker.mjs');const f=fixture();let captures=0;
+ await assert.rejects(captureCheckedWindow(f.row,{now:()=>Date.parse(at),detector:async()=>({deferred:true}),capture:async()=>{captures++}}));assert.equal(captures,0);
+ await assert.rejects(captureCheckedWindow(f.row,{now:()=>Date.parse(at),detector:async()=>f.row.urlCheck.current,capture:async()=>({...f.evidence,manifest:{...f.evidence.manifest,urlCheckId:'wrong-version'}})}));
+});

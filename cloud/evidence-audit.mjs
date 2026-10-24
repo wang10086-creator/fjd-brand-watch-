@@ -5,7 +5,7 @@ import {gunzipSync} from 'node:zlib';
 import {writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import {unseal} from './crypto.js';
-import {validWindow,sha256} from './base-evidence.mjs';
+import {validWindow,sha256,entryPrerequisites} from './base-evidence.mjs';
 import {initialReviewTransfer} from './base-review.mjs';
 import {canonical} from '../model.js';
 export function recipientEnvelope(value,pem){
@@ -24,9 +24,10 @@ export async function auditEvidence({ids,read,password,feed}){
   if(pointer.sourceId!==sourceId||canonical(pointer.originalUrl)!==canonical(row.url)||!/^[a-f0-9]{64}$/.test(pointer.sha256))throw Error('Source pointer mismatch');
   const source=await unseal(await read('private-evidence/'+pointer.sha256+'.json'),password,'base-window'),bytes=Buffer.from(source.png,'base64');
   if(!validWindow(source.manifest,bytes,row.url)||sha256(bytes)!==pointer.sha256||pointer.capturedAt!==source.manifest.at)throw Error('Evidence integrity mismatch');
+  if(source.urlCheck&&entryPrerequisites({url:row.url,urlCheck:{current:source.urlCheck}},{manifest:source.manifest,bytes},Date.parse(source.manifest.at)).phase!=='ready')throw Error('Paired evidence integrity mismatch');
   const grant=await unseal(await read('private-evidence-preview/'+pointer.sha256+'.json'),password,'base-window-preview');
   if(grant.sha256!==pointer.sha256||!/^[A-Za-z0-9_-]{43}$/.test(grant.token))throw Error('Preview grant mismatch');
-  output.push({sourceId,rowId:row.id,url:row.url,title:row.title,eventIds:events.map(e=>'review:'+e.id),currentStage:row.reviewWorkflow?.stage,manifest:source.manifest,png:source.png,previewToken:grant.token,urlCheck:row.urlCheck?.current});
+  output.push({sourceId,rowId:row.id,url:row.url,title:row.title,eventIds:events.map(e=>'review:'+e.id),currentStage:row.reviewWorkflow?.stage,manifest:source.manifest,png:source.png,previewToken:grant.token,urlCheck:source.urlCheck||row.urlCheck?.current,ledgerUrlCheck:row.urlCheck?.current,pairedCheck:!!source.urlCheck});
  }
  return output;
 }
@@ -40,16 +41,16 @@ async function main(){
  let records=await auditEvidence({ids,read,password,feed});
  if(process.env.AUDIT_REFRESH_SOURCE){
   const selected=records.find(r=>r.sourceId===process.env.AUDIT_REFRESH_SOURCE);if(!selected)throw Error('Refresh source outside approved scope');
-  const {evidenceStore,captureWindow}=await import('./base-evidence-worker.mjs');
+  const {evidenceStore,captureCheckedWindow}=await import('./base-evidence-worker.mjs');
   const {createGithubStore}=await import('./github-store.mjs');
   const storage=createGithubStore({repository:'wang10086-creator/fjd-brand-watch-',branch:'data-cloud',token});
   const row={id:selected.rowId,url:selected.url};
   const vault={baseEvidence:{items:{[canonical(row.url)]:{path:'private-evidence/'+selected.manifest.sha256+'.json',sha256:selected.manifest.sha256,at:selected.manifest.at}}}};
   const store=evidenceStore(vault,{password,read:storage.readJSON,write:storage.putJSON});
-  const evidence=await captureWindow(row.url);
-  if(evidence.manifest.navigationError||canonical(evidence.manifest.pageUrl)!==canonical(evidence.manifest.addressBarUrl)||!evidence.manifest.documents.some(d=>d.mainDocument===true&&canonical(d.url)===canonical(evidence.manifest.addressBarUrl)&&d.status>=200&&(d.status<300||d.status>=400)))throw Error('Final navigation evidence incomplete');
+  const evidence=await captureCheckedWindow(row);
   await store.save(row,evidence);await store.ensurePreview(row,evidence);await store.ensureSourceIndex(row,evidence);
   records=await auditEvidence({ids,read:async path=>(await storage.readJSON(path)).value,password,feed});
+  const confirmed=records.find(r=>r.sourceId===selected.sourceId);if(!confirmed?.pairedCheck||confirmed.urlCheck.id!==evidence.urlCheck.id||confirmed.manifest.sha256!==evidence.manifest.sha256)throw Error('Paired evidence save unconfirmed');
  }
 
  const envelope=recipientEnvelope({commit,records},Buffer.from(process.env.AUDIT_RECIPIENT_KEY,'base64').toString());

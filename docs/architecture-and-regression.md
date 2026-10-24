@@ -1449,3 +1449,7 @@ Contents request. It never overwrites an existing file or any production ledger.
 维护 evidence-audit 工作流默认只读取已有证据；显式 refresh_source 仅允许已选既有历史获准线索，采集新加密版本并更新受保护源索引，绝不重放原事件或修改人工决定。原版本保留。采集证据成功不等于当前轮次允许入表。飞书 URL 模式在可见预览和回读验收前保持关闭。
 
 回归：evidence-consistency.test.mjs 覆盖初始 301/最终 200、子框架干扰、错误版本/时间、重开第 3 轮、发送前竞态和同源重复事件；test_window_navigation.py 覆盖真实响应链、逐跳 robots、访问失败、循环与非法地址。
+
+### 同次检测与截图核验包
+
+维护单条重采现在先调用既有 detectUrl，再把检测 ID/时间绑定至 captureWindow；entryPrerequisites 完整通过才保存新版本。专用检测记录与 PNG 一起加密，audit 将其与实时台账旧检测明确分开，不修改原台账或人工决定。普通后台 captureWindow 同样保留已绑定检测记录。此机制不解除有效初核和飞书发送前门槛，也不授权重建人工删除的行。自动实际写表仍由原保存确认后即时 dispatch 触发，定时恢复保留。测试覆盖未完成检测不得继续、版本不符拒绝、加密保存读取及原台账不变。
