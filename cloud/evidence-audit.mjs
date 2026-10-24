@@ -44,7 +44,8 @@ async function main(){
   const {evidenceStore,captureCheckedWindow}=await import('./base-evidence-worker.mjs');
   const {createGithubStore}=await import('./github-store.mjs');
   const storage=createGithubStore({repository:'wang10086-creator/fjd-brand-watch-',branch:'data-cloud',token});
-  const row={id:selected.rowId,url:selected.url};
+  const row=structuredClone(feed.rows.find(r=>r.id===selected.rowId&&canonical(r.url)===canonical(selected.url)));
+  if(!row)throw Error('Existing lead context missing');
   const vault={baseEvidence:{items:{[canonical(row.url)]:{path:'private-evidence/'+selected.manifest.sha256+'.json',sha256:selected.manifest.sha256,at:selected.manifest.at}}}};
   const store=evidenceStore(vault,{password,read:storage.readJSON,write:storage.putJSON});
   const evidence=await captureCheckedWindow(row);
