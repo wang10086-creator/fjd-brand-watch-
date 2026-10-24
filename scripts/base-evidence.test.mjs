@@ -1,3 +1,4 @@
+import {workflowValues} from '../review.js';
 import {qualifyReviewFixture} from './base-fixture.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {png} from './window-fixture.mjs';import {entryPrerequisites,validWindow,sha256} from '../cloud/base-evidence.mjs';
@@ -11,7 +12,7 @@ function fixture(){
  const evidence={manifest,bytes:png},item={status:'queued',attempts:0,payload:{...baseFields(row),url,source_id:qualified.sourceId,event_id:'review:original'}};
  const vault={state:{rows:[row],monitor:{reviews:[qualified.review],updateChain:[{checksum:'immutable'}]}},baseReview:{items:{original:item}}};
  let writes=0,uploads=0,existing=null,checkpoints=0;
- const api={preflight:async()=>{},schema:async()=>[],find:async()=>existing,upload:async()=>{uploads++;return 'token'},write:async p=>{await p.beforeSend();writes++;assert.equal(item.status,'sending');assert.ok(checkpoints);existing={record_id:'rec-original',fields:{human:'keep'}};return existing},verify:async()=>({recordId:'rec-original',sha256:manifest.sha256})};
+ const api={preflight:async()=>{},schema:async()=>[],find:async()=>existing,upload:async()=>{uploads++;return 'token'},write:async p=>{await p.beforeSend();p.validateSend?.();writes++;assert.equal(item.status,'sending');assert.ok(checkpoints);existing={record_id:'rec-original',fields:{human:'keep'}};return existing},verify:async()=>({recordId:'rec-original',sha256:manifest.sha256})};
  const options={checkpoint:async()=>{checkpoints++},baseApi:api,evidenceLoader:async()=>evidence,now:()=>at};
  return {vault,row,item,evidence,api,options,writes:()=>writes,uploads:()=>uploads,setExisting:r=>existing=r};
 }
@@ -131,4 +132,39 @@ test('late preflight failure is explicitly not sent and corrected retry resumes'
  api.preflight=async args=>{original(args);f.item.payload.first_found_date='invalid'};
  await deliverBaseReviews(f.vault,f.options);assert.equal(f.state.uploads,1);assert.equal(f.state.creates,0);assert.equal(f.item.recordWriteState,'not-sent');assert.equal(f.item.dispatchStartedAt,undefined);
  api.preflight=original;f.item.payload.first_found_date='2026-10-23';delete f.item.nextAt;await deliverBaseReviews(f.vault,f.options);assert.equal(f.item.status,'verified');assert.equal(f.state.uploads,1);assert.equal(f.state.creates,1);
+});
+
+
+function raceTransition(row,action){const form=new FormData();form.set('workflowAction',action);form.set('closureReason','normal');form.set('reopenReason','synthetic new evidence');return {...row,...workflowValues(form,row,at)}}
+for(const operation of ['create','update'])for(const change of ['closed','reopened','new-approved-round','missing-event','replaced-event'])test('final dispatch guard blocks '+operation+' after async intent save: '+change,async()=>{
+ const f=realAdapterFixture();if(operation==='update')f.state.rows=[{record_id:'recCreated',fields:{'关联线索':f.item.payload.platform_lead_url,URL:{link:url},'网址当前状态':'正常','简要展示':[{file_token:'manual'}],'备注说明':'human'}}];
+ let changed=false,latestState;
+ f.options.checkpoint=async()=>{
+  if(f.item.status!=='sending'||changed)return;
+  await Promise.resolve(); // Simulate persistence yielding to a newer review snapshot.
+  changed=true;latestState=structuredClone(f.vault.state);let row=latestState.rows[0];
+  if(['closed','reopened','new-approved-round'].includes(change))row=raceTransition(row,'exclude');
+  if(['reopened','new-approved-round'].includes(change))row=raceTransition(row,'reopen');
+  if(change==='new-approved-round')row=raceTransition(row,'suspected');
+  if(change==='missing-event')latestState.monitor.reviews=[];
+  if(change==='replaced-event')row.reviewWorkflow.rounds[0].events[0].id='different-decision';
+  latestState.rows[0]=row;f.vault.state=latestState;
+ };
+ const beforeRows=JSON.stringify(f.state.rows);
+ await deliverBaseReviews(f.vault,f.options);
+ assert.equal(changed,true);assert.equal(f.state.creates+f.state.updates,0);assert.equal(JSON.stringify(f.state.rows),beforeRows);
+ assert.equal(f.item.status,'inactive-review');assert.equal(f.item.recordWriteState,'not-sent');assert.equal(f.item.dispatchStartedAt,undefined);assert.equal(f.item.verifiedAt,undefined);assert.equal(f.item.nextAt,undefined);
+ assert.equal(f.item.eligibility.state,'inactive');assert.match(f.item.error,/原初核事件不再满足/);assert.strictEqual(f.vault.state,latestState);
+ if(['reopened','new-approved-round'].includes(change))assert.match(f.item.error,/其他处理轮次/);
+ if(change==='closed')assert.equal(f.vault.state.rows[0].reviewWorkflow.stage,'closed');
+});
+for(const change of ['url-check','fields'])test('final dispatch guard never sends stale '+change+' after intent persistence',async()=>{
+ const f=realAdapterFixture();let changed=false;
+ f.options.checkpoint=async()=>{if(f.item.status==='sending'&&!changed){changed=true;await Promise.resolve();const row=structuredClone(f.vault.state.rows[0]);if(change==='url-check')row.urlCheck.current.id='new-check';else row.seller='new human seller';f.vault.state.rows[0]=row}};
+ await deliverBaseReviews(f.vault,f.options);assert.equal(f.state.creates,0);assert.equal(f.item.recordWriteState,'not-sent');assert.match(f.item.error,/未发送旧快照/);assert.equal(f.item.dispatchStartedAt,undefined);
+});
+test('final guard preserves prior ambiguous dispatch while recording later closure',async()=>{
+ const f=realAdapterFixture();f.item.status='uncertain';f.item.dispatchStartedAt=at;f.state.rows=[{record_id:'recCreated',fields:{'关联线索':f.item.payload.platform_lead_url,URL:{link:url},'简要展示':[{file_token:'manual'}]}}];
+ let changed=false;f.options.checkpoint=async()=>{if(f.item.status==='sending'&&!changed){changed=true;await Promise.resolve();f.vault.state.rows[0]=raceTransition(f.vault.state.rows[0],'exclude')}};
+ await deliverBaseReviews(f.vault,f.options);assert.equal(f.state.creates+f.state.updates,0);assert.equal(f.item.status,'uncertain');assert.ok(f.item.dispatchStartedAt);assert.equal(f.item.eligibility.state,'inactive');assert.match(f.item.error,/原初核事件不再满足/);
 });

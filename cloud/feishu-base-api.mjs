@@ -12,7 +12,7 @@ export function feishuBaseApi({appId,appSecret,fetcher=fetch}={}){
  if(!appId||!appSecret)return null;
  let token,actualFields;
  async function auth(){if(token)return token;const r=await fetcher(ROOT+'/auth/v3/tenant_access_token/internal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({app_id:appId,app_secret:appSecret}),redirect:'error',signal:AbortSignal.timeout(15000)});const j=await r.json();if(!r.ok||j.code!==0||!j.tenant_access_token){const error=Error('飞书应用授权未确认');error.permissionDenied=[401,403].includes(r.status)||[99991672,99991679,91403].includes(j.code);throw error}token=j.tenant_access_token;return token}
- async function request(path,{method='GET',body,binary=false,beforeSend}={}){
+ async function request(path,{method='GET',body,binary=false,beforeSend,validateSend}={}){
   let started=false;
   try{
    if(!/^\/(?:bitable\/v1\/apps\/X9rmbnf25aBv7isYJvYcA9UfnIe\/tables\/tblleeBgQTn3krrL\/(?:fields|records)|drive\/v1\/medias\/)/.test(path)||method==='DELETE')throw Error('不支持的飞书操作');
@@ -22,6 +22,8 @@ export function feishuBaseApi({appId,appSecret,fetcher=fetch}={}){
    const signal=AbortSignal.timeout(20000);
    // All local validation, serialization and authentication precede durable intent.
    if(beforeSend)await beforeSend();
+   // No await between this fresh synchronous guard and the external request.
+   if(validateSend)validateSend();
    started=true;
    const r=await fetcher(ROOT+path,{method,headers,body:encoded,redirect:'error',signal});
    if(!r.ok){const error=Error('飞书 '+method+' 请求未确认（HTTP '+r.status+'）');error.permissionDenied=[401,403].includes(r.status);throw error}
@@ -79,13 +81,13 @@ export function feishuBaseApi({appId,appSecret,fetcher=fetch}={}){
   if(!allowCreate)throw Error('旧受理请求未找到对应记录，禁止盲目新增');
   creation(payload,fields,status,'preflight-placeholder');
  }
- async function write({payload,status,fileToken,existing,fields,allowCreate,beforeSend}){
+ async function write({payload,status,fileToken,existing,fields,allowCreate,beforeSend,validateSend}){
   // Defense in depth: caller preflights before upload; direct writes validate too.
   try{preflight({payload,status,existing,fields,allowCreate})}catch(error){error.recordRequestStarted=false;throw error}
-  if(existing){const attachments=existing.fields['简要展示']||[];if(!Array.isArray(attachments))throw Error('旧附件格式待核实');return (await request(prefix+'/records/'+encodeURIComponent(existing.record_id),{method:'PUT',beforeSend,body:{fields:{'网址当前状态':status,'简要展示':[...attachments.map(a=>({file_token:a.file_token})),...(!attachments.some(a=>a.file_token===fileToken)?[{file_token:fileToken}]:[])]}}})).record;}
+  if(existing){const attachments=existing.fields['简要展示']||[];if(!Array.isArray(attachments))throw Error('旧附件格式待核实');return (await request(prefix+'/records/'+encodeURIComponent(existing.record_id),{method:'PUT',beforeSend,validateSend,body:{fields:{'网址当前状态':status,'简要展示':[...attachments.map(a=>({file_token:a.file_token})),...(!attachments.some(a=>a.file_token===fileToken)?[{file_token:fileToken}]:[])]}}})).record;}
   if(!allowCreate)throw Error('旧受理请求未找到对应记录，禁止盲目新增');
   const hash=sha256(Buffer.from(payload.source_id)),clientToken=hash.slice(0,8)+'-'+hash.slice(8,12)+'-4'+hash.slice(13,16)+'-a'+hash.slice(17,20)+'-'+hash.slice(20,32);
-  return (await request(prefix+'/records?client_token='+clientToken,{method:'POST',beforeSend,body:{fields:creation(payload,fields,status,fileToken)}})).record;
+  return (await request(prefix+'/records?client_token='+clientToken,{method:'POST',beforeSend,validateSend,body:{fields:creation(payload,fields,status,fileToken)}})).record;
  }
  return {schema,find,upload,get,verify,write,matchingAttachment,preflight};
 }
