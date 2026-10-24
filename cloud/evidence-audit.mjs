@@ -31,6 +31,7 @@ export async function auditEvidence({ids,read,password,feed}){
  }
  return output;
 }
+let auditStage='initial-read';
 async function main(){
  const root='https://api.github.com/repos/wang10086-creator/fjd-brand-watch-',token=process.env.GITHUB_TOKEN;
  const get=async(path,raw=false)=>{const r=await fetch(root+path,{headers:{Authorization:'Bearer '+token,Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(45000)});if(!r.ok)throw Error('Read-only evidence request failed');return r};
@@ -48,8 +49,11 @@ async function main(){
   if(!row)throw Error('Existing lead context missing');
   const vault={baseEvidence:{items:{[canonical(row.url)]:{path:'private-evidence/'+selected.manifest.sha256+'.json',sha256:selected.manifest.sha256,at:selected.manifest.at}}}};
   const store=evidenceStore(vault,{password,read:storage.readJSON,write:storage.putJSON});
+  auditStage='paired-capture';
   const evidence=await captureCheckedWindow(row);
+  auditStage='encrypted-save';
   await store.save(row,evidence);await store.ensurePreview(row,evidence);await store.ensureSourceIndex(row,evidence);
+  auditStage='paired-readback';
   records=await auditEvidence({ids,read:async path=>(await storage.readJSON(path)).value,password,feed});
   const confirmed=records.find(r=>r.sourceId===selected.sourceId);if(!confirmed?.pairedCheck||confirmed.urlCheck.id!==evidence.urlCheck.id||confirmed.manifest.sha256!==evidence.manifest.sha256)throw Error('Paired evidence save unconfirmed');
  }
@@ -63,4 +67,4 @@ async function main(){
  }
  console.log('Existing evidence integrity checked: '+records.length+'; original business data unchanged; no delivery performed.');
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('Evidence audit did not complete; existing evidence versions preserved.');process.exitCode=1});
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(error=>{const reason=/^(同次|初核已保存|截图|网址核查|地址栏|整窗截图)/.test(error.message||'')?error.message:'unconfirmed';console.error(JSON.stringify({stage:auditStage,reason,kind:error.name||'Error'}));process.exitCode=1});
