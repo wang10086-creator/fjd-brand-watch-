@@ -9,6 +9,7 @@ import {manualSourceId,validateManual} from './manual-evidence.mjs';
 import {dashboardHasUrl,validateDashboardCompressed} from './dashboard-stream.mjs';
 import {publicDashboardBytes} from './public-dashboard.mjs';
 import {openStore,hash,passwordHash,passwordMatches} from './store.mjs';
+import {workflowTasks} from './workflow-tasks.mjs';
 export const REPO='wang10086-creator/fjd-brand-watch-';
 const API='https://api.github.com',BRANCH='data-cloud',SITE='https://wang10086-creator.github.io',TTL=30*86400000;
 const previewPath=/^\/evidence-preview\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/;
@@ -57,6 +58,15 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
+ const workflow=workflowTasks({store,now,index:async()=>{
+  const config=store.read().config;if(!config)throw issue(503,'gateway-not-configured');
+  const response=await github('/repos/'+REPO+'/contents/workflow-task-index.json?ref='+BRANCH,{token:config.token,raw:true});
+  return unseal(await boundedJson(response,4*1024*1024),config.password,'workflow-task-index');
+ },authorizeImage:async task=>{
+  const spec=shares.spec;if(task.source_id!==spec.sourceId||task.screenshot_sha256!==spec.sha256||task.screenshot_bytes!==spec.bytes||task.screenshot_at!==spec.capturedAt)throw issue(403,'image-not-authorized');
+  const grant=await readPreviewGrant(spec.sha256,true);if(task.screenshot_view_url!==sharedImageUrl(grant.token))throw issue(403,'image-link-mismatch');
+  await readEvidencePreview(spec.sha256,grant.token,grant,true);shares.assert(spec.sha256,grant.token);
+ }});
  function sharedImageUrl(token){
   const origin=new URL(selfOrigin);
   if(origin.protocol!=='https:'||!origin.hostname.endsWith('.up.railway.app')||origin.username||origin.password||origin.port||origin.pathname!=='/'||origin.search||origin.hash)throw issue(503,'图片网关地址未核实');
@@ -158,6 +168,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   const key=(user.role==='public'?'public':user.name)+':'+requestId,digest=hash(JSON.stringify({operation,data}));let existing;
   await store.mutate(s=>{existing=s.requests[key];if(existing){if(existing.digest!==digest)throw issue(409,'同一请求编号不能用于不同内容');return}if(user.role==='public')limit('public-command',12,60000);for(const [k,v]of Object.entries(s.requests))if(['queued','failed'].includes(v.status)&&v.at<now()-30*86400000)delete s.requests[k];if(Object.keys(s.requests).length>=5000)throw issue(429,'请求回执需要管理员核查后再提交');s.requests[key]={digest,status:'preparing',at:now(),operation,actor:user.name}});
   if(existing)return {requestId,status:existing.status,queued:existing.status==='queued',duplicate:true};
+  // Fence only new accepted commands, not a repeated status poll for the same request.
+  if(['review','migrate'].includes(operation)){const workflowFenceId=hash(key+':'+digest);business={...business,workflowFenceId};await store.mutate(s=>{s.requests[key].workflowFenceId=workflowFenceId})}
   const config=store.read().config;let sending=false;
   try{
    const cipher=await seal(business,config.password,'payload'),payload=JSON.stringify(cipher);let pointer=payload;
@@ -174,6 +186,18 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
+   if(path==='/workflow/capabilities'&&req.method==='GET'){respond(200,workflow.capabilities());return}
+   if(['/workflow/register','/workflow/preflight','/workflow/receipt','/workflow/status'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'workflow-request-rejected');
+    limit('workflow:'+req.socket.remoteAddress,120,60000);
+    const input=await body(req,262144);
+    if(path==='/workflow/register'){
+     let ticket;try{ticket=await unseal(input,store.read().config?.password,'workflow-task')}catch{throw issue(401,'invalid-task-envelope')}
+     respond(200,await workflow.register(ticket));return;
+    }
+    const token=(req.headers.authorization||'').replace(/^Bearer /,'');
+    respond(200,await workflow[path.split('/').at(-1)](input,token));return;
+   }
    // This holder URL serves only a previously sealed native-window PNG. A
    // Feishu image fetch may have its own Origin and does not carry a session.
    if(path.startsWith('/manual-evidence-preview/')){
@@ -216,6 +240,13 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/workflow-bridge'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可确认工作流接线');
+    if(req.method==='GET'){respond(200,workflow.capabilities());return}
+    if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req);
+    if(typeof input.enabled!=='boolean'||input.workflow_id!=='wkfenA1XvWchZDDx'||input.protocol!=='fjd-workflow-v1')throw issue(400,'工作流协议不匹配');
+    await store.mutate(s=>{s.workflowBridge={enabled:input.enabled,by:user.name,at:new Date(now()).toISOString()}});respond(200,workflow.capabilities());return;
+   }
    if(path==='/maintenance/screenshot-share'){
     if(user.role!=='admin')throw issue(403,'仅管理员可管理单图分享');
     if(req.method==='GET'){

@@ -52,7 +52,7 @@ export function baseReviewStatus(vault,configured=false){
 
 export function baseReviewReceipts(vault){
  return Object.fromEntries(Object.entries(vault.baseReview?.items||{}).map(([id,item])=>['review:'+id,
-  {screenshotSupplement:item.screenshotSupplement?{status:item.screenshotSupplement.status,error:item.screenshotSupplement.error||''}:null,notionEvidence:item.notionEvidence?{status:item.notionEvidence.status,reason:item.notionEvidence.reason}:null,eligibility:item.eligibility||null,status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
+  {workflowReadback:item.workflowTasks?Object.fromEntries(Object.entries(item.workflowTasks).map(([kind,t])=>[kind,{state:t.state,verifiedAt:t.verifiedAt||null}])):null,screenshotSupplement:item.screenshotSupplement?{status:item.screenshotSupplement.status,error:item.screenshotSupplement.error||''}:null,notionEvidence:item.notionEvidence?{status:item.notionEvidence.status,reason:item.notionEvidence.reason}:null,eligibility:item.eligibility||null,status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
 }
 
 export function retryBaseReviewEvents(vault,eventIds){

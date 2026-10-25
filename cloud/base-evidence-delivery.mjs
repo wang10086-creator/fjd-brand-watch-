@@ -102,7 +102,7 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
 }
 // The durable outbox refers to the original review. Supplementary evidence never
 // manufactures another review, changes a workflow, or edits a frozen report.
-export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=async()=>null,now=()=>new Date().toISOString(),limit=5,reviewIds=null,deferUpload=false,previewMode=null,webhook=null,fetcher=fetch,displayPolicy=null}={}){
+export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=async()=>null,now=()=>new Date().toISOString(),limit=5,reviewIds=null,deferUpload=false,previewMode=null,webhook=null,fetcher=fetch,displayPolicy=null,workflowBridge=null}={}){
  const box=vault.baseReview;if(!box)return;
  const waiting=async(item,status,error)=>{const changed=item.status!==status||item.error!==error;item.status=status;item.error=error;if(changed)await checkpoint()};
  const selected=reviewIds?new Set(reviewIds):null;let count=0;const seen=new Set();
@@ -111,6 +111,7 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   // A Webhook acceptance is durable even if the feature flag is later unset.
   // Reconciliation of the target Base record is a separate explicit operation.
   if(!await activeRow(vault,id,item,checkpoint))continue;
+  if(item.workflowTasks||['initial-entry','single-image-link'].includes(item.displayPolicy)&&workflowBridge&&await workflowBridge.enabled()){count++;item.evidenceCheckedAt=now();await workflowBridge?.deliver(vault,id,{checkpoint,webhook,evidenceLoader,now});continue}
   if(item.displayPolicy==='initial-entry'){
    count++;item.evidenceCheckedAt=now();
    await deliverInitialEntry(vault,id,{checkpoint,webhook,fetcher,now});

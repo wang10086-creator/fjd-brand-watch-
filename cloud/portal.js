@@ -59,6 +59,9 @@ if(typeof window!=='undefined'){
  $('#shared-logout').onclick=()=>sharedAction(()=>sharedLogout());
  $('#shared-sync').onclick=()=>sharedAction(async()=>{const state=await loadState();await syncArchive(state,{force:true});persist(state);const r=await flush();if(!r.fullOK)throw Error('本机同步回执未保存，请保留当前页面');const status=reviewSyncStatus(state);if(status.pending)throw Error(status.message)});
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();
+ const bridgeMessage=$('#workflow-bridge-status');
+ $('#workflow-bridge-form').onsubmit=async e=>{e.preventDefault();try{const result=await sharedRequest('/maintenance/workflow-bridge',{method:'POST',data:{enabled:new FormData(e.target).has('enabled'),workflow_id:'wkfenA1XvWchZDDx',protocol:'fjd-workflow-v1'}});bridgeMessage.textContent=result.enabled?'已启用；尚需真实事件的写入与回读验收':'已停用；历史回执保留'}catch(error){bridgeMessage.textContent=error.message}};
+ $('#workflow-bridge-read').onclick=async()=>{try{const result=await sharedRequest('/maintenance/workflow-bridge');$('#workflow-bridge-form [name=enabled]').checked=result.enabled;bridgeMessage.textContent=result.enabled?'当前已启用':'当前关闭；等待飞书完成接线'}catch(error){bridgeMessage.textContent=error.message}};
  $('#shared-evidence-preview-form').onsubmit=async e=>{
   e.preventDefault();clearMaintenancePreview();const button=e.target.querySelector('button'),message=$('#shared-evidence-preview-status');button.disabled=true;message.textContent='正在只读核验该线索已保存的截图…';
   try{
