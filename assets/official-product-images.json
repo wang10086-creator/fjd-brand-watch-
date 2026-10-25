@@ -700,6 +700,126 @@
       ],
       "previewFile": "assets/products/fff6b14b00c88777c8ebce4d-thumb.jpg",
       "pixelEncoding": "rgba-exif-v1"
+    },
+    {
+      "id": "product-c6ea7a11c529959ff38cc802",
+      "sha256": "c6ea7a11c529959ff38cc8025b5e4a1feb1bdf6371031b224cc1fada1c65ed2f",
+      "pixelSha256": "596189e49a8f25c668d49892a062f6cc4a789cab06b820efd2f8aaec0065235e",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1000,
+      "height": 1000,
+      "format": "JPEG",
+      "phash": "5f91b06c4f979078",
+      "file": "assets/products/c6ea7a11c529959ff38cc802.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a GNSS Receiver",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_7.jpg?v=1792475534&width=1000",
+      "collectedAt": "2026-10-25T14:16:59.410147Z",
+      "updatedAt": "2026-10-25T14:16:59.410147Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+          "pageTitle": "FJD Trion V10a GNSS Receiver",
+          "pageSha256": "1047dbb669b4630f435d5e441158ae7ccc108f0b1b282c22ba683c41d927a243",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_7.jpg?v=1792475534&width=1000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_7.jpg?v=1792475534&width=1000",
+          "alt": "FJD Trion V10a GNSS Receiver",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-25T14:16:59.410147Z"
+        }
+      ],
+      "previewFile": "assets/products/c6ea7a11c529959ff38cc802-thumb.jpg"
+    },
+    {
+      "id": "product-785db6ca85f7856bd65c9c56",
+      "sha256": "785db6ca85f7856bd65c9c5624922f4bce40070d4a7d59774472fa383d85b5e9",
+      "pixelSha256": "f48ed768082e6a0957aba83d0aa87b21ffd415f0e5dbd5592a4c23f5810bcb21",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1200,
+      "height": 1200,
+      "format": "JPEG",
+      "phash": "f489366ac9956a96",
+      "file": "assets/products/785db6ca85f7856bd65c9c56.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a GNSS Receiver",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_6.jpg?v=1792475534&width=1200",
+      "collectedAt": "2026-10-25T14:16:59.410147Z",
+      "updatedAt": "2026-10-25T14:16:59.410147Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+          "pageTitle": "FJD Trion V10a GNSS Receiver",
+          "pageSha256": "1047dbb669b4630f435d5e441158ae7ccc108f0b1b282c22ba683c41d927a243",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_6.jpg?v=1792475534&width=1200",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_6.jpg?v=1792475534&width=1200",
+          "alt": "FJD Trion V10a GNSS Receiver",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-25T14:16:59.410147Z"
+        }
+      ],
+      "previewFile": "assets/products/785db6ca85f7856bd65c9c56-thumb.jpg"
+    },
+    {
+      "id": "product-3bd2e4e381e9f16bd8d6c140",
+      "sha256": "3bd2e4e381e9f16bd8d6c140463e334e35462adf112d3e7dbda6547550b924c4",
+      "pixelSha256": "ef2d8e34c627235923ef617f5446ac9108b54c28a399d17810a68cbc7e6c1974",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1200,
+      "height": 1200,
+      "format": "JPEG",
+      "phash": "7e78f0842ec95393",
+      "file": "assets/products/3bd2e4e381e9f16bd8d6c140.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a GNSS Receiver",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_11.jpg?v=1792475534&width=1200",
+      "collectedAt": "2026-10-25T14:16:59.410147Z",
+      "updatedAt": "2026-10-25T14:16:59.410147Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+          "pageTitle": "FJD Trion V10a GNSS Receiver",
+          "pageSha256": "1047dbb669b4630f435d5e441158ae7ccc108f0b1b282c22ba683c41d927a243",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_11.jpg?v=1792475534&width=1200",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_11.jpg?v=1792475534&width=1200",
+          "alt": "FJD Trion V10a GNSS Receiver",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-25T14:16:59.410147Z"
+        }
+      ],
+      "previewFile": "assets/products/3bd2e4e381e9f16bd8d6c140-thumb.jpg"
+    },
+    {
+      "id": "product-a808c7e4f6b468be74f77724",
+      "sha256": "a808c7e4f6b468be74f777243b9f5811a2312ce4b941120e1beae6acc7af0e81",
+      "pixelSha256": "1a63d0cf05cbc5819c08be679a9689f5409ce55400320c1e09505f272f1de12f",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1200,
+      "height": 1200,
+      "format": "JPEG",
+      "phash": "3e54e0a12fdcb869",
+      "file": "assets/products/a808c7e4f6b468be74f77724.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a GNSS Receiver",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_1.jpg?v=1792475534&width=1200",
+      "collectedAt": "2026-10-25T14:16:59.410147Z",
+      "updatedAt": "2026-10-25T14:16:59.410147Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver",
+          "pageTitle": "FJD Trion V10a GNSS Receiver",
+          "pageSha256": "1047dbb669b4630f435d5e441158ae7ccc108f0b1b282c22ba683c41d927a243",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_1.jpg?v=1792475534&width=1200",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/V10a_1-1_1.jpg?v=1792475534&width=1200",
+          "alt": "FJD Trion V10a GNSS Receiver",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-10-25T14:16:59.410147Z"
+        }
+      ],
+      "previewFile": "assets/products/a808c7e4f6b468be74f77724-thumb.jpg"
     }
   ],
   "pages": {
@@ -2174,9 +2294,171 @@
       "title": "FJD MS100 Mower Kit",
       "htmlSha256": "56f10b853059cd6771961b0c3024a88254a0b48b916dea628bf161fb3073bb08",
       "candidateCount": 11
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-t1": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/34369-33bcc434/construction_scanner_odoo.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34328-c604089b/Cover%20More%20of%20the%20Site%20-%20Odoo%2016x9.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34512-a6a523c2/77E159D2-9533-499E-8623-0F9E8A4B9CE1.PNG",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34517-2e0a2dbb/ACA9C52F-B378-451F-AE5B-64FA2DCB9B8E.PNG",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34351-8b182175/odoo_compressed_05%20copy.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34516-07ae2116/8D697FB4-81AF-4AF9-9A70-2BEAC30B6758.PNG",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34519-aa9a5949/0CDB88BF-7C5F-4883-B676-1AAC0729207C.PNG",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/34342-b056565f/See%20Your%20Coverage%20Clearly%20-%20Odoo%2016x9.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "Hybrid Mobile & Terrestrial LiDAR Scanner",
+      "htmlSha256": "5f8a3d1c5663527d69e8b9bb61a40880ef245f375ec6a8f046c49087a8680527",
+      "candidateCount": 22
+    },
+    "https://shop.fjdynamics.com/products/fjd-trion-v4e-lidar-kit": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 0,
+      "failures": [],
+      "error": "HTTP 404"
+    },
+    "https://agriculture.fjdynamics.com/products/precision-vision-spraying-solution": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/29017-8bc2d1b1d8a46fdf1a07fdd2eaba46558bddb03a/pvss-hero-desktop.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/29018-ab7155bdac38b4fc29e15e87fce7d039fe4b776f/pvss-hero-mobile.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/29082-62bf0f25/%E6%9C%AA%E5%91%BD%E5%90%8D.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://agriculture.fjdynamics.com/web/image/11803-306731ad/imgi_89_banner1.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "PRECISION VISION SPRAYING",
+      "htmlSha256": "4d8e89c5fc537161d80e831720323911917501828b9d60e77b4061f6fd99776b",
+      "candidateCount": 4
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-paintmaster-ultra": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/16083-4a006664/%E6%9C%AA%E5%91%BD%E5%90%8D%E7%9A%84%E8%AE%BE%E8%AE%A1%20%283%29.jpg",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/16068-2c06147c/H5%20banner.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15545-49aa42a0/ID.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15557-a61ecba5/%E5%9B%BE_Total%20Station.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15563-97b1d262/%E5%9B%BE_RTK%20Navigation.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15546-4d88ac5a/rahim-salmeen-chOaNmqyW34-unsplash.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15566-5b930559/%E5%9B%BE_Template%20Reuse.%20One-Tap%20Start.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://landscaping.fjdynamics.com/web/image/15565-11e1661f/%E5%9B%BE_All-day%20operation.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD PaintMaster Ultra",
+      "htmlSha256": "ce886efe362b8e638747ba98f3525c3d531399c494d717d79e0b0755ccb3be5f",
+      "candidateCount": 14
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-v10a-gnss-receiver": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion V10a GNSS Receiver",
+      "htmlSha256": "1047dbb669b4630f435d5e441158ae7ccc108f0b1b282c22ba683c41d927a243",
+      "candidateCount": 45
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v4e-mini-rtk-receiver": {
+      "checkedAt": "2026-10-25T14:16:59.410147Z",
+      "images": 0,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/10757-e620e9ba/V4e-3.webp",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19925-245ddb44/%E5%8D%96%E7%82%B91-%E6%8C%89%E9%94%AE.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19929-190c603a/%E5%8D%96%E7%82%B92.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19928-282766e4/%E5%8D%96%E7%82%B93%3A%E5%B0%81%E9%9D%A2_%E5%89%AF%E6%9C%AC.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19927-d9e5ef0a/%E5%8D%96%E7%82%B94.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19926-2afe80c2/%E5%8D%96%E7%82%B95.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/19930-8fd93037/ChatGPT%20Image%20May%2012%2C%202026%2C%2003_42_00%20PM.png",
+          "reason": "robots 禁止采集此资源"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/5140-5ef41632/v4e-Y-1.webp",
+          "reason": "robots 禁止采集此资源"
+        }
+      ],
+      "title": "FJD Trion V4e Pro",
+      "htmlSha256": "0cc434885a5a0f6e96fbd88a2372d0910ccb98c3f79241e565a22afde8c6bade",
+      "candidateCount": 14
     }
   },
-  "updatedAt": "2026-10-20T15:04:26.491232Z",
+  "updatedAt": "2026-10-25T14:16:59.410147Z",
   "algorithmVersion": "dual-images-2.1",
   "officialDomains": {
     "www.fjdynamics.com": "https://www.fjdynamics.com/",
@@ -2184,16 +2466,16 @@
     "agriculture.fjdynamics.com": "https://www.fjdynamics.com/",
     "landscaping.fjdynamics.com": "https://www.fjdynamics.com/",
     "store.fjdtrion.com": "https://www.fjdtrion.com/",
-    "shop.fjdynamics.com": "https://www.fjdtrion.com/product/fjd-trion-p2-lidar-scanner"
+    "shop.fjdynamics.com": "https://www.fjdtrion.com/product/fjd-trion-p1-lidar-scanner"
   },
-  "discoveredPages": 95,
+  "discoveredPages": 96,
   "lastBatch": {
-    "at": "2026-10-20T15:04:26.491232Z",
-    "checkedPages": 12,
-    "newImages": 0,
+    "at": "2026-10-25T14:16:59.410147Z",
+    "checkedPages": 6,
+    "newImages": 4,
     "errors": []
   },
-  "libraryVersion": "879f77daf762cdaa",
+  "libraryVersion": "200a1f8867d2e0c2",
   "excludedNonProductResources": [
     {
       "url": "https://landscaping.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/s_fjd_landscaping_kv_v3/kv-residential-slope.webp",
