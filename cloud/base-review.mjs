@@ -30,7 +30,7 @@ export function enqueueBaseReviews(vault,reviews){
  const outbox=vault.baseReview||={items:{}};
  for(const review of reviews||[]){
   if(!initialReviewTransfer(review)||outbox.items[review.id])continue;
-  try{outbox.items[review.id]={status:'queued',displayPolicy:'notion-link',payload:reviewPayload(vault.state,review),attempts:0}}
+  try{outbox.items[review.id]={status:'queued',displayPolicy:'single-image-link',payload:reviewPayload(vault.state,review),attempts:0}}
   catch{outbox.items[review.id]={status:'blocked',attempts:0,error:'线索资料不完整，待核对后重新提交'}}
  }
  return outbox;

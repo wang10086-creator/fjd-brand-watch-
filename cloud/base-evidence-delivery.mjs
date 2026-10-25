@@ -1,3 +1,4 @@
+import {prepareSingleLink,reconcileSingleLink} from './base-single-link.mjs';
 import {currentBaseReview} from './base-review-eligibility.mjs';
 import {canonical} from '../model.js';
 import {entryPrerequisites,sha256} from './base-evidence.mjs';
@@ -47,7 +48,7 @@ async function previewReadback(url,bytes,fetcher){
  for await(const chunk of get.body){size+=chunk.length;if(size>8000000||size>bytes.length)return false;chunks.push(Buffer.from(chunk))}
  return size===bytes.length&&sha256(Buffer.concat(chunks))===sha256(bytes);
 }
-async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook,now}){
+async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook,now,displayPolicy,baseApi}){
  if(item.status==='preview-accepted'||item.status==='verified'||item.status==='failed')return;
  if(item.legacyReceipt||item.dispatchStartedAt||previousSourceDispatch(vault,item)){
   item.status='uncertain';item.error='既有写表请求须先核对飞书原记录，截图网址未重复发送';await checkpoint();return;
@@ -59,12 +60,17 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
  row=await activeRow(vault,id,item,checkpoint);if(!row)return;
  gate=entryPrerequisites(row,evidence,Date.parse(now()));
  if(gate.phase!=='ready'){item.status=gate.phase;item.error=gate.reason;await checkpoint();return}
+ let single;
+ if(displayPolicy==='single-image-link')try{single=await prepareSingleLink(vault,id,evidence,{api:baseApi,fetcher})}catch(e){item.status='waiting-permission';item.error=baseApi?'单图授权或飞书字段及唯一记录读取未确认；未发送':'缺少飞书字段及唯一记录读取能力；未发送';await checkpoint();return}
  const preparedFields=JSON.stringify(baseFields(row)),preparedCheckId=gate.record.id,preparedStatus=gate.status;
  const payload={...item.payload,...baseFields(row),page_status:gate.status,remarks:'',processing_status:'待核查',
-  display_image_url:url,screenshot_preview_url:url,screenshot_sha256:evidence.manifest.sha256,screenshot_at:evidence.manifest.at};
+  display_image_url:url,screenshot_preview_url:url,screenshot_sha256:evidence.manifest.sha256,screenshot_at:evidence.manifest.at,...single?.fields};
+ if(!single)delete payload.screenshot_view_url;
+ if(single){item.linkBaseline=single.record;item.linkPayload={...single.fields,platform_lead_url:item.payload.platform_lead_url};delete payload.display_image_url;}
  item.status='sending';item.at=now();item.dispatchStartedAt=item.at;item.attempts=(item.attempts||0)+1;vault.baseReview.lastAttemptAt=item.at;
  item.preview={url,sha256:evidence.manifest.sha256,at:evidence.manifest.at,urlCheckId:gate.record.id,status:gate.status};
  await checkpoint(); // The exact original review and sending intent must survive before POST.
+ if(single)try{const latest=await prepareSingleLink(vault,id,evidence,{api:baseApi,fetcher});if(JSON.stringify(latest)!==JSON.stringify(single))throw Error('发送前记录或授权已变化')}catch{item.status='waiting-preview';item.recordWriteState='not-sent';delete item.dispatchStartedAt;item.error='发送前单图授权、有效事件或唯一记录未确认；未写入飞书';await checkpoint();return}
  // No await between the final current-state validation and starting POST.
  const current=currentBaseReview(vault,id);
  const latestGate=current.eligible?entryPrerequisites(current.row,evidence,Date.parse(now())):null;
@@ -91,7 +97,7 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
   }else{item.status='uncertain';item.error='截图网址写表回执未确认；请先核对飞书原记录，不盲目重发'}
   await checkpoint();return;
  }
- item.status='preview-accepted';item.acceptedAt=now();item.error='截图网址已由飞书工作流受理；图片预览及表格记录尚未回读核验';await checkpoint();
+ item.status='preview-accepted';item.acceptedAt=now();item.error='截图网址已由飞书工作流受理；图片预览及表格记录尚未回读核验';await checkpoint();if(single)await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now});
 }
 // The durable outbox refers to the original review. Supplementary evidence never
 // manufactures another review, changes a workflow, or edits a frozen report.
@@ -104,6 +110,8 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   // A Webhook acceptance is durable even if the feature flag is later unset.
   // Reconciliation of the target Base record is a separate explicit operation.
   if(!await activeRow(vault,id,item,checkpoint))continue;
+  if(displayPolicy==='single-image-link'&&item.displayPolicy!=='single-image-link'){continue} // Never replay pre-rollout events.
+  if(item.status==='preview-accepted'&&item.linkBaseline){await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now});continue}
   if(displayPolicy==='notion-link'){
    // Preserve all prior receipts; neither legacy attachments nor new links are sent.
    if(!['preview-accepted','verified','accepted','uncertain','sending','failed'].includes(item.status))await waiting(item,'waiting-upload',item.notionEvidence?.status==='verified'?'截图已存入Notion并核验；等待飞书链接字段确认，尚未更新台账':'初核已保存，截图等待Notion归档；原附件和网页截图网址保留');
@@ -132,7 +140,7 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    const target=checkedWebhook(webhook);
    if(!target){await waiting(item,'waiting-permission','初核已保存，截图网址写表入口待配置，尚未写入飞书');continue}
    if(deferUpload){await waiting(item,'waiting-upload','初核已保存，等待后台截图网址发送；尚未写入飞书');continue}
-   await deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook:target,now,displayPolicy});continue;
+   await deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook:target,now,displayPolicy,baseApi});continue;
   }
   if(!baseApi){await waiting(item,'waiting-permission','初核已保存，等待飞书附件上传及记录回读授权，尚未确认写入飞书');continue}
   if(deferUpload){await waiting(item,'waiting-upload','初核已保存，证据已取得，等待后台附件上传及回读核验');continue}

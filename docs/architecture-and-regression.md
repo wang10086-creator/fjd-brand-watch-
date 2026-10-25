@@ -1480,3 +1480,13 @@ consent lookup and rechecks current review after awaits. No Feishu writes here.
 The cancelled representative-image policy is excluded from the release. Retain
 the validated send-intent race fix. See single-image-share.md for deployment and
 rollback boundaries; never downgrade away a live revocation gate.
+
+## Feishu single-image link compatibility (2026-10-25)
+
+New events use single-image-link, without a Notion dependency. Fixed field IDs/type
+checks separate the renamed attachment and hyperlink. The gateway's exact-image
+consent is rechecked after intent persistence; current event/round checks remain.
+Existing record identity is mandatory. Webhook acceptance is not completion; a
+read-only same-record verifier compares the link and every non-link field against
+the private baseline. Missing read permission blocks sending/reconciliation, no
+credentials or schema changes. Old events are not replayed. See feishu-single-image-link.md.
