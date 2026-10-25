@@ -1,5 +1,5 @@
 import {randomBytes,timingSafeEqual} from 'node:crypto';
-import {digest,stable,fieldText,protectedFields,fields,workflowId,tableId} from './workflow-protocol.mjs';
+import {digest,stable,fieldText,protectedFields,nativeWorkflowInput,fields,workflowId,tableId} from './workflow-protocol.mjs';
 const error=(status,code)=>Object.assign(Error(code),{status});
 export function workflowTasks({store,index,authorizeImage,now=Date.now}){
  const enabled=()=>store.read().workflowBridge?.enabled===true;
@@ -33,6 +33,7 @@ export function workflowTasks({store,index,authorizeImage,now=Date.now}){
   },
   async preflight(input,token){
    const saved=authenticate(input,token),task=saved.task;await live(task);
+   input=nativeWorkflowInput(input);
    bindings(input,task);
    if(input.workflow_id!==workflowId||input.table_id!==tableId)throw error(400,'workflow-contract-mismatch');
    if(saved.state!=='registered')return {allowed:false,action:'reconcile-only',task_id:task.id,write_nonce:saved.nonce||null,record_id:saved.recordId||null};
@@ -46,6 +47,7 @@ export function workflowTasks({store,index,authorizeImage,now=Date.now}){
   },
   async receipt(input,token){
    const saved=authenticate(input,token),task=saved.task;await live(task);
+   input=nativeWorkflowInput(input);
    bindings(input,task);
    if(input.workflow_id!==workflowId||input.table_id!==tableId||input.write_nonce!==saved.nonce||!saved.nonce||input.readback_node!==(task.kind==='initial'?'step5':'step7'))throw error(409,'receipt-binding-mismatch');
    const r=record(input,task);

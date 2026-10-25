@@ -1557,3 +1557,16 @@ private capture for initial-entry policy only, independently of Notion/API uploa
 configuration, reusing fresh saved evidence and preserving cooldowns. No expanded
 public image grant. A legacy accepted first-entry may use native screenshot-only
 supplementation after wiring; it cannot enter create again or restore a deleted row.
+# Native workflow selector compatibility (2026-10-26, not deployed)
+
+Live Feishu configuration exposes Attachment ID in the HTTP value selector but
+the formula editor rejects the same property. A local compatibility adapter
+accepts `native_record` with scalar `record_id`, `source`, `link`, an unchanged
+`attachment_ids` array, and optional `protected_fields` keyed by actual field ID.
+It preserves strict match counts (zero for creation; one for existing records),
+current event/round checks, the write nonce and before/after comparison. Mixed
+`records`/`native_record` requests, stringified arrays, duplicate attachment IDs
+and protected-field overrides fail closed. Native IDs are not represented as API
+download tokens. Existing `records` callers remain compatible. This adapter does
+not establish actual Feishu wire serialization; that still needs real native
+workflow readback, and unmapped manual fields must not be claimed as verified.
