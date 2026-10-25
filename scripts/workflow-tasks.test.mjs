@@ -15,6 +15,29 @@ function fixture(kind='initial'){
  return {service,task,token,state,snapshot,row,input,setTime:v=>clock=v,revoke:()=>imageAllowed=false};
 }
 async function registered(kind){const f=fixture(kind);await f.service.register({task:f.task,token:f.token});return f}
+function native(f,{count=1,link='old',ids=['native-original'],manual='keep'}={}){
+ const {records,...input}=f.input;
+ return {...input,match_count:count,native_record:count===0?{record_id:'',source:'',link:'',attachment_ids:[]}:{record_id:f.row.record_id,source:f.task.platform_lead_url,link,attachment_ids:ids,protected_fields:{fldManual:manual}}};
+}
+test('native selectors preserve zero-match creation and exact created-row receipt',async()=>{
+ const f=await registered(),p=await f.service.preflight(native(f,{count:0}),f.token);
+ assert.equal(p.action,'create');
+ const receipt={...native(f),operation_record_id:f.row.record_id,write_nonce:p.write_nonce,readback_node:'step5'};
+ assert.equal((await f.service.receipt(receipt,f.token)).verified,true);
+ assert.equal((await f.service.receipt(receipt,f.token)).duplicate,true);
+});
+test('native attachment IDs and protected fields must survive screenshot readback',async()=>{
+ const f=await registered('screenshot'),p=await f.service.preflight(native(f),f.token);
+ const receipt={...native(f,{link:f.task.screenshot_view_url}),operation_record_id:f.row.record_id,write_nonce:p.write_nonce,readback_node:'step7'};
+ for(const patch of [{attachment_ids:[]},{attachment_ids:['other']},{protected_fields:{fldManual:'changed'}},{record_id:'recWrong'},{link:'wrong'},{source:'wrong'}])await assert.rejects(f.service.receipt({...receipt,native_record:{...receipt.native_record,...patch}},f.token));
+ assert.equal((await f.service.receipt(receipt,f.token)).verified,true);
+});
+test('native adapter rejects ambiguity, mixed formats and coercion without granting a write',async()=>{
+ for(const mutate of [i=>({...i,match_count:2}),i=>({...i,match_count:'1'}),i=>({...i,records:[]}),i=>({...i,native_record:{...i.native_record,attachment_ids:'[]'}}),i=>({...i,native_record:{...i.native_record,attachment_ids:['same','same']}}),i=>({...i,native_record:{...i.native_record,protected_fields:{[fields.source]:'override'}}}),i=>({...i,match_count:0})]){
+  const f=await registered('screenshot');await assert.rejects(f.service.preflight(mutate(native(f)),f.token));assert.equal(f.state.workflowTasks[f.task.id].state,'registered');
+ }
+ const f=await registered('screenshot');f.snapshot.tasks[f.task.id].eligible=false;await assert.rejects(f.service.preflight(native(f),f.token),/inactive/);
+});
 test('first entry with no screenshot uses zero-match preflight and same created record readback',async()=>{const f=await registered('initial'),permit=await f.service.preflight(f.input,f.token);assert.equal(permit.allowed,true);assert.equal(permit.action,'create');assert.equal(permit.record_id,null);const payload={...f.input,match_count:1,records:[f.row],operation_record_id:f.row.record_id,write_nonce:permit.write_nonce,readback_node:'step5'};assert.equal((await f.service.receipt(payload,f.token)).verified,true);assert.equal((await f.service.receipt(payload,f.token)).duplicate,true);assert.equal((await f.service.preflight(f.input,f.token)).allowed,false);assert.equal((await f.service.status(f.input,f.token)).state,'verified');await assert.rejects(f.service.receipt({...payload,operation_record_id:'recOther'},f.token));});
 test('screenshot requires unique association, compares actual link and original attachments/manual fields',async()=>{const f=await registered('screenshot');for(const input of [{...f.input,match_count:0,records:[]},{...f.input,match_count:2,records:[f.row,f.row]},{...f.input,records:[{...f.row,fields:{...f.row.fields,[fields.source]:'wrong'}}]}])await assert.rejects(f.service.preflight(input,f.token));const p=await f.service.preflight(f.input,f.token),r=structuredClone(f.row);r.fields[fields.link]={link:f.task.screenshot_view_url};const receipt={...f.input,records:[r],operation_record_id:r.record_id,write_nonce:p.write_nonce,readback_node:'step7'};for(const changed of [{...r,record_id:'recOther'},{...r,fields:{...r.fields,manual:'changed'}},{...r,fields:{...r.fields,[fields.attachments]:[]}},{...r,fields:{...r.fields,[fields.link]:{link:'wrong'}}}])await assert.rejects(f.service.receipt({...receipt,records:[changed]},f.token));assert.equal((await f.service.receipt(receipt,f.token)).verified,true);assert.equal((await f.service.receipt(receipt,f.token)).duplicate,true)});
 test('fake credential, expiry, closure, round change, gateway fence and revoked image stop writes',async()=>{for(const mutate of [f=>f.snapshot.tasks[f.task.id].eligible=false,f=>f.snapshot.tasks[f.task.id].round=2,f=>f.state.requests={x:{workflowFenceId:'pending-close',status:'queued'}},f=>f.state.workflowBridge.enabled=false,f=>f.setTime(f.task.writeUntil+1),f=>f.revoke()]){const f=await registered('screenshot');mutate(f);await assert.rejects(f.service.preflight(f.input,f.token))}const f=await registered();await assert.rejects(f.service.preflight(f.input,'c'.repeat(43)));f.setTime(f.task.readUntil+1);await assert.rejects(f.service.status(f.input,f.token))});

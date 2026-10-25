@@ -14,10 +14,10 @@ test('actual gateway routes: default off, protected enable, encrypted registrati
   assert.equal((await call('/maintenance/workflow-bridge',{enabled:true,workflow_id:workflowId,protocol:'fjd-workflow-v1'},'admin-session','https://wang10086-creator.github.io')).body.enabled,true);
   assert.equal((await call('/workflow/register',{task,token})).status,401);
   assert.equal((await call('/workflow/register',await seal({task,token},password,'workflow-task'))).status,200);
-  const input={task_id:task.id,source_id:task.source_id,event_id:task.event_id,review_round:1,workflow_id:workflowId,table_id:tableId,match_count:0,records:[]};
+  const input={task_id:task.id,source_id:task.source_id,event_id:task.event_id,review_round:1,workflow_id:workflowId,table_id:tableId,match_count:0,native_record:{record_id:'',source:'',link:'',attachment_ids:[]}};
   assert.equal((await call('/workflow/preflight',input,'wrong')).status,401);
   const permit=await call('/workflow/preflight',input,token);assert.equal(permit.body.allowed,true);
-  const readback={...input,match_count:1,records:[{record_id:'recReal',fields:{[fields.source]:task.platform_lead_url}}],operation_record_id:'recReal',write_nonce:permit.body.write_nonce,readback_node:'step5'};
+  const readback={...input,match_count:1,native_record:{record_id:'recReal',source:task.platform_lead_url,link:'',attachment_ids:[]},operation_record_id:'recReal',write_nonce:permit.body.write_nonce,readback_node:'step5'};
   assert.equal((await call('/workflow/receipt',readback,token)).body.verified,true);
   assert.equal((await call('/workflow/status',{task_id:task.id},token)).body.state,'verified');
   const persisted=(await openStore(directory)).read();assert.equal(persisted.workflowTasks[task.id].state,'verified');assert.equal(persisted.workflowTasks[task.id].token,undefined);
