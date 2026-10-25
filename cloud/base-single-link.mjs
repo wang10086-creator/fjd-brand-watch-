@@ -21,8 +21,9 @@ export async function prepareSingleLink(vault,id,evidence,{api,fetcher=fetch,spe
  if(!currentBaseReview(vault,id).eligible)throw Error('发送前初核已失效');
  return {record:structuredClone(record),fields:{record_id:record.record_id,screenshot_view_url:url.href,screenshot_preview_url:url.href,screenshot_sha256:spec.sha256,screenshot_at:spec.capturedAt}};
 }
-export async function reconcileSingleLink(vault,id,{api,checkpoint,now=()=>new Date().toISOString()}={}){
- const item=vault.baseReview?.items?.[id];if(!item?.linkBaseline||!item.linkPayload||!currentBaseReview(vault,id).eligible)return;
+export async function reconcileSingleLink(vault,id,{api,checkpoint,now=()=>new Date().toISOString(),itemOverride=null}={}){
+ const parent=vault.baseReview?.items?.[id];
+ const item=itemOverride&&parent?.screenshotSupplement===itemOverride?itemOverride:parent;if(!item?.linkBaseline||!item.linkPayload||!currentBaseReview(vault,id).eligible)return;
  try{if(!api?.verifyLink)throw Error();const proof=await api.verifyLink(item.linkBaseline,item.linkPayload);
   if(!currentBaseReview(vault,id).eligible)return;
   item.linkVerification={...proof,at:now()};item.error='截图链接已回读；原附件及其他字段一致，图片可见性仍待飞书端验收';

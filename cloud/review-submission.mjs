@@ -12,6 +12,9 @@ export async function submitReviewEvents(vault,events,{checkpoint,retryEventIds=
  const retried=retryBaseReviewEvents(candidate,retryEventIds);
  vault.state=candidate.state;vault.reviewConflicts=candidate.reviewConflicts;if(candidate.baseReview)vault.baseReview=candidate.baseReview;
  const reviews=[...plan.ready,...plan.received].map(e=>vault.state.monitor.reviews.find(r=>r.id===e.reviewRecord?.id)).filter(Boolean);
+ // Only newly applied live decisions get the creation path. Received historical
+ // events and migrated queues retain their previous policy and cannot be replayed.
+ enqueueBaseReviews(vault,plan.ready.map(e=>vault.state.monitor.reviews.find(r=>r.id===e.reviewRecord?.id)).filter(Boolean),{firstEntry:true});
  enqueueBaseReviews(vault,reviews);
  await checkpoint(); // The review and exact outbox request must survive first.
  await deliverBaseReviews(vault,{...delivery,checkpoint,reviewIds:[...reviews.map(r=>r.id),...retried]});

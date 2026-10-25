@@ -7,18 +7,22 @@ are resolved from current schema so renaming does not switch attachment/URL role
 Older nameless test/backup schemas retain the legacy adapter fallback; new link
 requests always require all three exact IDs/types.
 
-No field/workflow/record changes in this release. Proposed names are only a future
-Feishu operation: 简要展示 -> 简要展示（历史附件） for flddxRRWkg; 网页截图网址 -> 简要展示
-for fld0i55ppS. Keep IDs, types, data and fldEFLQwAo. No new view column.
+No field/workflow/record changes in this platform release. The user has confirmed
+the Feishu rename: flddxRRWkg is 简要展示（历史附件）, fld0i55ppS is 简要展示.
+IDs, types, data and fldEFLQwAo are unchanged. No new view column.
 
-New real initial suspected events receive single-image-link policy. Old queued
-notion-link events are not replayed. Initial decision persistence remains independent
+Newly applied live initial suspected events receive initial-entry policy. Old
+single-image-link/notion-link events are not reclassified or replayed. A first
+request uses the existing initial-review Webhook with valid URL evidence, without
+requiring a screenshot, an app identity or an existing record. No image fields are
+sent on creation. Prior dispatch/history and later rounds block blind creation.
+Its accepted receipt is separate from screenshotSupplement on the same event. Initial decision persistence remains independent
 of evidence. The actual review invocation tries dispatch immediately after confirmed
 save (not a new timer); existing supplementary processing can reconcile the SAME
 still-valid event. Closed/changed-round events stop. Notion is not a prerequisite
 and its automatic archive remains disabled. No existing initial decision changes.
 
-The new path uses existing encrypted screenshot files and the existing gateway.
+The separate screenshot update path uses existing encrypted screenshot files and the existing gateway.
 Only the specifically consented Rakuten hash/size/time/source is eligible. Immediately
 before send it rereads exact PNG bytes/no-store/current authorization and uniquely
 looks up the existing record. It checks the current event/round after awaits. No
@@ -41,7 +45,8 @@ API readback does not prove Feishu UI image visibility.
 
 Current integration gap: no verified existing application API read/field/list-record
 capability in this task. No credentials or permissions added. Without that ability
-the new event remains waiting-permission and is NOT sent. Feishu-side unique lookup
+only screenshot supplementation remains waiting-permission. First-entry requests
+are not blocked by that API requirement; acceptance is still not proof of creation. Feishu-side unique lookup
 and readback can be used only after a separately verified receipt bridge; this release
 does not invent such a receipt or treat Webhook acceptance as readback. Old HTTP
 payload compatibility remains in code; this does not mean production mapping has
@@ -49,10 +54,12 @@ already switched or the new integration has completed.
 
 ## Feishu handoff (do not execute as part of platform deployment)
 
-Use the existing webhook workflow whose update-record node already maps
-screenshot_preview_url. Its actual node IDs/names are not available in this runtime;
-inspect them in Feishu and report the real IDs, rather than inventing new nodes.
-1. Confirm table and three field IDs/types; rename only the two specified fields.
+User-confirmed screenshot workflow: wkfenA1XvWchZDDx; lookup actwN5KU2ak486;
+update act4BeEM9o7490. The following describes screenshot updates only. Zero-match
+creation in the original initial-review path has NOT been independently verified;
+this screenshot update branch correctly stops on zero matches and cannot establish
+that a first-entry request created a row.
+1. Preserve the confirmed table and three field IDs/types/names; no further rename.
 2. Existing webhook trigger: add screenshot_view_url and record_id to parsing, keep
    screenshot_preview_url/source_id/event_id/screenshot_sha256/screenshot_at.
 3. Existing association lookup: fldEFLQwAo equals platform_lead_url; require exactly

@@ -26,11 +26,11 @@ export function reviewPayload(state,review){
  };
 }
 
-export function enqueueBaseReviews(vault,reviews){
+export function enqueueBaseReviews(vault,reviews,{firstEntry=false}={}){
  const outbox=vault.baseReview||={items:{}};
  for(const review of reviews||[]){
   if(!initialReviewTransfer(review)||outbox.items[review.id])continue;
-  try{outbox.items[review.id]={status:'queued',displayPolicy:'single-image-link',payload:reviewPayload(vault.state,review),attempts:0}}
+  try{outbox.items[review.id]={status:'queued',displayPolicy:firstEntry?'initial-entry':'single-image-link',payload:reviewPayload(vault.state,review),attempts:0}}
   catch{outbox.items[review.id]={status:'blocked',attempts:0,error:'线索资料不完整，待核对后重新提交'}}
  }
  return outbox;
@@ -52,7 +52,7 @@ export function baseReviewStatus(vault,configured=false){
 
 export function baseReviewReceipts(vault){
  return Object.fromEntries(Object.entries(vault.baseReview?.items||{}).map(([id,item])=>['review:'+id,
-  {notionEvidence:item.notionEvidence?{status:item.notionEvidence.status,reason:item.notionEvidence.reason}:null,eligibility:item.eligibility||null,status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
+  {screenshotSupplement:item.screenshotSupplement?{status:item.screenshotSupplement.status,error:item.screenshotSupplement.error||''}:null,notionEvidence:item.notionEvidence?{status:item.notionEvidence.status,reason:item.notionEvidence.reason}:null,eligibility:item.eligibility||null,status:item.status==='sending'?'uncertain':item.status,attempts:item.attempts||0,at:item.at||null,acceptedAt:item.acceptedAt||null,verifiedAt:item.verifiedAt||null,error:item.error||''}]));
 }
 
 export function retryBaseReviewEvents(vault,eventIds){
@@ -72,9 +72,8 @@ export function retryBaseReviewEvents(vault,eventIds){
  return ids;
 }
 
-// Existing Webhook cannot satisfy native-window attachment/readback requirements.
-// Keep endpoint parsing and historical receipt compatibility; never use it to
-// bypass the new prerequisites, even for an old queued payload.
+// The Webhook accepts first-entry intents; screenshot updates and readback use
+// separate prerequisites. Historical queues retain their own stricter policy.
 export async function deliverBaseReviews(vault,options={}){
  if(options.webhook)endpoint(options.webhook);
  return deliverEvidence(vault,options);

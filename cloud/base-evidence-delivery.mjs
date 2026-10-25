@@ -1,4 +1,5 @@
 import {prepareSingleLink,reconcileSingleLink} from './base-single-link.mjs';
+import {deliverInitialEntry} from './base-initial-delivery.mjs';
 import {currentBaseReview} from './base-review-eligibility.mjs';
 import {canonical} from '../model.js';
 import {entryPrerequisites,sha256} from './base-evidence.mjs';
@@ -48,9 +49,9 @@ async function previewReadback(url,bytes,fetcher){
  for await(const chunk of get.body){size+=chunk.length;if(size>8000000||size>bytes.length)return false;chunks.push(Buffer.from(chunk))}
  return size===bytes.length&&sha256(Buffer.concat(chunks))===sha256(bytes);
 }
-async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook,now,displayPolicy,baseApi}){
+async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook,now,displayPolicy,baseApi,firstEntryParent=null}){
  if(item.status==='preview-accepted'||item.status==='verified'||item.status==='failed')return;
- if(item.legacyReceipt||item.dispatchStartedAt||previousSourceDispatch(vault,item)){
+ if(item.legacyReceipt||item.dispatchStartedAt||(!firstEntryParent&&previousSourceDispatch(vault,item))){
   item.status='uncertain';item.error='既有写表请求须先核对飞书原记录，截图网址未重复发送';await checkpoint();return;
  }
  const url=await checkedPreviewUrl(evidence.previewUrl,evidence.manifest.sha256);
@@ -97,7 +98,7 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
   }else{item.status='uncertain';item.error='截图网址写表回执未确认；请先核对飞书原记录，不盲目重发'}
   await checkpoint();return;
  }
- item.status='preview-accepted';item.acceptedAt=now();item.error='截图网址已由飞书工作流受理；图片预览及表格记录尚未回读核验';await checkpoint();if(single)await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now});
+ item.status='preview-accepted';item.acceptedAt=now();item.error='截图网址已由飞书工作流受理；图片预览及表格记录尚未回读核验';await checkpoint();if(single)await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now,itemOverride:firstEntryParent?item:null});
 }
 // The durable outbox refers to the original review. Supplementary evidence never
 // manufactures another review, changes a workflow, or edits a frozen report.
@@ -110,6 +111,21 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   // A Webhook acceptance is durable even if the feature flag is later unset.
   // Reconciliation of the target Base record is a separate explicit operation.
   if(!await activeRow(vault,id,item,checkpoint))continue;
+  if(item.displayPolicy==='initial-entry'){
+   count++;item.evidenceCheckedAt=now();
+   await deliverInitialEntry(vault,id,{checkpoint,webhook,fetcher,now});
+   if(item.status!=='accepted'||!currentBaseReview(vault,id).eligible)continue;
+   const supplement=item.screenshotSupplement||={status:'queued',payload:structuredClone(item.payload),attempts:0};
+   if(supplement.status==='preview-accepted'){await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now,itemOverride:supplement});continue}
+   if(['uncertain','sending','failed','verified'].includes(supplement.status))continue;
+   if(!baseApi){await waiting(supplement,'waiting-permission','首次入表请求已受理，实际入表待核验；截图补充等待字段及唯一记录读取能力');continue}
+   let evidence;try{evidence=await evidenceLoader(currentBaseReview(vault,id).row)}catch{}
+   const current=currentBaseReview(vault,id);if(!current.eligible)continue;
+   const gate=entryPrerequisites(current.row,evidence,Date.parse(now()));
+   if(gate.phase!=='ready'){await waiting(supplement,gate.phase,'首次入表请求已受理；截图补充：'+gate.reason.replace('尚未写入飞书','截图尚未补充'));continue}
+   const target=checkedWebhook(webhook);if(!target){await waiting(supplement,'waiting-permission','截图更新入口未配置，保留首次入表回执');continue}
+   await deliverPreview(vault,id,supplement,current.row,evidence,gate,{checkpoint,fetcher,webhook:target,now,displayPolicy:'single-image-link',baseApi,firstEntryParent:item});continue;
+  }
   if(displayPolicy==='single-image-link'&&item.displayPolicy!=='single-image-link'){continue} // Never replay pre-rollout events.
   if(item.status==='preview-accepted'&&item.linkBaseline){await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now});continue}
   if(displayPolicy==='notion-link'){

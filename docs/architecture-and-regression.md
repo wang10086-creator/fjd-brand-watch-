@@ -1503,3 +1503,25 @@ no record bodies, attachment tokens, URLs or authentication response are exporte
 An empty injected secret establishes runtime unavailability, not whether the secret
 is absent or inaccessible at another scope. Failure stops diagnostics; it never
 replays review events, changes permissions, or repairs production records.
+
+## Separate initial entry from screenshot update (2026-10-25)
+
+Only newly applied events in submitReviewEvents receive initial-entry. Previously
+received events, migration and old single-image-link queues are not reclassified.
+The first valid initial suspected decision uses the existing Webhook immediately
+after durable save and a real URL check, without an app identity, existing row or
+screenshot. No image/Notion/record_id fields are included in this creation request.
+Prior source dispatches, older suspected events and later rounds prohibit blind
+creation or restoration of manually deleted rows. A sending intent is saved before
+POST; current event/round, source history and URL evidence are rechecked afterwards.
+Acceptance remains unverified; uncertain sends never automatically repeat.
+
+Screenshot supplementation is a separate nested outbox on that same event. It
+requires a unique existing row, the fixed image authorization, native evidence and
+the original single-image checks; it cannot create rows. Its receipt and readback
+do not overwrite the initial acceptance, and neither path modifies review history.
+The external workflow's zero-match creation behavior and its event acknowledgement
+cannot be proved by HTTP 200. Deployment restores the platform request path only;
+actual first-row creation still needs a genuine business event and row verification.
+No test event, credentials, Base field change, Notion archive or PR #2 merge is part
+of this release. Existing approved single-image sharing remains unchanged.
