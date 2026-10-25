@@ -51,3 +51,11 @@ test('unavailable capability or explicit disable after activation cannot fall ba
   assert.equal(legacyCalls,0);assert.equal(vault.baseReview.items.r.status,'waiting-workflow');
  }
 });
+
+test('legacy accepted first entry resumes only screenshot preparation, never repeats creation',async()=>{
+ const at=new Date().toISOString(),url='https://example.test/item',row={url,firstSeen:at,title:'test',urlCheck:{current:{id:'c',url,finalUrl:url,at,status:'normal',source:'direct-http',environment:'fixture',reason:'content',httpStatus:200}}},q=qualifyReviewFixture(row,'r',at),vault={revision:Date.now(),state:{rows:[row],monitor:{reviews:[q.review]}}};enqueueBaseReviews(vault,[q.review],{firstEntry:true});const item=vault.baseReview.items.r;Object.assign(item,{status:'accepted',acceptedAt:at,dispatchStartedAt:at});let requests=0;
+ const bridge=createWorkflowBridge({fetcher:async()=>{requests++;throw Error('must not send')}});
+ await bridge.deliver(vault,'r',{checkpoint:async()=>{},evidenceLoader:async()=>null});
+ assert.equal(item.workflowSupplementOnly,true);assert.equal(item.workflowTasks.initial,undefined);assert.equal(requests,0);
+ await bridge.deliver(vault,'r',{checkpoint:async()=>{},evidenceLoader:async()=>null});assert.equal(requests,0);
+});

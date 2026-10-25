@@ -188,3 +188,12 @@ test('the FIFO slot eventually visits every older URL under repeated fresh arriv
  }
  assert.equal(visited.size,9);
 });
+
+test('live first-entry capture is independent of accepted Webhook and excludes historical policies',()=>{
+ const vault=queuedEvidence(3),now=Date.parse('2026-10-22T01:00:00Z');
+ const item=vault.baseReview.items['review-2'],row=vault.state.rows[2];
+ item.displayPolicy='initial-entry';item.status='accepted';item.screenshotSupplement={status:'waiting-permission'};
+ assert.deepEqual(baseEvidenceQueue(vault,{at:now,policies:['initial-entry']}).map(x=>x.key),[row.url]);
+ vault.baseEvidenceTasks[row.url]={phase:'ready'};vault.baseEvidence={items:{[row.url]:{path:'private-evidence/'+'a'.repeat(64)+'.json',at:new Date(now-60000).toISOString(),previewReady:true}}};row.urlCheck={current:{at:new Date(now-60000).toISOString()}};
+ assert.deepEqual(baseEvidenceQueue(vault,{at:now,policies:['initial-entry']}),[]);
+});

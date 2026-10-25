@@ -1548,3 +1548,12 @@ workflowFenceId. Public review/migrate now accept only a 64-character lowercase
 hex confirmation ID; other operations/unknown fields remain rejected. The marker
 is not a review event. Regression exercises sealed payload decoding and the actual
 gateway forwarding contract. Failed production events are not replayed by release.
+
+
+### New first-entry screenshot preparation (2026-10-25)
+The evidence worker's production runner had retained the Notion-only reuse path,
+so new accepted first-entry records never invoked native capture. Restore bounded
+private capture for initial-entry policy only, independently of Notion/API upload
+configuration, reusing fresh saved evidence and preserving cooldowns. No expanded
+public image grant. A legacy accepted first-entry may use native screenshot-only
+supplementation after wiring; it cannot enter create again or restore a deleted row.

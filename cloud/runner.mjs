@@ -169,8 +169,11 @@ async function main(){
   vault.runtime={phase:'running',operation:op,stage:'base-evidence',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const save=()=>checkpoint({imagesOnly:true,progressOnly:true});
   const evidence=evidenceStore(vault,{password,read:file,write:put});
-  // New archive policy reuses saved files only; no screenshot recapture and no
-  // old attachment/Webhook sender. Production activation requires approval.
+  // Capture private evidence for current live first-entry events independently
+  // of Notion and Feishu read permissions. Sharing still needs its own grant.
+  const captureResult=await supplementBaseEvidence(vault,{store:evidence,checkpoint:save,policies:['initial-entry'],limit:2});
+  console.log('原生整窗证据准备：'+JSON.stringify({attempted:captureResult.attempted,ready:captureResult.ready,waiting:captureResult.waiting}));
+  // Notion remains disabled; it only reuses already saved evidence.
   const result=await archiveScreenshotBatch(vault,{enabled:env.FJD_NOTION_EVIDENCE_ENABLED==='true',store:evidence,
    api:env.FJD_NOTION_EVIDENCE_ENABLED==='true'?notionEvidenceApi({token:env.NOTION_TOKEN}):null,
    checkpoint:save,approval:vault.notionEvidenceApproval});

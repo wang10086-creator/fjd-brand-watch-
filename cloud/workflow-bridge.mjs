@@ -20,7 +20,9 @@ export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
   const item=vault.baseReview.items[id],current=currentBaseReview(vault,id);if(!current.eligible)return;
   const waiting=async message=>{item.error=item.workflowTasks?.initial?.state==='verified'?'首次入表已由原生工作流回读；'+message.replace('尚未写入飞书','截图链接尚未补充'):message;await checkpoint()};
   // A legacy accepted/unknown dispatch cannot become a new native-workflow request.
-  if(!item.workflowTasks&&(item.dispatchStartedAt||item.legacyReceipt||['accepted','uncertain','sending','verified','preview-accepted','failed'].includes(item.status)))return;
+  const legacyInitialAccepted=item.displayPolicy==='initial-entry'&&item.status==='accepted'&&!!item.acceptedAt&&!!item.dispatchStartedAt;
+  if(!item.workflowTasks&&!legacyInitialAccepted&&(item.dispatchStartedAt||item.legacyReceipt||['accepted','uncertain','sending','verified','preview-accepted','failed'].includes(item.status)))return;
+  if(!item.workflowTasks&&legacyInitialAccepted)item.workflowSupplementOnly=true;
   item.workflowTasks||={};
   for(const saved of Object.values(item.workflowTasks))if(saved.sent&&saved.state!=='verified')try{
    const result=await call('/workflow/status',{task_id:saved.task.id},saved.token);saved.state=result.state;saved.recordId=result.record_id;
@@ -28,7 +30,7 @@ export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
   }catch{await waiting('工作流回执待核对；保留原任务，不盲目重发');return}
   if(Object.values(item.workflowTasks).some(t=>t.sent&&t.state!=='verified'))return;
   const prior=Object.entries(vault.baseReview.items).some(([key,v])=>key!==id&&v.payload?.source_id===item.payload.source_id&&(v.dispatchStartedAt||v.recordId||v.acceptedAt))||vault.state.monitor.reviews.some(r=>r.id!==id&&canonical(r.url)===canonical(current.row.url)&&initialReviewTransfer(r));
-  const kind=item.displayPolicy!=='initial-entry'||item.workflowTasks.initial?.state==='verified'||prior||current.round!==1?'screenshot':'initial';
+  const kind=item.workflowSupplementOnly||item.displayPolicy!=='initial-entry'||item.workflowTasks.initial?.state==='verified'||prior||current.round!==1?'screenshot':'initial';
   if(item.workflowTasks[kind]?.state==='verified'){if(item.status!=='workflow-verified'){item.status='workflow-verified';item.verifiedAt=item.workflowTasks[kind].verifiedAt;await checkpoint()}return}
   let evidence,gate=entryUrlPrerequisites(current.row,now());
   if(kind==='screenshot'){

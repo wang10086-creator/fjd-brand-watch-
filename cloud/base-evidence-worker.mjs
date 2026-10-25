@@ -91,15 +91,16 @@ export async function captureCheckedWindow(row,{detector=detectUrl,capture=captu
 // One recent original review gets a prompt attempt, while the second slot
 // continues the oldest eligible URL. Build the list by URL so two review rounds
 // for one page cannot consume the entire bounded pass.
-export function baseEvidenceQueue(vault,{at=Date.now(),limit=2}={}){
+export function baseEvidenceQueue(vault,{at=Date.now(),limit=2,policies=null}={}){
  const rows=new Map((vault.state.rows||[]).map(row=>[canonical(row.url),row]));
  const reviews=new Map((vault.state.monitor?.reviews||[]).map(review=>[review.id,review]));
  const candidates=new Map();let index=0;
  for(const [id,item] of Object.entries(vault.baseReview?.items||{})){
+  if(policies&&!policies.includes(item.displayPolicy)){index++;continue;}
   if(!currentBaseReview(vault,id).eligible){index++;continue;}
   const key=canonical(item.payload?.url),row=rows.get(key),task=vault.baseEvidenceTasks?.[key];
   const stored=vault.baseEvidence?.items?.[key],imageAt=Date.parse(stored?.at),checkAt=Date.parse(row?.urlCheck?.current?.at);
-  const evidenceReady=['waiting-upload','waiting-permission'].includes(item.status)&&task?.phase==='ready'&&stored?.previewReady===true&&
+  const evidenceReady=(['waiting-upload','waiting-permission'].includes(item.status)||item.displayPolicy==='initial-entry'&&['accepted','workflow-verified'].includes(item.status))&&task?.phase==='ready'&&stored?.previewReady===true&&
    /^private-evidence\/[a-f0-9]{64}\.json$/.test(stored?.path||'')&&
    Number.isFinite(imageAt)&&Number.isFinite(checkAt)&&imageAt<=at&&at-imageAt<=86400000&&
    Math.abs(imageAt-checkAt)<=3600000;
@@ -144,9 +145,9 @@ export async function backfillSourceIndexes(vault,{store,checkpoint,limit=5}={})
  if(checked)await checkpoint();
  return {checked,indexed,unavailable};
 }
-export async function supplementBaseEvidence(vault,{store,checkpoint,capture=captureWindow,detector=detectUrl,limit=2,now=Date.now}={}){
+export async function supplementBaseEvidence(vault,{store,checkpoint,capture=captureWindow,detector=detectUrl,limit=2,now=Date.now,policies=null}={}){
  let attempted=0;vault.baseEvidenceTasks||={};
- for(const {row,key} of baseEvidenceQueue(vault,{at:now(),limit})){
+ for(const {row,key} of baseEvidenceQueue(vault,{at:now(),limit,policies})){
   const task=vault.baseEvidenceTasks[key]||={attempts:0};if(task.nextAt&&Date.parse(task.nextAt)>now())continue;
   attempted++;task.attempts++;task.at=new Date(now()).toISOString();task.phase='running';await checkpoint();
   try{
