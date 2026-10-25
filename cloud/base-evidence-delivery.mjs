@@ -121,10 +121,20 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   }
   if(!baseApi){await waiting(item,'waiting-permission','初核已保存，等待飞书附件上传及记录回读授权，尚未确认写入飞书');continue}
   if(deferUpload){await waiting(item,'waiting-upload','初核已保存，证据已取得，等待后台附件上传及回读核验');continue}
+  const previouslyDispatched=!!(item.legacyReceipt||item.dispatchStartedAt||item.recordId||previousSourceDispatch(vault,item));
+  let recordRequestStarted=false;
   try{
    item.failureStage='schema-read';const fields=await baseApi.schema();item.failureStage='record-lookup';const existing=await baseApi.find(item.payload);
    if(!existing&&(item.legacyReceipt||item.dispatchStartedAt||previousSourceDispatch(vault,item))){item.status='uncertain';item.error='既有请求已发送但未找到唯一记录，先核对实际台账，不盲目重发';item.nextAt=new Date(Date.parse(now())+1800000).toISOString();await checkpoint();continue}
    row=await activeRow(vault,id,item,checkpoint);if(!row)continue;
+   item.failureStage='record-preflight';
+   const plannedPayload={...item.payload,...baseFields(row),page_status:gate.status,remarks:'',processing_status:'待核查'};
+   await baseApi.preflight({payload:plannedPayload,status:gate.status,existing,fields,allowCreate:!item.legacyReceipt});
+   if(existing&&baseApi.matchingAttachment){
+    item.failureStage='attachment-readback';
+    const matched=await baseApi.matchingAttachment(existing,evidence.bytes);
+    if(matched){item.attachment={fileToken:matched,sha256:evidence.manifest.sha256};await checkpoint()}
+   }
    if(!item.attachment||item.attachment.sha256!==evidence.manifest.sha256){
     item.status='waiting-upload';item.error='初核已保存，等待附件上传与回读，尚未确认写入飞书';await checkpoint();
     item.failureStage='attachment-upload';item.attachment={fileToken:await baseApi.upload(evidence.bytes),sha256:evidence.manifest.sha256};await checkpoint();
@@ -133,21 +143,42 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    row=await activeRow(vault,id,item,checkpoint);if(!row)continue;
    gate=entryPrerequisites(row,evidence,Date.parse(now()));if(gate.phase!=='ready')throw Error(gate.reason);
    const payload={...item.payload,...baseFields(row),page_status:gate.status,remarks:'',processing_status:'待核查'};
-   item.status='sending';item.at=now();item.dispatchStartedAt=item.at;item.attempts=(item.attempts||0)+1;box.lastAttemptAt=item.at;await checkpoint();
-   row=await activeRow(vault,id,item,checkpoint);if(!row)continue;
-   gate=entryPrerequisites(row,evidence,Date.parse(now()));if(gate.phase!=='ready'){await waiting(item,gate.phase,gate.reason);continue}
-   item.failureStage='record-write';const record=await baseApi.write({payload,status:gate.status,fileToken:item.attachment.fileToken,existing,fields,allowCreate:!item.legacyReceipt});
+   const preparedCheckId=gate.record.id,preparedStatus=gate.status,preparedFields=JSON.stringify(baseFields(row));
+   const validateSend=()=>{
+    // Read through the current vault, never the row retained across checkpoint().
+    const current=currentBaseReview(vault,id);
+    if(!current.eligible){const error=Error(current.reason);error.reviewIneligible=true;error.preSendReason=current.reason;throw error}
+    const latestGate=entryPrerequisites(current.row,evidence,Date.parse(now()));
+    if(latestGate.phase!=='ready'){const error=Error(latestGate.reason);error.preSendReason=latestGate.reason;error.waitingPhase=latestGate.phase;throw error}
+    if(latestGate.record.id!==preparedCheckId||latestGate.status!==preparedStatus||JSON.stringify(baseFields(current.row))!==preparedFields){
+     const error=Error('发送前线索或网址核查已更新，未发送旧快照，等待重新准备');error.preSendReason=error.message;throw error;
+    }
+   };
+   const beforeSend=async()=>{
+    validateSend();
+    item.status='sending';item.at=now();item.dispatchStartedAt=item.at;item.attempts=(item.attempts||0)+1;box.lastAttemptAt=item.at;
+    item.recordWriteState='started';await checkpoint();
+    recordRequestStarted=true;
+   };
+   item.failureStage='record-write';const record=await baseApi.write({payload,status:gate.status,fileToken:item.attachment.fileToken,existing,fields,allowCreate:!item.legacyReceipt,beforeSend,validateSend});
    if(!record?.record_id)throw Error('飞书未返回记录编号');
    item.recordId=record.record_id;await checkpoint();
    item.failureStage='attachment-readback';const verified=await baseApi.verify(record.record_id,item.attachment.fileToken,evidence.bytes,gate.status);
    if(item.verification)(item.verificationHistory||=[]).push(item.verification);
    item.verification={...verified,urlCheckId:gate.record.id,urlCheckAt:gate.record.at,status:gate.status};
-   item.status='verified';item.verifiedAt=now();delete item.error;delete item.nextAt;delete item.failureStage;await checkpoint();
+   item.status='verified';item.recordWriteState='verified';item.verifiedAt=now();delete item.error;delete item.nextAt;delete item.failureStage;await checkpoint();
   }catch(e){
-   if(item.status==='sending')item.status='uncertain';else item.status='waiting-upload';
-   // Adapter errors are controlled labels; never expose raw third-party bodies.
-   item.error='初核已保存，'+({'schema-read':'飞书授权或字段读取','record-lookup':'原记录关联查询','attachment-upload':'附件上传','record-write':'记录写入','attachment-readback':'附件回读核验'}[item.failureStage]||'证据核验')+'未确认，等待补传核对';
-   item.nextAt=new Date(Date.parse(now())+1800000).toISOString();await checkpoint();
+   const dispatched=e.recordRequestStarted===false?false:recordRequestStarted;
+   if(previouslyDispatched||dispatched){item.status='uncertain';item.recordWriteState='unknown'}
+   else{
+    delete item.dispatchStartedAt;
+    item.recordWriteState='not-sent';
+    item.status=e.reviewIneligible?'inactive-review':e.permissionDenied?'waiting-permission':e.waitingPhase||'waiting-upload';
+   }
+   if(e.reviewIneligible)item.eligibility={state:'inactive',reason:e.preSendReason};
+   // preSendReason is generated by our guards, never a third-party response body.
+   item.error=e.preSendReason||'初核已保存，'+({'schema-read':'飞书授权或字段读取','record-lookup':'原记录关联查询','record-preflight':'新增字段完整校验','attachment-upload':'附件上传','record-write':'记录写入','attachment-readback':'附件回读核验'}[item.failureStage]||'证据核验')+(e.permissionDenied?'权限不足或访问被拒绝，未扩大权限；请核对应用授权及目标表访问范围':'未确认，等待补传核对');
+   if(item.status==='inactive-review')delete item.nextAt;else item.nextAt=new Date(Date.parse(now())+1800000).toISOString();await checkpoint();
   }
  }
 }

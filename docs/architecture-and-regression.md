@@ -1455,3 +1455,35 @@ Contents request. It never overwrites an existing file or any production ledger.
 维护单条重采现在先调用既有 detectUrl，再把检测 ID/时间绑定至 captureWindow；entryPrerequisites 完整通过才保存新版本。专用检测记录与 PNG 一起加密，audit 将其与实时台账旧检测明确分开，不修改原台账或人工决定。普通后台 captureWindow 同样保留已绑定检测记录。此机制不解除有效初核和飞书发送前门槛，也不授权重建人工删除的行。自动实际写表仍由原保存确认后即时 dispatch 触发，定时恢复保留。测试覆盖未完成检测不得继续、版本不符拒绝、加密保存读取及原台账不变。
 
 同像素重复采集修复：旧实现仅以 PNG 哈希保存元数据，重复画面可能覆盖前次采集时间，再遇中断导致索引与文件不一致。新原始截图由 Pillow 写入实际 CaptureTime 标准 PNG 文本元数据，画面像素不变，不添加或拼接地址栏；各次采集文件独立。配对证据保存拒绝用相同哈希覆盖不同原始元数据。显式单条重采从既有台账确认稳定键，不依赖损坏旧索引，生成新版本后才更新索引；默认读取仍严格验证旧索引，不放宽时间限制。
+
+## 2026-10-24 native attachment follow-up (not production acceptance)
+
+The user manually uploaded the preserved original PNG for OIM-0002 and confirmed native preview and persistence after reopening. This is user-observed single-record acceptance, not an API readback or automated-pipeline acceptance. Do not replay that review or touch OIM-0001.
+
+Dependency path: original eligible review → evidence prerequisites → Feishu schema/record lookup → attachment upload → record write → original-byte readback. The API adapter previously assumed legacy names while the observed ledger uses 关联线索 / 页面标题 / URL / 国家/地区 / 页面所属公司/店铺/经销商 / 产品名称/型号. Resolve only these explicit aliases from the actual schema, refuse ambiguous aliases, and never silently omit mandatory creation fields. Record association must agree with both source URL and its stable hash; a same-URL record missing its association blocks creation.
+
+Before uploading, compare existing attachment bytes with the verified original hash. Reuse a matching manual attachment regardless of filename. Download errors or excessive attachment counts stop the operation instead of assuming absence. Existing eligibility, evidence age and final-page HTTP checks remain unchanged. This does not make read/modify/write atomic against simultaneous manual edits. No feature flag, permissions or production records are changed by this patch. Live API permissions, actual schema and integrations remain unverified until an authorized environment can read them.
+
+Local validation: targeted attachment suite 25/25 passed. Full JavaScript suite: 494/511 passed, 17 gateway tests failed with EPERM when binding local Unix sockets. Python suite: 96/98 passed; two real Chromium/SingleFile rendering tests failed in this environment. No live Feishu/Notion/browser integration acceptance was performed. This change remains a draft pending CI and authorized API verification.
+
+### PR #2 review follow-up: preflight and scoped media downloads
+
+Creation now resolves every required business field (including the observed 关联线索, 页面标题, URL and 简要展示 names), validates field types and finite required dates before any attachment upload or record sending marker. The adapter repeats preflight before the record request. Authentication and body serialization also precede the durable sending callback. A caught failure known to occur before dispatch is retained as not-sent and can resume after configuration correction; a started request with no confirmed result retains its dispatch history and must locate the actual row before retry. No old ambiguous receipt is erased based on speculation. Process loss between durable intent and dispatch remains conservatively uncertain.
+
+Both manual-image hash matching and post-write byte readback construct the official Bitable extra query parameter using the fixed table, actual attachment field ID, record ID and file token. No returned opaque URL is followed, and no permission fallback is attempted. HTTP 401/403 or recognized scope-denial codes receive a controlled permission message without returning response bodies. A denied pre-write download stops uploads and record writes; a failure after record dispatch remains uncertain.
+
+Official context format: https://open.feishu.cn/document/docs/bitable-v1/faq?lang=zh-CN (download Base attachments). This is compatibility support, not a diagnosis of the production table. Actual advanced-permission configuration remains unconfirmed: the browser still cannot safely resume its credential state. Previously observed field names are used in compatibility fixtures, not represented as a fresh production schema read.
+
+Read-only public configuration snapshot at 2026-10-24T08:04:03.171Z: attachmentConfigured=false, previewMode=null. Workflow wiring exists for FEISHU_BASE_APP_ID and FEISHU_BASE_APP_SECRET (separate Base application identity and secret); the public boolean only proves the selected credential pair is incomplete, not which individual item is absent or whether scopes are approved. Secrets were not read. Target Base access, field/record permissions and media upload/download permissions still require an authorized API check. No production jobs, records, review decisions or feature flags were changed.
+
+New targeted checks cover missing/ambiguous/mistyped fields, invalid date values, repair and retry, post-create timeout reconciliation, timeout with no row, precise extra on both downloads, permission refusal, missing attachment field ID, and a defensive late local-validation failure. The targeted suite passes 35/35. Full regression results for this revision are recorded in the PR and its CI; previous green CI is not acceptance of this revision.
+
+### PR #2 final dispatch eligibility regression
+
+An isolated comparison against PR head e1c3e5f and base 5362420 reproduced the reported race: checkpointing the sending intent yielded to a newer closed review; PR wrote one row and marked verified, while main issued zero record writes (leaving its old sending status). No production data was used.
+
+The adapter now executes a synchronous validateSend guard after the asynchronous sending-intent checkpoint and immediately before fetch, with no intervening await. The guard reads the current vault's row and original event again, validates the current round, suspected-review transition and active stage, and rechecks evidence prerequisites. Changes to prepared business fields or URL-check identity/status stop stale payload submission. It never restores the row/state snapshot retained before persistence.
+
+A newly cancelled dispatch is recorded as inactive-review / not-sent, with the exact eligibility reason and no success claim. Existing ambiguous receipt history remains uncertain and is not erased when later closure is discovered. No remote transaction or distributed lock is implied: changes arriving after the network request starts still require separate reconciliation.
+
+After repair the same closure reproduction issues zero writes and records inactive-review. Thirteen added tests cover both create and update during async intent persistence: closure, reopening, a newly approved different round, removal/replacement of the original decision; stale URL-check/business-field snapshots; and preservation of prior ambiguous dispatch. All 48 attachment tests pass locally. Field preflight, original-byte reuse and scoped media extra remain covered. Full CI results are attached to the same draft PR; no deployment or production mutation is authorized.
