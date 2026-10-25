@@ -1490,3 +1490,16 @@ Existing record identity is mandatory. Webhook acceptance is not completion; a
 read-only same-record verifier compares the link and every non-link field against
 the private baseline. Missing read permission blocks sending/reconciliation, no
 credentials or schema changes. Old events are not replayed. See feishu-single-image-link.md.
+
+## Single-run Base read diagnostic (2026-10-25)
+
+The manual-only fjd-base-read-diagnostic workflow uses the same repository/organization
+secret context and credential precedence as the production workflows (no environment
+binding). Its isolated script allows only tenant authentication plus fields, records
+and the fixed reczz28R8hw3MztU GET routes. It imports no business runner and has no
+webhook, vault password, Notion token or Git write permission. Logs/artifacts contain
+only credential presence, numeric API errors and fixed-field/stable-source checks;
+no record bodies, attachment tokens, URLs or authentication response are exported.
+An empty injected secret establishes runtime unavailability, not whether the secret
+is absent or inaccessible at another scope. Failure stops diagnostics; it never
+replays review events, changes permissions, or repairs production records.

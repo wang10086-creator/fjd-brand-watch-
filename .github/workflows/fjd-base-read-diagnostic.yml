@@ -1,0 +1,31 @@
+name: 飞书单图接入只读诊断
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 仅检查既有配置及三项读取
+        env:
+          FEISHU_BASE_APP_ID: ${{ secrets.FEISHU_BASE_APP_ID }}
+          FEISHU_BASE_APP_SECRET: ${{ secrets.FEISHU_BASE_APP_SECRET }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        run: node cloud/base-read-diagnostic.mjs
+      - name: 保留脱敏诊断结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-read-diagnostic
+          path: base-read-diagnostic.json
+          retention-days: 3
+          if-no-files-found: error
