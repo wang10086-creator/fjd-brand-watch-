@@ -34,7 +34,7 @@ import {verifyRecovery} from './controlled-recovery.mjs';
 import {enqueueBaseReviews,deliverBaseReviews,baseReviewStatus,baseReviewReceipts} from './base-review.mjs';
 import {submitReviewEvents} from './review-submission.mjs';
 import {checkpointAndDispatchBaseEvidence} from './base-evidence-dispatch.mjs';
-import {workflowPayload} from './workflow-input.mjs';
+import {workflowPayload,validatePublicWorkflowPayload} from './workflow-input.mjs';
 import {createWorkflowBridge,workflowTaskIndex} from './workflow-bridge.mjs';
 const config=JSON.parse(await readFile(new URL('./config.json',import.meta.url),'utf8'));
 const brandCatalog=JSON.parse(await readFile(new URL('../brand-catalog.json',import.meta.url),'utf8'));
@@ -162,11 +162,7 @@ async function main(){
   return;
  }
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
- if(payload.publicAccess===true){
-  const allowed={review:['publicAccess','events','retryEventIds'],migrate:['publicAccess','state'],sync:['publicAccess','imageUpdates','priorityUpdates'],scan:['publicAccess','site','watchOnly'],'site-retry':['publicAccess','site','watchOnly']};
-  if(!allowed[op]||Object.keys(payload).some(key=>!allowed[op].includes(key)))throw Error('不支持的公开同步内容，未修改原台账');
-  if(payload.site&&(!/^[a-z0-9-]+$/.test(payload.site.platform||'')||!/^[a-z0-9.-]*$/.test(payload.site.domain||'')))throw Error('目标网站格式不正确');
- }
+ validatePublicWorkflowPayload(op,payload);
  if(op==='base-evidence'){
   const minute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
   if(minute>=550&&minute<585){console.log('日报截止及发布保护时段，飞书补传稍后继续');return}
