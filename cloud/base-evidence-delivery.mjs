@@ -59,13 +59,23 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
  row=await activeRow(vault,id,item,checkpoint);if(!row)return;
  gate=entryPrerequisites(row,evidence,Date.parse(now()));
  if(gate.phase!=='ready'){item.status=gate.phase;item.error=gate.reason;await checkpoint();return}
+ const preparedFields=JSON.stringify(baseFields(row)),preparedCheckId=gate.record.id,preparedStatus=gate.status;
  const payload={...item.payload,...baseFields(row),page_status:gate.status,remarks:'',processing_status:'待核查',
   display_image_url:url,screenshot_preview_url:url,screenshot_sha256:evidence.manifest.sha256,screenshot_at:evidence.manifest.at};
  item.status='sending';item.at=now();item.dispatchStartedAt=item.at;item.attempts=(item.attempts||0)+1;vault.baseReview.lastAttemptAt=item.at;
  item.preview={url,sha256:evidence.manifest.sha256,at:evidence.manifest.at,urlCheckId:gate.record.id,status:gate.status};
  await checkpoint(); // The exact original review and sending intent must survive before POST.
- row=await activeRow(vault,id,item,checkpoint);if(!row)return;
- gate=entryPrerequisites(row,evidence,Date.parse(now()));if(gate.phase!=='ready'){item.status=gate.phase;item.error=gate.reason;await checkpoint();return}
+ // No await between the final current-state validation and starting POST.
+ const current=currentBaseReview(vault,id);
+ const latestGate=current.eligible?entryPrerequisites(current.row,evidence,Date.parse(now())):null;
+ const changed=current.eligible&&(JSON.stringify(baseFields(current.row))!==preparedFields||
+  latestGate.record?.id!==preparedCheckId||latestGate.status!==preparedStatus);
+ if(!current.eligible||latestGate.phase!=='ready'||changed){
+  item.status=!current.eligible?'inactive-review':latestGate.phase!=='ready'?latestGate.phase:'waiting-upload';
+  item.error=!current.eligible?current.reason:latestGate.reason||'发送前证据已变化，等待重新准备';
+  if(!current.eligible)item.eligibility={state:'inactive',reason:current.reason};
+  item.recordWriteState='not-sent';delete item.dispatchStartedAt;await checkpoint();return;
+ }
  let r,data;
  try{
   r=await fetcher(webhook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),redirect:'error',signal:AbortSignal.timeout(15000)});
@@ -85,7 +95,7 @@ async function deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetche
 }
 // The durable outbox refers to the original review. Supplementary evidence never
 // manufactures another review, changes a workflow, or edits a frozen report.
-export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=async()=>null,now=()=>new Date().toISOString(),limit=5,reviewIds=null,deferUpload=false,previewMode=null,webhook=null,fetcher=fetch}={}){
+export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=async()=>null,now=()=>new Date().toISOString(),limit=5,reviewIds=null,deferUpload=false,previewMode=null,webhook=null,fetcher=fetch,displayPolicy=null}={}){
  const box=vault.baseReview;if(!box)return;
  const waiting=async(item,status,error)=>{const changed=item.status!==status||item.error!==error;item.status=status;item.error=error;if(changed)await checkpoint()};
  const selected=reviewIds?new Set(reviewIds):null;let count=0;const seen=new Set();
@@ -94,6 +104,11 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   // A Webhook acceptance is durable even if the feature flag is later unset.
   // Reconciliation of the target Base record is a separate explicit operation.
   if(!await activeRow(vault,id,item,checkpoint))continue;
+  if(displayPolicy==='notion-link'){
+   // Preserve all prior receipts; neither legacy attachments nor new links are sent.
+   if(!['preview-accepted','verified','accepted','uncertain','sending','failed'].includes(item.status))await waiting(item,'waiting-upload',item.notionEvidence?.status==='verified'?'截图已存入Notion并核验；等待飞书链接字段确认，尚未更新台账':'初核已保存，截图等待Notion归档；原附件和网页截图网址保留');
+   continue;
+  }
   if(item.status==='preview-accepted')continue;
   if(item.nextAt&&Date.parse(item.nextAt)>Date.parse(now()))continue;
   let row=vault.state.rows.find(r=>canonical(r.url)===canonical(item.payload?.url));
@@ -117,7 +132,7 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    const target=checkedWebhook(webhook);
    if(!target){await waiting(item,'waiting-permission','初核已保存，截图网址写表入口待配置，尚未写入飞书');continue}
    if(deferUpload){await waiting(item,'waiting-upload','初核已保存，等待后台截图网址发送；尚未写入飞书');continue}
-   await deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook:target,now});continue;
+   await deliverPreview(vault,id,item,row,evidence,gate,{checkpoint,fetcher,webhook:target,now,displayPolicy});continue;
   }
   if(!baseApi){await waiting(item,'waiting-permission','初核已保存，等待飞书附件上传及记录回读授权，尚未确认写入飞书');continue}
   if(deferUpload){await waiting(item,'waiting-upload','初核已保存，证据已取得，等待后台附件上传及回读核验');continue}

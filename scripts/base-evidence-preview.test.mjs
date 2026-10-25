@@ -104,3 +104,16 @@ test('a save failure before sending intent prevents webhook submission',async()=
  await assert.rejects(deliverBaseReviews(f.vault,f.options),/save failed/);
  assert.equal(f.calls.some(c=>c.type==='POST'),false);
 });
+
+
+test('changing evidence during send-intent persistence stops the pending URL payload',async()=>{
+ const f=fixture();
+ f.options.checkpoint=async()=>{if(f.item.status==='sending')f.row.urlCheck.current.id='new-check'};
+ await deliverBaseReviews(f.vault,f.options);assert.equal(f.calls.some(c=>c.type==='POST'),false);
+ assert.equal(f.item.recordWriteState,'not-sent');assert.equal(f.item.dispatchStartedAt,undefined);
+});
+test('Notion policy waits without sending old attachments or exposing internal page URLs',async()=>{
+ const f=fixture();f.options.displayPolicy='notion-link';f.item.notionEvidence={status:'verified',key:'private'};
+ f.options.baseApi=new Proxy({},{get:()=>assert.fail('No attachment upload')});
+ await deliverBaseReviews(f.vault,f.options);assert.equal(f.calls.some(c=>c.type==='POST'),false);assert.equal(f.item.status,'waiting-upload');
+});

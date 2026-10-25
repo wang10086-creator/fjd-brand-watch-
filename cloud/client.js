@@ -210,7 +210,7 @@ export function baseReviewLeadNotice(state,row){
  const latest=reviews.map(r=>state.baseReviewReceipts?.['review:'+r.id]).find(Boolean);
  if(!latest)return '';
  const message=latest.error||(latest.status==='verified'?'初核已保存，飞书网址状态及附件已回读核验':latest.status==='preview-accepted'?'初核已保存，截图网址已送至飞书工作流；目标记录和预览效果待核验':latest.status==='accepted'?'初核已保存，旧工作流已受理，实际记录及附件待核验':'初核已保存，等待网址核查、地址栏截图及飞书展示核验');
- return `<p class="helper" data-base-receipt>${esc(message)}</p>`;
+ return `<p class="helper" data-base-receipt>${esc(message)}${latest.notionEvidence?' · Notion截图归档：'+esc(latest.notionEvidence.status==='verified'?'文件已核验，飞书链接待确认':latest.notionEvidence.reason||'待归档'):''}</p>`;
 }
 export function baseReviewReceiptView(state){
  const receipts=Object.entries(state.baseReviewReceipts||{}).sort(([,a],[,b])=>(b.at||'').localeCompare(a.at||'')).slice(0,10);

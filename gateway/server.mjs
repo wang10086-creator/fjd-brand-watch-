@@ -3,6 +3,7 @@ import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {gunzipSync,createGunzip} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {seal,unseal,unsealCompressed} from '../cloud/crypto.js';
+import {screenshotShare,approvedScreenshot} from './screenshot-share.mjs';
 import {manualStore} from './manual-store.mjs';
 import {manualSourceId,validateManual} from './manual-evidence.mjs';
 import {dashboardHasUrl,validateDashboardCompressed} from './dashboard-stream.mjs';
@@ -52,9 +53,15 @@ function connectionToken(value){
  if(!token||!/^[A-Za-z0-9_]+$/.test(token))throw Object.assign(issue(400,'请粘贴 GitHub 生成的完整个人访问令牌（Token），不要填写账号密码、仓库地址或令牌名称。'),{code:'github-token-format',field:'token'});
  return token;
 }
-export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{},accessMode='accounts'}={}){
+export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{},accessMode='accounts',screenshotShareSpec=approvedScreenshot}={}){
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
+ const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
+ function sharedImageUrl(token){
+  const origin=new URL(selfOrigin);
+  if(origin.protocol!=='https:'||!origin.hostname.endsWith('.up.railway.app')||origin.username||origin.password||origin.port||origin.pathname!=='/'||origin.search||origin.hash)throw issue(503,'图片网关地址未核实');
+  return origin.origin+'/evidence-preview/'+shares.spec.sha256+'/'+token+'.png';
+ }
  const allowedOrigin=origin=>!!origin&&(origin===siteOrigin||origin===selfOrigin||testOrigins.includes(origin));
  function limit(key,max,ms){const t=now();for(const [k,v]of limiter)if(v.until<=t)limiter.delete(k);const value=limiter.get(key)||{count:0,until:t+ms};value.count++;limiter.set(key,value);if(value.count>max||limiter.size>3000)throw issue(429,'请求过于频繁，请稍后重试')}
  async function github(path,{token,method='GET',body,raw=false}={}){let r;try{r=await fetcher(API+path,{method,redirect:'error',headers:{Authorization:'Bearer '+token,Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'fjd-shared-sync'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(25000)})}catch{throw issue(502,'GitHub 请求回执未确认，本机记录保留')}
@@ -91,7 +98,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    return grant;
   }catch(error){if(maintenance&&error?.status===502&&error.code!=='github-resource-unavailable')throw error;throw issue(404,'截图预览不可用')}
  }
- async function readEvidencePreview(sha,token,knownGrant=null,maintenance=false){
+ async function readEvidencePreview(sha,token,knownGrant=null,maintenance=false,authorizing=false){
+  if(!authorizing)shares.assert(sha,token);
   const config=store.read().config;if(!config)throw issue(404,'截图预览不可用');
   try{
    const grant=knownGrant||await readPreviewGrant(sha,maintenance);
@@ -101,6 +109,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    const sealed=await boundedJson(await github('/repos/'+REPO+'/contents/private-evidence/'+sha+'.json?ref='+BRANCH,{token:config.token,raw:true}),20*1024*1024);
    const source=await unseal(sealed,config.password,'base-window'),bytes=Buffer.from(source?.png||'','base64');
    if(!validPreviewWindow(source?.manifest,bytes,sha))throw Error('Invalid native-window evidence');
+   if(sha===shares.spec.sha256){shares.check(bytes,source.manifest);if(!authorizing)shares.assert(sha,token)}
    return {bytes,manifest:source.manifest};
   }catch(error){if(maintenance&&error?.status===502&&error.code!=='github-resource-unavailable')throw error;throw issue(404,'截图预览不可用')}
  }
@@ -168,14 +177,15 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    // This holder URL serves only a previously sealed native-window PNG. A
    // Feishu image fetch may have its own Origin and does not carry a session.
    if(path.startsWith('/manual-evidence-preview/')){
-    const match=/^\/manual-evidence-preview\/(lead-[a-f0-9]{64})\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图不可用');limit('manual-preview:'+req.socket.remoteAddress,60,60000);const bytes=await manual.image(...match.slice(1));res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex, noarchive','Referrer-Policy':'no-referrer'});res.end(req.method==='HEAD'?undefined:bytes);return;
+    const match=/^\/manual-evidence-preview\/(lead-[a-f0-9]{64})\/([a-f0-9]{64})\/([A-Za-z0-9_-]{43})\.png$/.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图不可用');limit('manual-preview:'+req.socket.remoteAddress,60,60000);shares.assertManual(match[2]);const bytes=await manual.image(...match.slice(1));shares.assertManual(match[2]);res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','X-Robots-Tag':'noindex, noarchive','Referrer-Policy':'no-referrer'});res.end(req.method==='HEAD'?undefined:bytes);return;
    }
    if(path.startsWith('/evidence-preview/')){
     const match=previewPath.exec(path);if(!match||!['GET','HEAD'].includes(req.method))throw issue(404,'截图预览不可用');
     limit('preview:'+String(req.socket.remoteAddress||'unknown'),120,60000);
     const {bytes}=await readEvidencePreview(match[1],match[2]);
+    shares.assert(match[1],match[2]);
     res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,
-     'Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff',
+     'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',
      'X-Robots-Tag':'noindex, nofollow, noarchive','Referrer-Policy':'no-referrer',
      'Cross-Origin-Resource-Policy':'cross-origin','Access-Control-Allow-Origin':'*'});
     res.end(req.method==='HEAD'?undefined:bytes);return;
@@ -206,6 +216,25 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/screenshot-share'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可管理单图分享');
+    if(req.method==='GET'){
+     const status=shares.status();if(status.status!=='active'){respond(200,status);return}
+     const grant=await readPreviewGrant(shares.spec.sha256,true);
+     await readEvidencePreview(shares.spec.sha256,grant.token,grant,true);
+     shares.assert(shares.spec.sha256,grant.token);
+     respond(200,{...status,screenshot_view_url:sharedImageUrl(grant.token)});return;
+    }
+    if(req.method!=='POST')throw issue(405,'不支持的操作');
+    const input=await body(req);
+    if(input.sha256!==shares.spec.sha256||!['authorize','revoke'].includes(input.action)||Object.keys(input).some(k=>!['action','sha256'].includes(k)))throw issue(400,'仅允许管理已获准的固定截图');
+    if(input.action==='revoke'){respond(200,await shares.revoke(user.name));return}
+    const grant=await readPreviewGrant(shares.spec.sha256,true);
+    const evidence=await readEvidencePreview(shares.spec.sha256,grant.token,grant,true,true);
+    const url=sharedImageUrl(grant.token);
+    const result=await shares.authorize(evidence.bytes,evidence.manifest,grant.token,user.name);
+    respond(200,{...result,screenshot_view_url:url});return;
+   }
    if(path.startsWith('/maintenance/evidence-upload/')){
     if(req.method!=='POST'||user.role!=='admin')throw issue(403,'仅管理员可上传人工截图');
     const match=/^\/maintenance\/evidence-upload\/(lead-[a-f0-9]{64})$/.exec(path);if(!match)throw issue(404,'上传入口不存在');limit('manual-upload:'+user.name,6,60000);

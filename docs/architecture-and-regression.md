@@ -1455,3 +1455,28 @@ Contents request. It never overwrites an existing file or any production ledger.
 维护单条重采现在先调用既有 detectUrl，再把检测 ID/时间绑定至 captureWindow；entryPrerequisites 完整通过才保存新版本。专用检测记录与 PNG 一起加密，audit 将其与实时台账旧检测明确分开，不修改原台账或人工决定。普通后台 captureWindow 同样保留已绑定检测记录。此机制不解除有效初核和飞书发送前门槛，也不授权重建人工删除的行。自动实际写表仍由原保存确认后即时 dispatch 触发，定时恢复保留。测试覆盖未完成检测不得继续、版本不符拒绝、加密保存读取及原台账不变。
 
 同像素重复采集修复：旧实现仅以 PNG 哈希保存元数据，重复画面可能覆盖前次采集时间，再遇中断导致索引与文件不一致。新原始截图由 Pillow 写入实际 CaptureTime 标准 PNG 文本元数据，画面像素不变，不添加或拼接地址栏；各次采集文件独立。配对证据保存拒绝用相同哈希覆盖不同原始元数据。显式单条重采从既有台账确认稳定键，不依赖损坏旧索引，生成新版本后才更新索引；默认读取仍严格验证旧索引，不放宽时间限制。
+
+## Notion screenshot archive (2026-10-25; supersedes site-image attachment proposal)
+
+New native-file adapter and private archive coordinator are isolated from formal
+report publication. No capture, no inferred report date, no external-image fallback.
+An existing day page and explicit inherited-sharing review are required before any
+mutation. Durable intents and remote lookup reconcile ambiguous page/upload/block
+creation without blind retries. Native file readback hash produces only a stable
+page/block link, never a signed download URL. The original review must remain current.
+Runner uses the existing immediate evidence wake-up but the new archive defaults off,
+with sample-specific private approvals; it makes no Feishu table writes. No fields,
+permissions, secrets or production data were changed. See notion-screenshot-archive.md.
+
+## Scoped screenshot sharing (2026-10-25)
+
+The fixed Rakuten PNG gains a gateway-owned durable consent/tombstone gate on the
+existing encrypted-file route. It binds hash, byte length, microsecond timestamp,
+original URL and token digest. Legacy and manual URL paths cannot bypass revocation;
+no worker can clear it. No-store responses contain only PNG bytes. Notion native
+file upload/readback remains internal and disabled until destination approval.
+External handoff explicitly excludes the Notion page URL, requires a fresh gateway
+consent lookup and rechecks current review after awaits. No Feishu writes here.
+The cancelled representative-image policy is excluded from the release. Retain
+the validated send-intent race fix. See single-image-share.md for deployment and
+rollback boundaries; never downgrade away a live revocation gate.
