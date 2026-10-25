@@ -111,7 +111,10 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   // A Webhook acceptance is durable even if the feature flag is later unset.
   // Reconciliation of the target Base record is a separate explicit operation.
   if(!await activeRow(vault,id,item,checkpoint))continue;
-  if(item.workflowTasks||['initial-entry','single-image-link'].includes(item.displayPolicy)&&workflowBridge&&await workflowBridge.enabled()){count++;item.evidenceCheckedAt=now();await workflowBridge?.deliver(vault,id,{checkpoint,webhook,evidenceLoader,now});continue}
+  if(workflowBridge&&(item.workflowTasks||['initial-entry','single-image-link'].includes(item.displayPolicy))){const enabled=await workflowBridge.enabled();
+   if(item.workflowTasks||enabled===true){count++;item.evidenceCheckedAt=now();await workflowBridge.deliver(vault,id,{checkpoint,webhook,evidenceLoader,now});continue}
+   if(enabled===null||workflowBridge.everEnabled?.()){count++;await waiting(item,'waiting-workflow',enabled===null?'工作流接线状态暂无法核实；初核保留，未发送':'原生工作流已停用；初核保留，不退回旧写入路径');continue}
+  }
   if(item.displayPolicy==='initial-entry'){
    count++;item.evidenceCheckedAt=now();
    await deliverInitialEntry(vault,id,{checkpoint,webhook,fetcher,now});

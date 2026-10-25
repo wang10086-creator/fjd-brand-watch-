@@ -12,10 +12,10 @@ export function workflowTaskIndex(vault,now=Date.now()){const tasks={};for(const
  const current=currentBaseReview(vault,id);tasks[saved.task.id]={binding:digest(saved.task),tokenHash:digest(saved.token),eligible:current.eligible&&entryUrlPrerequisites(current.row,now).phase==='ready'&&(!saved.task.url_check_id||entryUrlPrerequisites(current.row,now).record?.id===saved.task.url_check_id),round:current.round||0};
  }return {version:1,revision:vault.revision,acknowledged:Object.keys(vault.workflowAcknowledged||{}),tasks};}
 export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
- let capability;
+ let capability,activated=false;
  async function origin(){return new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url),'utf8')).endpoint).origin}
  async function call(path,body,token){const r=await fetcher(await origin()+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('工作流任务接口未确认（HTTP '+r.status+'）');return r.json()}
- return {state:()=>capability??null,async enabled(){if(capability===undefined){try{capability=(await call('/workflow/capabilities')).enabled===true}catch{capability=false}}return capability},
+ return {state:()=>capability??null,everEnabled:()=>activated,async enabled(){if(capability===undefined){try{const response=await call('/workflow/capabilities');if(typeof response.enabled!=='boolean')throw Error();capability=response.enabled;activated=response.activated===true}catch{capability=null}}return capability},
  async deliver(vault,id,{checkpoint,webhook,evidenceLoader,now:isoNow=()=>new Date(now()).toISOString()}={}){
   const item=vault.baseReview.items[id],current=currentBaseReview(vault,id);if(!current.eligible)return;
   const waiting=async message=>{item.error=item.workflowTasks?.initial?.state==='verified'?'首次入表已由原生工作流回读；'+message.replace('尚未写入飞书','截图链接尚未补充'):message;await checkpoint()};

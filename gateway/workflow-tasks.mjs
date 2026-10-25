@@ -21,7 +21,7 @@ export function workflowTasks({store,index,authorizeImage,now=Date.now}){
  }
  function bindings(input,task){if(input.source_id!==task.source_id||input.event_id!==task.event_id||input.review_round!==task.round||task.kind==='screenshot'&&(input.screenshot_sha256!==task.screenshot_sha256||input.screenshot_version!==task.screenshot_version))throw error(409,'task-binding-mismatch')}
  return {
-  capabilities(){return {protocol:'fjd-workflow-v1',enabled:enabled(),workflow_id:workflowId,table_id:tableId}},
+  capabilities(){return {protocol:'fjd-workflow-v1',enabled:enabled(),activated:!!store.read().workflowBridge?.activatedAt,workflow_id:workflowId,table_id:tableId}},
   async register({task,token}){
    if(!task||!/^[a-f0-9-]{36}$/.test(task.id)||!['initial','screenshot'].includes(task.kind)||!/^lead-[a-f0-9]{64}$/.test(task.source_id)||!/^review:.+/.test(task.event_id)||!Number.isSafeInteger(task.round)||!Number.isFinite(task.issuedAt)||task.issuedAt>now()+30000||task.writeUntil-task.issuedAt!==1200000||task.readUntil-task.issuedAt!==86400000||now()>task.writeUntil||!/^[A-Za-z0-9_-]{43}$/.test(token||''))throw error(400,'invalid-task');
    await live(task);const snapshot=await index();if(snapshot.tasks[task.id]?.tokenHash!==digest(token))throw error(401,'task-proof-mismatch');

@@ -4,7 +4,7 @@
 不需要飞书 App ID/Secret。网关使用已有加密配置；任务凭证随机生成，不能维护为固定 API key。
 部署后默认关闭，原首次请求路径继续保留。管理员确认下列节点接线完成后，在
 cloud/portal.html → 管理员：单条地址栏截图验收 → 飞书原生回执接线开关启用。
-停用后有原生任务的事件不退回旧发送路径；保留所有发送意图及回执，不自动重发。
+首次启用后，停用会暂停新写入；网关状态读取失败也暂停，不退回旧发送路径；保留所有发送意图及回执，不自动重发。
 
 ## 地址与鉴权
 
@@ -22,6 +22,8 @@ Webhook 新字段：workflow_protocol=fjd-workflow-v1、workflow_task_id、workf
 workflow_operation（initial/screenshot）、review_round、workflow_preflight_url、workflow_receipt_url。
 沿用 source_id、event_id、platform_lead_url；截图另含 screenshot_view_url、兼容 screenshot_preview_url、
 screenshot_sha256、screenshot_at、screenshot_version（SHA-256@原采集时间）。初次请求没有 record_id 或截图链接。
+
+以下第2/4/5/6/7步指接线前的原节点；插入节点后按用途定位。`readback_node` 的 step5/step7 是固定协议别名，不随界面序号变化。
 
 ## 写入前 HTTP 节点
 

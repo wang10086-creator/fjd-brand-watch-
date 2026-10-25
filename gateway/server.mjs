@@ -245,7 +245,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     if(req.method==='GET'){respond(200,workflow.capabilities());return}
     if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req);
     if(typeof input.enabled!=='boolean'||input.workflow_id!=='wkfenA1XvWchZDDx'||input.protocol!=='fjd-workflow-v1')throw issue(400,'工作流协议不匹配');
-    await store.mutate(s=>{s.workflowBridge={enabled:input.enabled,by:user.name,at:new Date(now()).toISOString()}});respond(200,workflow.capabilities());return;
+    await store.mutate(s=>{s.workflowBridge={enabled:input.enabled,activatedAt:s.workflowBridge?.activatedAt||(input.enabled?new Date(now()).toISOString():null),by:user.name,at:new Date(now()).toISOString()}});respond(200,workflow.capabilities());return;
    }
    if(path==='/maintenance/screenshot-share'){
     if(user.role!=='admin')throw issue(403,'仅管理员可管理单图分享');

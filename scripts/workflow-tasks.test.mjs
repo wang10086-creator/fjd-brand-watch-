@@ -41,3 +41,13 @@ test('cloud save invalidation prevents actual Webhook; public receipts exclude t
  assert.equal(sent,0);assert.equal(vault.baseReview.items.r.status,'inactive-review');assert.equal(vault.baseReview.items.r.workflowTasks.initial.state,'not-sent');
  const {baseReviewReceipts}=await import('../cloud/base-review.mjs');const output=JSON.stringify(baseReviewReceipts(vault));assert.ok(!output.includes(vault.baseReview.items.r.workflowTasks.initial.token));assert.ok(!output.includes('workflow_task_token'));
 });
+
+test('unavailable capability or explicit disable after activation cannot fall back to unguarded legacy Webhook',async()=>{
+ const {deliverEvidence}=await import('../cloud/base-evidence-delivery.mjs');
+ for(const unavailable of [true,false]){
+  const at=new Date().toISOString(),url='https://example.test/item',row={url,firstSeen:at,title:'test',urlCheck:{current:{id:'c',url,finalUrl:url,at,status:'normal',source:'direct-http',environment:'fixture',reason:'content',httpStatus:200}}},q=qualifyReviewFixture(row,'r',at),vault={revision:Date.now(),state:{rows:[row],monitor:{reviews:[q.review]}}};enqueueBaseReviews(vault,[q.review],{firstEntry:true});let legacyCalls=0;
+  const bridge=createWorkflowBridge({password:'fake-password-long',fetcher:async url=>{assert.ok(url.endsWith('/workflow/capabilities'));if(unavailable)throw Error('unavailable');return Response.json({enabled:false,activated:true})}});
+  await deliverEvidence(vault,{checkpoint:async()=>{},workflowBridge:bridge,webhook:'https://fjdynamics.feishu.cn/base/workflow/webhook/event/test',fetcher:async()=>{legacyCalls++;throw Error('must not send')}});
+  assert.equal(legacyCalls,0);assert.equal(vault.baseReview.items.r.status,'waiting-workflow');
+ }
+});
