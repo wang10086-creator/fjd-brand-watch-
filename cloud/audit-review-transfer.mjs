@@ -4,6 +4,7 @@ import {createGithubStore} from './github-store.mjs';
 import {unseal} from './crypto.js';
 import {validateReviewTransfer,decodeReviewTransfer,fingerprint} from './review-transfer.mjs';
 import {planReviewBatch} from './review-reconciliation.js';
+import {auditExistingInbox} from './audit-existing-review-inbox.mjs';
 
 export async function auditReviewTransfer(bytes,password,state,sha256){
  const parsed=JSON.parse(bytes.toString('utf8'));
@@ -19,6 +20,14 @@ async function main(){
  // Input stays in the runner's ephemeral dispatch event. It is never a source
  // file, step env value, artifact or echoed shell argument.
  const event=JSON.parse(await readFile(env.GITHUB_EVENT_PATH,'utf8')),input=event.inputs||{};
+ if(input.inbox_request){
+  if(input.transfer||input.sha256)throw Error('只读来源不能混用');
+  if(input.inbox_request.length>60000)throw Error('只读范围过大');
+  const request=JSON.parse(input.inbox_request);
+  const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN});
+  const summary=await auditExistingInbox({store,password:env.MONITOR_CLOUD_PASSWORD,request});
+  console.log('已存在补传包只读核对 '+JSON.stringify(summary));return;
+ }
  const bytes=Buffer.from(input.transfer||'','utf8');if(bytes.length>60000||!/^[a-f0-9]{64}$/.test(input.sha256||''))throw Error('只读核对输入无效');
  const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN}),saved=await store.readJSON('vault.json');
  if(saved?.value.keyScheme!=='data-password-v2')throw Error('原加密台账不可用');

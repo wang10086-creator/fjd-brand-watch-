@@ -5,11 +5,15 @@ on:
       transfer:
         description: 原加密补传文件的完整 JSON；不填密码，不写入仓库
         type: string
-        required: true
+        required: false
       sha256:
         description: 原文件 SHA-256
         type: string
-        required: true
+        required: false
+      inbox_request:
+        description: 现有补传包定位与关联键JSON，仅临时运行输入；不写入仓库或日志、不导入、不写表
+        type: string
+        required: false
 permissions:
   contents: read
 jobs:
