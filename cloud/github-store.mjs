@@ -1,3 +1,4 @@
+import {decodePublicEnvelope} from './public-envelope.js';
 import {createHash} from 'node:crypto';
 import {publishGitCheckpoint} from './git-checkpoint.mjs';
 
@@ -73,19 +74,19 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
  async function readJSON(name){
   const current=await snapshot(),sha=current.files.get(name)||null;observed.set(name,sha);
   if(!sha)return null;
-  return readBlobJSON(sha);
+  return readBlobJSON(sha,current.files);
  }
- async function readBlobJSON(sha){
+ async function readBlobJSON(sha,files){
   const blob=await read('/git/blobs/'+sha),bytes=Buffer.from(blob.content,'base64');
   if(blobSha(bytes)!==sha)throw Error('GitHub 读取文件字节校验失败，停止使用未确认台账');
-  return {sha,value:JSON.parse(bytes.toString('utf8'))};
+  return {sha,value:await decodePublicEnvelope(JSON.parse(bytes.toString('utf8')),{readPart:async path=>{const partSha=files?.get(path);if(!partSha)throw Error('公开分块缺失');return (await readBlobJSON(partSha)).value}})};
  }
  async function readJSONAt(name,commitSha){
   if(!/^[a-f0-9]{40}$/.test(commitSha||''))throw Error('GitHub 历史提交编号无效');
   const commit=await read('/git/commits/'+commitSha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');
   if(tree.truncated)throw Error('GitHub 历史目录清单不完整');
   const entry=tree.tree.find(f=>f.type==='blob'&&f.path===name);
-  return entry?readBlobJSON(entry.sha):null;
+  return entry?readBlobJSON(entry.sha,new Map(tree.tree.filter(e=>e.type==='blob').map(e=>[e.path,e.sha]))):null;
  }
  async function verifyWrite(entries,commitSha){
   const commit=await read('/git/commits/'+commitSha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');

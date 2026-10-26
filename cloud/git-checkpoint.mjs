@@ -17,7 +17,8 @@ function execute(args,{cwd,env,input}={}){
 }
 export async function publishGitCheckpoint({repository,branch,token,current,changes,message,run=execute,onDiagnostic=()=>{}}){
  if(!/^[\w.-]+\/[\w.-]+$/.test(repository)||!/^[-\w./]+$/.test(branch)||!(/^[a-f0-9]{40}$/.test(current.sha)))throw Error('GitHub Git 保存目标无效');
- for(const e of changes)if(!e.path||e.path.startsWith('/')||e.path.split('/').some(p=>['','..','.'].includes(p))||/[\x00-\x1f]/.test(e.path)||e.bytes?.length>100*1024*1024)throw Error('GitHub Git 保存文件路径或大小无效');
+ for(const e of changes)if(!e.path||e.path.startsWith('/')||e.path.split('/').some(p=>['','..','.'].includes(p))||/[\x00-\x1f]/.test(e.path))throw Error('GitHub Git 保存文件路径无效');
+ for(const e of changes)if(e.bytes?.length>100*1024*1024){const category=['vault.json','dashboard.json','public-dashboard.json','public-dashboard.json.gz'].includes(e.path)?e.path:'other';onDiagnostic({stage:'git-size-check',fileCategory:category,byteSize:e.bytes.length,limitBytes:100*1024*1024,confirmation:'not-sent'});throw Error('GitHub Git 单文件超过 100 MiB：'+category+'，字节 '+e.bytes.length+'；尚未提交');}
  const dir=await mkdtemp(join(tmpdir(),'fjd-checkpoint-'));
  const env={...process.env,GIT_TERMINAL_PROMPT:'0',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'http.https://github.com/.extraheader',GIT_CONFIG_VALUE_0:'AUTHORIZATION: basic '+Buffer.from('x-access-token:'+token).toString('base64'),GIT_CONFIG_KEY_1:'credential.helper',GIT_CONFIG_VALUE_1:'',GIT_TRACE:'0',GIT_TRACE_CURL:'0',GIT_CURL_VERBOSE:'0',GIT_INDEX_FILE:join(dir,'checkpoint-index'),GIT_AUTHOR_NAME:'FJD cloud monitor',GIT_AUTHOR_EMAIL:'41898282+github-actions[bot]@users.noreply.github.com',GIT_COMMITTER_NAME:'FJD cloud monitor',GIT_COMMITTER_EMAIL:'41898282+github-actions[bot]@users.noreply.github.com'};
  async function git(args,stage,input){

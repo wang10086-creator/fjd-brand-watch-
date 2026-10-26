@@ -1,3 +1,4 @@
+import {decodePublicEnvelope} from './public-envelope.js';
 // Read-only post-deploy checks. Print hashes/receipts, never snapshot bodies.
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -16,8 +17,9 @@ const blobs=await Promise.all(paths.map(async path=>{
  if(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex')!==entry.sha)throw Error('生产快照字节校验失败');
  return {path,sha:entry.sha,bytes};
 }));
-if(!gunzipSync(blobs[1].bytes).equals(blobs[0].bytes))throw Error('生产 gzip/raw 字节不一致');
-const source=JSON.parse(blobs[0].bytes);for(const r of Object.values(source.monitor?.formalReports||{}))verifyFormal(r);
+const decoded=await decodePublicEnvelope(JSON.parse(blobs[0].bytes),{readPart:async path=>(await store.readJSONAt(path,ref.object.sha))?.value});
+if(!gunzipSync(blobs[1].bytes).equals(Buffer.from(JSON.stringify(decoded))))throw Error('生产 gzip/raw 字节不一致');
+const source=decoded;for(const r of Object.values(source.monitor?.formalReports||{}))verifyFormal(r);
 const files=[];
 for(const path of ['cloud/github-store.mjs','cloud/git-checkpoint.mjs','public-snapshot.json.gz']){
  const expected=await readFile(path);let bytes;

@@ -1,3 +1,4 @@
+import {decodePublicEnvelope} from './public-envelope.js';
 // Public data only. Reads remain available without an execution token or ref API.
 export const PUBLIC_REPO='wang10086-creator/fjd-brand-watch-';
 export function validPublic(name,v){return name==='status.json'?!!v&&typeof v==='object'&&!!v.runtime:!!v&&v.version===1&&Array.isArray(v.rows)&&v.monitor?.version===1&&Array.isArray(v.monitor.observations);}
@@ -9,7 +10,7 @@ export async function readPublicFile(name,{revision=null,fetcher=fetch,token=''}
   try{const url=origin==='raw'?raw+path+(revision?'':'?t='+Date.now()):api+path+'?ref='+ref+'&t='+Date.now();
    const r=await fetcher(url,{cache:'no-store',credentials:'omit',headers:origin==='raw'?{}:{Accept:'application/vnd.github.raw+json',...(origin==='api-auth'?{Authorization:'Bearer '+token}:{})},signal:AbortSignal.timeout(path.endsWith('.gz')?10000:20000)});
    if(!r.ok){last='HTTP '+r.status;continue;}
-   const value=path.endsWith('.gz')?JSON.parse(await new Response(new Blob([await r.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).text()):await r.json();
+   const value=path.endsWith('.gz')?JSON.parse(await new Response(new Blob([await r.arrayBuffer()]).stream().pipeThrough(new DecompressionStream('gzip'))).text()):await decodePublicEnvelope(await r.json(),{readPart:async part=>{const u=origin==='raw'?raw+part:api+part+'?ref='+ref;const p=await fetcher(u,{cache:'no-store',credentials:'omit',headers:origin==='raw'?{}:{Accept:'application/vnd.github.raw+json',...(origin==='api-auth'?{Authorization:'Bearer '+token}:{})},signal:AbortSignal.timeout(20000)});if(!p.ok)throw Error('公开分块不可读取');return p.json()}});
    if(!validPublic(name,value)){last='数据格式未通过检查';continue;}return value;
   }catch(e){last=e.name==='TimeoutError'?'网络读取超时':e.name==='SyntaxError'?'数据解析未完成':'公开通道暂不可读取';}
  }

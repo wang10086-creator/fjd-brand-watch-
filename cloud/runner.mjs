@@ -10,7 +10,7 @@ import {cycleAt,cycleForDay,bjDay,addDay} from '../report-cycle.js';
 import {applyImageUpdates} from './image-updates.js';
 import {refreshPriorities,applyPriorityUpdates,priorityContext} from '../priority.js';
 import {publishWebSnapshot} from './web-snapshot.mjs';
-import {gzipSync} from 'node:zlib';
+import {publicStorageEntries} from './public-storage.mjs';
 import {enrichPictures} from './visual-enrichment.mjs';
 import {continuationInfo} from '../execution-progress.js';
 import {publicFeed} from './public-feed.js';
@@ -59,7 +59,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false}={})
  const entries=[{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
  entries.push({path:'workflow-task-index.json',value:await seal(workflowTaskIndex(vault),password,'workflow-task-index')});
  if(!progressOnly){const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
- entries.push({path:'public-dashboard.json.gz',bytes:gzipSync(Buffer.from(JSON.stringify(publicSnapshot))),bytesInput:true},{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')},{path:'public-dashboard.json',value:publicSnapshot});}
+ entries.push(...publicStorageEntries(publicSnapshot),{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')});}
  const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
  if(!imagesOnly)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
  return verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;

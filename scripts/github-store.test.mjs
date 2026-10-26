@@ -142,3 +142,10 @@ test('oversized checkpoints use one guarded Git publication; ref races preserve 
  const stale=storeFor(repo,{gitThresholdBytes:100,gitPublisher:async()=>{throw Error('must not publish stale ledger')}});await stale.readJSON('vault.json');repo.external('vault.json','{"newer":true}');
  await assert.rejects(stale.putJSON('vault.json',{stale:'x'.repeat(200)}),/其他写入者/);
 });
+
+test('multipart checkpoint reads current and historic snapshot from matching commit, preserves old records',async()=>{
+ const {publicStorageEntries}=await import('../cloud/public-storage.mjs');const feed={version:1,rows:[{id:'old',review:'keep'}],monitor:{version:1,observations:[],formalReports:{old:{checksum:'original'}}}};
+ const repo=repository({'inbox/keep.json':'private-cipher'}),store=storeFor(repo),entries=publicStorageEntries(feed,{threshold:1,partBytes:30});
+ const saved=await store.write(entries);assert.deepEqual((await store.readJSON('public-dashboard.json')).value,feed);assert.deepEqual((await store.readJSONAt('public-dashboard.json',saved.sha)).value,feed);assert.equal((await store.verifyWrite(entries,saved.sha)).confirmed,true);
+ assert.equal(repo.value('inbox/keep.json'),'private-cipher');repo.external('public-dashboard.json',JSON.stringify({version:1,rows:[],monitor:{version:1}}));assert.deepEqual((await store.readJSONAt('public-dashboard.json',saved.sha)).value,feed);
+});

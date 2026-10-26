@@ -1570,3 +1570,22 @@ and protected-field overrides fail closed. Native IDs are not represented as API
 download tokens. Existing `records` callers remain compatible. This adapter does
 not establish actual Feishu wire serialization; that still needs real native
 workflow readback, and unmapped manual fields must not be claimed as verified.
+
+## 2026-10-26 日报发布保存容量修复
+
+生产未压缩公开快照已达 100,247,744 字节，新增正式报告时触发 Git 单文件保护。
+保持 100 MiB 限制，超过 80 MiB 的公开 JSON 改为索引，压缩正文按最多 4 MiB
+拆成 `public-parts/<sha256>.json`（base64），与索引、gzip 兼容副本及加密台账
+同次原子提交。正文完整还原，不删除事件、不改变历史 checksum；相同分块复用。
+旧提交/备份普通 JSON 仍可读。浏览器、原始证据备用读取、存档 runner 与只读
+发布核验均校验分块哈希和全量正文哈希；禁止任意路径或外部链接。
+旧分块先保留用于历史恢复，不做未经验证的清理。当前总读取内存仍随完整台账增长，
+本次解决单文件发布限制，不声称实现按需加载全部历史报告。
+保存错误细分路径无效/大小超限，只记录预定义文件类别及字节数，不输出业务正文。
+恢复使用当日截止前成功保存草稿及原 Git 证明，先完整保存回读，再固定版本归档和
+幂等发送；不触发检索、初核、台账写表或截图归档。
+
+本轮验证：569 Node、98 Python 全通过；1360px/390px 日报固定快照、详情、导航刷新
+通过。真实只读公开快照 100,247,744 字节拆为 532 字节索引和 2 个子文件，最大
+子文件 5,592,419 字节；247 条线索及 10/22–10/25 四份正式报告逐字节还原、
+全部历史 checksum 核验通过。此验证不代表今天已经发送，生产发送另以回执确认。

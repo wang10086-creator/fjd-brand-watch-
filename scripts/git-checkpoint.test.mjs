@@ -24,3 +24,5 @@ test('moved parent, incorrect bytes and protected branch stop; staging directory
   assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));await assert.rejects(access(e.calls[0].cwd));
  }
 });
+
+test('oversize rejected before Git execution with safe file category and exact size',async()=>{const diagnostics=[];let calls=0;await assert.rejects(publishGitCheckpoint({...options,changes:[{path:'public-dashboard.json',bytes:{length:104857601}}],run:async()=>{calls++},onDiagnostic:d=>diagnostics.push(d)}),/100 MiB/);assert.equal(calls,0);assert.deepEqual(diagnostics,[{stage:'git-size-check',fileCategory:'public-dashboard.json',byteSize:104857601,limitBytes:104857600,confirmation:'not-sent'}]);});
