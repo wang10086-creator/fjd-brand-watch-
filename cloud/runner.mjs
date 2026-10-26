@@ -3,8 +3,9 @@ import {notionEvidenceApi} from './notion-evidence-api.mjs';
 import {evidenceStore,supplementBaseEvidence} from './base-evidence-worker.mjs';
 import {feishuBaseApi,baseAppCredentials} from './feishu-base-api.mjs';
 import {checkUrlBatch} from './url-check.mjs';
+import {pendingBaseUrlChecks} from './base-url-queue.mjs';
 import {enqueueBaseStatus,deliverBaseStatus,baseStatusSummary} from './base-status.mjs';
-import {normalizePublicReviews,mergePublicBusinessState} from './public-business.mjs';
+import {mergePublicBusinessState} from './public-business.mjs';
 import {activateReportCycles,updateCycleDraft,persistDraftProofs,restoreCycleDrafts,freezeReport,syncFormalReceipts} from './formal-reports.mjs';
 import {cycleAt,cycleForDay,bjDay,addDay} from '../report-cycle.js';
 import {applyImageUpdates} from './image-updates.js';
@@ -32,7 +33,7 @@ import {appendRun} from '../report-chain.js';
 import {createGithubStore} from './github-store.mjs';
 import {verifyRecovery} from './controlled-recovery.mjs';
 import {enqueueBaseReviews,deliverBaseReviews,baseReviewStatus,baseReviewReceipts} from './base-review.mjs';
-import {submitReviewEvents} from './review-submission.mjs';
+import {submitReviewCommand} from './review-command.mjs';
 import {checkpointAndDispatchBaseEvidence} from './base-evidence-dispatch.mjs';
 import {workflowPayload,validatePublicWorkflowPayload} from './workflow-input.mjs';
 import {createWorkflowBridge,workflowTaskIndex} from './workflow-bridge.mjs';
@@ -186,7 +187,7 @@ async function main(){
   const localMinute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
   if(localMinute>=550&&localMinute<585){console.log('日报截止与发布保护时段，网址队列稍后续查');return}
   vault.runtime={phase:'running',operation:op,stage:'url-check',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
-  const summary=await checkUrlBatch(vault.state,{limit:8,deadline:Date.now()+40000,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});refreshPriorities(vault.state,brandCatalog);enqueueBaseStatus(vault);
+  const summary=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),limit:8,deadline:Date.now()+40000,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});refreshPriorities(vault.state,brandCatalog);enqueueBaseStatus(vault);
   vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await checkpoint({imagesOnly:true});
   try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint:()=>checkpoint({imagesOnly:true})})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，网址核查和原业务记录保留'}
   await checkpoint({imagesOnly:true});await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
@@ -211,7 +212,7 @@ async function main(){
  if(op==='review'){
   vault.lastError='';vault.runtime={phase:'running',operation:op,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const priorBaseReviewIds=new Set(Object.keys(vault.baseReview?.items||{}));
-  try{const events=payload.publicAccess===true?normalizePublicReviews(vault.state,payload.events):payload.events;const result=await submitReviewEvents(vault,events,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint:()=>{acknowledgeWorkflow(payload);return checkpoint()},retryEventIds:payload.retryEventIds||[]});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
+  try{const result=await submitReviewCommand(vault,payload,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint});vault.runtime.reviewResult=result;if(result.conflicts)vault.lastError='有 '+result.conflicts+' 次复核版本冲突，原处理已保留，请先核对三方记录'}
   catch(error){if(saveBlocked)throw error;vault.lastError=error.message||'复核同步未完成，原记录保留'}
   vault.runtime={...vault.runtime,phase:vault.lastError?'failed':'ready',endedAt:new Date().toISOString(),lastError:vault.lastError};
   const wake=await checkpointAndDispatchBaseEvidence({beforeIds:priorBaseReviewIds,vault,checkpoint,request:github});
@@ -248,7 +249,7 @@ async function main(){
    const minute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
    const urlDeadline=op==='auto'&&due.scan?Math.min(Date.now()+30000,Date.parse(due.cycle.cutoffAt)-60000):Date.now()+30000;
    if(!['check','authorize','digest','test-digest','verify'].includes(op)&&!(minute>=550&&minute<585)&&urlDeadline>Date.now()+1000){
-    vault.runtime.stage='url-check';const result=await checkUrlBatch(vault.state,{deadline:urlDeadline,limit:8,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});enqueueBaseStatus(vault);await checkpoint();
+    vault.runtime.stage='url-check';const result=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),deadline:urlDeadline,limit:8,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});enqueueBaseStatus(vault);await checkpoint();
     console.log('网址核查：'+JSON.stringify(result));
     try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint,deadline:urlDeadline})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，原归档与推送流程保留'}
    }

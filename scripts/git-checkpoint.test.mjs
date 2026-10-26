@@ -24,3 +24,10 @@ test('moved parent, incorrect bytes and protected branch stop; staging directory
   assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));await assert.rejects(access(e.calls[0].cwd));
  }
 });
+test('oversized preflight reports category and bytes without payload, path or credentials; no Git action starts',async()=>{
+ const e=executor(),diagnostics=[],length=100*1024*1024+1;
+ await assert.rejects(publishGitCheckpoint({...options,changes:[{path:'private/FIXTURE-SECRET',bytes:{length}}],run:e.run,onDiagnostic:d=>diagnostics.push(d)}),/other/);
+ assert.equal(e.calls.length,0);
+ assert.deepEqual(diagnostics,[{stage:'git-preflight',fileCategory:'other',bytes:length,limitBytes:100*1024*1024,confirmation:'not-sent'}]);
+ assert.ok(!JSON.stringify(diagnostics).includes('SECRET'));
+});

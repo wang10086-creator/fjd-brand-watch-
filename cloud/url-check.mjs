@@ -79,8 +79,50 @@ export async function detectUrl(row,{request=publicRequest,resolver=lookup,timeo
  }catch(e){if(!e.code&&!['AbortError','TimeoutError'].includes(e.name)||/^ERR_INVALID_ARG/.test(e.code||''))return {deferred:true,systemFailure:true,reason:'页面解析或检测程序未完成（'+(['SyntaxError','TypeError','RangeError'].includes(e.name)?e.name:'Error')+'），保留原有结果并安排续查'};if(e.code==='budget')return {deferred:true,reason:'本批网址请求预算已用尽，已排队自动续查'};const kind=['robots','redirect-limit'].includes(e.code)?e.code:issueKind(e);return classifyUrlCheck(row,{url,at,httpStatus,finalUrl,redirects,environment,errorKind:kind,reason:reasons[kind]||(kind==='robots'?(e.policyReason?e.policyReason:e.policyStatus?'原站 robots 返回 HTTP '+e.policyStatus+'，未继续访问原页':'原站规则不允许本次核查'):'跳转超过有界核查上限')})}
 }
 export function saveUrlCheck(row,result,context={}){const record={...result},snapshot=record.snapshot;delete record.snapshot;const baseline=record.baselineSnapshot;delete record.baselineSnapshot;const snapshots={};let baselineKey=null;if(baseline){baselineKey=digest(JSON.stringify([baseline.title,normalizedContent(baseline.body)]));snapshots[baselineKey]=baseline;}if(snapshot){record.snapshotKey=digest(JSON.stringify([snapshot.title,normalizedContent(snapshot.body)]));snapshots[record.snapshotKey]=snapshot}record.beforeKey=[...(row.urlCheck?.history||[]),urlStatusOf(row)].filter(r=>r?.snapshotKey).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)).at(-1)?.snapshotKey||baselineKey;const attempts=result.status==='unavailable'?(row.urlCheck?.task?.attempts||0)+1:0,delay=result.status==='unavailable'?Math.min(24*3600000,30*60000*2**Math.min(attempts-1,5)):result.status==='normal'?(row.watch?86400000:3*86400000):12*3600000;row.urlCheck=mergeUrlChecks(row.urlCheck,{version:1,current:record,history:[record],snapshots,task:{phase:'done',updatedAt:record.at,attempts,nextAt:new Date(Date.parse(record.at)+delay).toISOString(),lastError:record.errorKind?record.reason:''}});refreshPriority(row,context,record.at);return row}
-export async function checkUrlBatch(state,{now=Date.now,deadline,limit=8,detector=detectUrl,hostDelayMs=30000,priorityContext={}}={}){
- const clock=typeof now==='function'?now:()=>now;deadline??=clock()+40000;const at=clock(),queue=state.urlCheckQueue||={hosts:{}};queue.hosts||={};const ranked=(state.rows||[]).filter(row=>{const task=row.urlCheck?.task,current=urlStatusOf(row);return !current?(!task?.nextAt||Date.parse(task.nextAt)<=at):['queued','running'].includes(task?.phase)&&Date.parse(task.requestedAt)>Date.parse(current.at)||!task?.nextAt||Date.parse(task.nextAt)<=at}).sort((a,b)=>Number(!!urlStatusOf(a))-Number(!!urlStatusOf(b))||Number(!!b.watch)-Number(!!a.watch)||String(b.firstSeen||b.checkedAt||'').localeCompare(String(a.firstSeen||a.checkedAt||'')));
- const robotsCache=new Map(),requestBudget={remaining:24};let checked=0,failed=0,attempted=0,systemErrors=0;for(const row of ranked){if(attempted>=limit||clock()>=deadline-1000||requestBudget.remaining<=0)break;let host;try{host=checkedUrl(row.url).hostname}catch{}if(host&&(queue.hosts[host]||0)>clock())continue;attempted++;const when=new Date(clock()).toISOString();row.urlCheck||={version:1,history:[],snapshots:{}};row.urlCheck.task={...row.urlCheck.task,phase:'running',updatedAt:when};let result;try{const baselineSnapshot=(state.monitor?.observations||[]).filter(e=>e.key===row.url||e.snapshot?.url===row.url).map(e=>({...e.snapshot,at:e.at})).filter(s=>s.verification==='page-fetched'&&Date.parse(s.at)<Date.parse(when)).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)).at(-1);result=await detector(row,{at:when,timeoutMs:Math.min(9000,deadline-clock()),aliases:state.config?.aliases||[],robotsCache,requestBudget,baselineSnapshot})}catch{result={deferred:true,reason:'检测任务异常中断，已保留原有记录并安排重试'}}if(!Object.hasOwn(urlStatusLabels,result?.status)||!result.id||!Number.isFinite(Date.parse(result.at))){systemErrors+=Number(!result?.deferred||result?.systemFailure);result={deferred:true,reason:result?.reason||'检测结果结构未通过校验，已安排续查'}}if(result?.deferred){row.urlCheck.task={...row.urlCheck.task,phase:'queued',updatedAt:when,nextAt:new Date(clock()+5*60000).toISOString(),lastError:result.reason};continue}saveUrlCheck(row,result,priorityContext);checked++;failed+=Number(result.status==='unavailable');if(host)queue.hosts[host]=clock()+hostDelayMs}
- for(const [host,until]of Object.entries(queue.hosts))if(until<clock()-86400000)delete queue.hosts[host];state.urlCheckSummary={at:new Date(clock()).toISOString(),attempted,checked,failed,systemErrors,awaiting:ranked.length-checked,total:state.rows?.length||0,covered:(state.rows||[]).filter(r=>urlStatusOf(r)).length};return state.urlCheckSummary;
+export async function checkUrlBatch(state,{now=Date.now,deadline,limit=8,detector=detectUrl,hostDelayMs=30000,priorityContext={},priorityUrls=[],concurrency=3}={}){
+ const clock=typeof now==='function'?now:()=>now;deadline??=clock()+40000;
+ const at=clock(),queue=state.urlCheckQueue||={hosts:{}};queue.hosts||={};
+ const priority=new Set(priorityUrls),due=row=>{
+  const task=row.urlCheck?.task,current=urlStatusOf(row);
+  const requested=['queued','running'].includes(task?.phase)&&Date.parse(task.requestedAt)>Date.parse(current?.at);
+  // First-entry checks expire after 24h. Refresh successful pending-entry checks
+  // at 23h even if ordinary monitoring's 3-day interval has not elapsed.
+  // A restricted/error result retains its original backoff and robots policy.
+  const entryRefresh=priority.has(row.url)&&current&&current.status!=='unavailable'&&!current.errorKind&&!['queued','running'].includes(task?.phase)&&at-Date.parse(current.at)>=23*3600000;
+  return requested||entryRefresh||!task?.nextAt||Date.parse(task.nextAt)<=at;
+ };
+ const ranked=(state.rows||[]).filter(due).sort((a,b)=>Number(priority.has(b.url))-Number(priority.has(a.url))||Number(!!urlStatusOf(a))-Number(!!urlStatusOf(b))||Number(!!b.watch)-Number(!!a.watch)||String(b.firstSeen||b.checkedAt||'').localeCompare(String(a.firstSeen||a.checkedAt||'')));
+ const robotsCache=new Map(),requestBudget={remaining:24},activeHosts=new Set(),started=new Set(),startedUrls=new Set();
+ let checked=0,failed=0,attempted=0,systemErrors=0;
+ async function worker(){
+  while(attempted<limit&&clock()<deadline-1000&&requestBudget.remaining>0){
+   let row,host;
+   for(const candidate of ranked){
+    if(started.has(candidate)||startedUrls.has(candidate.url))continue;
+    let candidateHost;try{candidateHost=checkedUrl(candidate.url).hostname}catch{}
+    if(candidateHost&&(activeHosts.has(candidateHost)||(queue.hosts[candidateHost]||0)>clock()))continue;
+    row=candidate;host=candidateHost;break;
+   }
+   if(!row)return;
+   started.add(row);startedUrls.add(row.url);if(host)activeHosts.add(host);attempted++;
+   const when=new Date(clock()).toISOString();row.urlCheck||={version:1,history:[],snapshots:{}};row.urlCheck.task={...row.urlCheck.task,phase:'running',updatedAt:when};
+   try{
+    let result;
+    try{
+     const baselineSnapshot=(state.monitor?.observations||[]).filter(e=>e.key===row.url||e.snapshot?.url===row.url).map(e=>({...e.snapshot,at:e.at})).filter(s=>s.verification==='page-fetched'&&Date.parse(s.at)<Date.parse(when)).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)).at(-1);
+     result=await detector(row,{at:when,timeoutMs:Math.min(9000,deadline-clock()),aliases:state.config?.aliases||[],robotsCache,requestBudget,baselineSnapshot});
+    }catch{result={deferred:true,reason:'检测任务异常中断，已保留原有记录并安排重试'}}
+    if(!Object.hasOwn(urlStatusLabels,result?.status)||!result.id||!Number.isFinite(Date.parse(result.at))){systemErrors+=Number(!result?.deferred||result?.systemFailure);result={deferred:true,reason:result?.reason||'检测结果结构未通过校验，已安排续查'}}
+    if(result?.deferred){row.urlCheck.task={...row.urlCheck.task,phase:'queued',updatedAt:when,nextAt:new Date(clock()+5*60000).toISOString(),lastError:result.reason};continue}
+    saveUrlCheck(row,result,priorityContext);checked++;failed+=Number(result.status==='unavailable');
+   }finally{if(host){queue.hosts[host]=clock()+hostDelayMs;activeHosts.delete(host)}}
+  }
+ }
+ const workers=Math.max(1,Math.min(3,Number.isFinite(concurrency)?Math.trunc(concurrency):3));
+ // Only independent HTTP reads overlap. The caller checkpoints once all workers
+ // have settled; no concurrent vault writes or workflow dispatch is introduced.
+ const results=await Promise.allSettled(Array.from({length:workers},worker));
+ const rejected=results.find(r=>r.status==='rejected');if(rejected)throw rejected.reason;
+ for(const [host,until]of Object.entries(queue.hosts))if(until<clock()-86400000)delete queue.hosts[host];
+ state.urlCheckSummary={at:new Date(clock()).toISOString(),attempted,checked,failed,systemErrors,awaiting:ranked.length-checked,total:state.rows?.length||0,covered:(state.rows||[]).filter(r=>urlStatusOf(r)).length};return state.urlCheckSummary;
 }
