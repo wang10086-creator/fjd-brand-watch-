@@ -1641,3 +1641,17 @@ Apply the approved eda700c review-command and URL queue changes on production
 bytes. The shared Git preflight keeps the 100 MiB guard and uses safe categories
 plus an attached not-sent diagnostic. Both production size and private-path
 regressions remain covered. This integration does not merge PR #2.
+
+## URL completion retry schedule follow-up (2026-10-26, not deployed)
+
+The first production URL batch after eda700c checked eight pending entries. All
+returned access restrictions. Readback found a pre-existing merge bug: running
+and done task snapshots share the observation timestamp, and lexical phase
+ordering kept running, dropping nextAt and attempts. An isolated real-batch test
+reproduces this for both successful and failed observations. At equal timestamps
+only, completed task schedules now take precedence; a later queued request still
+wins. Bidirectional roundtrip merge must preserve the completed backoff. The
+change does not override robots rules, URL evidence or review eligibility. It
+does not manufacture missing original review events or clear historical gateway
+fences. Publication of this additional fix requires separate approval from the
+explicit eda700c release authorization.
