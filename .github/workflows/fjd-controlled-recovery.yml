@@ -1,4 +1,4 @@
-name: 受控恢复 2026-10-22 正式日报
+name: 受控恢复指定当日正式日报
 on:
   push:
     branches: [main]
