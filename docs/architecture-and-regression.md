@@ -1589,3 +1589,55 @@ workflow readback, and unmapped manual fields must not be claimed as verified.
 通过。真实只读公开快照 100,247,744 字节拆为 532 字节索引和 2 个子文件，最大
 子文件 5,592,419 字节；247 条线索及 10/22–10/25 四份正式报告逐字节还原、
 全部历史 checksum 核验通过。此验证不代表今天已经发送，生产发送另以回执确认。
+## Terminal review-command acknowledgements (2026-10-26, not deployed)
+
+Public review normalization rejects invalid batches atomically, before the review
+submission checkpoint. Previously that failure could leave its exact gateway
+workflowFenceId unacknowledged forever, fencing unrelated current native tasks.
+A thin review-command boundary now records a private rejected/not-applied result
+for that command, plus a safe aggregate runtime result. The acknowledgement and
+result share one guarded atomic checkpoint with explicit readback. An unconfirmed
+checkpoint restores the prior in-memory acknowledgement and the runner's existing
+save-blocked rule stops further execution. Only that exact fence is acknowledged;
+no gateway request/fence is removed and live eligibility/round checks are unchanged.
+If the write committed but its verification failed, the remote atomic rejected
+result may already exist; restoring staged memory does not claim a remote rollback.
+
+Review/outbox candidate preparation completes before swapping it into the vault.
+Thus an exception before the first checkpoint has applied no business changes.
+Errors after any business checkpoint starts retain the existing uncertain-result
+and readback policy; they are never reclassified as rejected/unsent. Invalid legacy
+public events are not converted, rebased or replayed. Tests cover a mixed malformed
+batch, a public version conflict, exact durable fence release, an unrelated pending
+fence, persistence failures, later save failure, valid/idempotent submissions and
+private per-event conflicts. This change does not repair historical failed requests
+automatically, alter review conclusions, or establish actual Feishu writes.
+
+## Pending-entry URL queue (2026-10-26, not deployed)
+
+Pending first-entry records require URL evidence newer than 24 hours, but normal
+monitoring used a three-day refresh interval. Derive scheduling priority only from
+current eligible queued/waiting events and refresh successful evidence after 23
+hours. Closed, different-round, uncertain and accepted events cannot gain priority
+or be replayed. Restricted/error evidence and deferred verifier failures retain
+their original backoff; the same robots, SSRF and request-budget checks still apply.
+
+Up to three independent original hosts are checked concurrently within the existing
+batch limit, deadline and shared 24-request budget. Same-host checks keep a 30-second
+cooldown; duplicate URLs cannot run twice in a batch. All workers settle before the
+single cloud checkpoint. Cloud writers and review dispatch remain serialized; this
+is not parallel vault mutation. URL results still pass the existing first-entry
+gate and cannot manufacture a successful page or an eligible review.
+
+Git size preflight now reports only safe file category, byte count and not-sent
+classification, never file contents, private paths or credentials. The existing
+100 MiB limit remains enforced. Production's generic size/path failure is not
+treated as a proven specific oversized file until this diagnostic provides evidence.
+
+## Approved repair integrated on latest production snapshot (2026-10-26)
+
+Apply the approved eda700c review-command and URL queue changes on production
+6378c0a, preserving its public storage chunking, controlled recovery and snapshot
+bytes. The shared Git preflight keeps the 100 MiB guard and uses safe categories
+plus an attached not-sent diagnostic. Both production size and private-path
+regressions remain covered. This integration does not merge PR #2.

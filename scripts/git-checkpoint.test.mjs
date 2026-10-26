@@ -25,4 +25,11 @@ test('moved parent, incorrect bytes and protected branch stop; staging directory
  }
 });
 
-test('oversize rejected before Git execution with safe file category and exact size',async()=>{const diagnostics=[];let calls=0;await assert.rejects(publishGitCheckpoint({...options,changes:[{path:'public-dashboard.json',bytes:{length:104857601}}],run:async()=>{calls++},onDiagnostic:d=>diagnostics.push(d)}),/100 MiB/);assert.equal(calls,0);assert.deepEqual(diagnostics,[{stage:'git-size-check',fileCategory:'public-dashboard.json',byteSize:104857601,limitBytes:104857600,confirmation:'not-sent'}]);});
+test('oversize rejected before Git execution with safe file category and exact size',async()=>{const diagnostics=[];let calls=0;await assert.rejects(publishGitCheckpoint({...options,changes:[{path:'public-dashboard.json',bytes:{length:104857601}}],run:async()=>{calls++},onDiagnostic:d=>diagnostics.push(d)}),/100 MiB/);assert.equal(calls,0);assert.deepEqual(diagnostics,[{stage:'git-preflight',fileCategory:'public-dashboard',bytes:104857601,limitBytes:104857600,confirmation:'not-sent'}]);});
+test('oversized preflight reports category and bytes without payload, path or credentials; no Git action starts',async()=>{
+ const e=executor(),diagnostics=[],length=100*1024*1024+1;
+ await assert.rejects(publishGitCheckpoint({...options,changes:[{path:'private/FIXTURE-SECRET',bytes:{length}}],run:e.run,onDiagnostic:d=>diagnostics.push(d)}),/other/);
+ assert.equal(e.calls.length,0);
+ assert.deepEqual(diagnostics,[{stage:'git-preflight',fileCategory:'other',bytes:length,limitBytes:100*1024*1024,confirmation:'not-sent'}]);
+ assert.ok(!JSON.stringify(diagnostics).includes('SECRET'));
+});
