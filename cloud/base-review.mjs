@@ -75,6 +75,7 @@ export function retryBaseReviewEvents(vault,eventIds){
 // The Webhook accepts first-entry intents; screenshot updates and readback use
 // separate prerequisites. Historical queues retain their own stricter policy.
 export async function deliverBaseReviews(vault,options={}){
+ if(vault.integrationPolicy?.historyNative===true)return {status:'history-native-only',sent:0};
  if(options.webhook)endpoint(options.webhook);
  return deliverEvidence(vault,options);
 }

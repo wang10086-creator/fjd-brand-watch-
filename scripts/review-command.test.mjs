@@ -162,3 +162,10 @@ test('private legacy review conflicts retain the existing per-event reconciliati
  assert.deepEqual(workflowTaskIndex(durable).acknowledged,[fence]);
  assert.equal(vault.workflowCommandResults,undefined);
 });
+
+test('history-native routing saves actual initial review and round without legacy ledger webhook or replay',async()=>{
+ const {vault,payload}=fixture();vault.integrationPolicy={historyNative:true};let saved=0;
+ const result=await submitReviewCommand(vault,payload,{checkpoint:async()=>{saved++},webhook:'https://fjdynamics.feishu.cn/base/workflow/webhook/event/FIXTURE',fetcher:async()=>assert.fail('legacy ledger dispatch forbidden')});
+ assert.equal(result.saved,1);assert.equal(stageOf(vault.state.rows[0]),'ip');assert.ok(saved);assert.equal(Object.keys(vault.baseReview?.items||{}).length,0);assert.equal(result.feishuRouting,'history-native-workflow');
+ const again=await submitReviewCommand(vault,payload,{checkpoint:async()=>{},fetcher:async()=>assert.fail('no replay')});assert.equal(again.saved,0);assert.equal(vault.state.monitor.reviews.length,1);
+});

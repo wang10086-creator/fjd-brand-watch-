@@ -9,7 +9,7 @@ import {approvedScreenshot} from '../gateway/screenshot-share.mjs';
 import {digest,workflowId,tableId} from '../gateway/workflow-protocol.mjs';
 
 export function workflowTaskIndex(vault,now=Date.now()){const tasks={};for(const [id,item]of Object.entries(vault.baseReview?.items||{}))for(const saved of Object.values(item.workflowTasks||{})){
- const current=currentBaseReview(vault,id);tasks[saved.task.id]={binding:digest(saved.task),tokenHash:digest(saved.token),eligible:current.eligible&&entryUrlPrerequisites(current.row,now).phase==='ready'&&(!saved.task.url_check_id||entryUrlPrerequisites(current.row,now).record?.id===saved.task.url_check_id),round:current.round||0};
+ const current=currentBaseReview(vault,id);tasks[saved.task.id]={binding:digest(saved.task),tokenHash:digest(saved.token),eligible:vault.integrationPolicy?.historyNative!==true&&current.eligible&&entryUrlPrerequisites(current.row,now).phase==='ready'&&(!saved.task.url_check_id||entryUrlPrerequisites(current.row,now).record?.id===saved.task.url_check_id),round:current.round||0};
  }return {version:1,revision:vault.revision,acknowledged:Object.keys(vault.workflowAcknowledged||{}),tasks};}
 export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
  let capability,activated=false;

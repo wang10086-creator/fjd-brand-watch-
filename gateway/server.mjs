@@ -1,3 +1,4 @@
+import {historyTasks} from './history-tasks.mjs';
 import {createServer} from 'node:http';
 import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {gunzipSync,createGunzip} from 'node:zlib';
@@ -57,6 +58,7 @@ function connectionToken(value){
 export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{},accessMode='accounts',screenshotShareSpec=approvedScreenshot}={}){
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
+ const history=historyTasks({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
  const workflow=workflowTasks({store,now,index:async()=>{
   const config=store.read().config;if(!config)throw issue(503,'gateway-not-configured');
@@ -186,6 +188,13 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
+   if(path==='/history/capabilities'&&req.method==='GET'){respond(200,history.capabilities());return}
+   if(['/history/register','/history/preflight','/history/receipt','/history/status'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
+    limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,262144);
+    if(path==='/history/register'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-task')}catch{throw issue(401,'invalid-history-envelope')}respond(200,await history.register(ticket));return}
+    respond(200,await history[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
+   }
    if(path==='/workflow/capabilities'&&req.method==='GET'){respond(200,workflow.capabilities());return}
    if(['/workflow/register','/workflow/preflight','/workflow/receipt','/workflow/status'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'workflow-request-rejected');
@@ -240,6 +249,13 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/history-sync'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
+    if(req.method==='GET'){respond(200,history.capabilities());return}
+    if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req,1024*1024);
+    if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
+    respond(200,await history.configure(input));return;
+   }
    if(path==='/maintenance/workflow-bridge'){
     if(user.role!=='admin')throw issue(403,'仅管理员可确认工作流接线');
     if(req.method==='GET'){respond(200,workflow.capabilities());return}

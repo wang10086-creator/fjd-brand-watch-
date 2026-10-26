@@ -1641,3 +1641,13 @@ Apply the approved eda700c review-command and URL queue changes on production
 bytes. The shared Git preflight keeps the 100 MiB guard and uses safe categories
 plus an attached not-sent diagnostic. Both production size and private-path
 regressions remain covered. This integration does not merge PR #2.
+
+## 2026-10-27 历史监控线索分批同步
+
+新增history-sync持久队列，原18字段契约，保守实际URL查重；未知网址状态空、无图先入。
+不从零重编已有历史ID：先导入现有记录身份基线，再由现有网关原子分配新编号。
+新受保护/history接口复用现有管理员/云端加密身份，单任务凭证，无新应用或持续密钥。
+原初核仍保存，production配置history-native隔离旧直写台账；转台账仅由历史表原生流程。
+公开状态仅队列计数，不公开payload/token/备注。图片网址不等于附件。
+飞书工具在本会话不可用，两个目标工作流的节点/基线/实际落表必须标记未验证。
+完整字段及最小接线见 docs/feishu-history-sync.md，不合并草稿PR。
