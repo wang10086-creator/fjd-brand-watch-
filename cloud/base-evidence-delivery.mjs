@@ -2,7 +2,7 @@ import {prepareSingleLink,reconcileSingleLink} from './base-single-link.mjs';
 import {deliverInitialEntry} from './base-initial-delivery.mjs';
 import {currentBaseReview} from './base-review-eligibility.mjs';
 import {canonical} from '../model.js';
-import {entryPrerequisites,sha256} from './base-evidence.mjs';
+import {entryPrerequisites,entryUrlPrerequisites,sha256} from './base-evidence.mjs';
 import {baseFields} from './base-fields.mjs';
 import {readFile} from 'node:fs/promises';
 
@@ -122,6 +122,8 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
    const supplement=item.screenshotSupplement||={status:'queued',payload:structuredClone(item.payload),attempts:0};
    if(supplement.status==='preview-accepted'){await reconcileSingleLink(vault,id,{api:baseApi,checkpoint,now,itemOverride:supplement});continue}
    if(['uncertain','sending','failed','verified'].includes(supplement.status))continue;
+   const sourceGate=entryUrlPrerequisites(currentBaseReview(vault,id).row,Date.parse(now()));
+   if(sourceGate.omitScreenshot){await waiting(supplement,'skipped-access-restriction',sourceGate.reason);continue}
    if(!baseApi){await waiting(supplement,'waiting-permission','首次入表请求已受理，实际入表待核验；截图补充等待字段及唯一记录读取能力');continue}
    let evidence;try{evidence=await evidenceLoader(currentBaseReview(vault,id).row)}catch{}
    const current=currentBaseReview(vault,id);if(!current.eligible)continue;
@@ -152,6 +154,8 @@ export async function deliverEvidence(vault,{checkpoint,baseApi,evidenceLoader=a
   if(seen.has(canonical(row.url)))continue;seen.add(canonical(row.url));count++;item.evidenceCheckedAt=now();
   // Never erase the old acceptance/ambiguous receipt; it prohibits blind creation.
   if(['accepted','uncertain','sending'].includes(item.status)&&!item.legacyReceipt)item.legacyReceipt={status:item.status,at:item.at||null};
+  const sourceGate=entryUrlPrerequisites(row,Date.parse(now()));
+  if(sourceGate.omitScreenshot){await waiting(item,'skipped-access-restriction',sourceGate.reason);continue}
   let evidence;try{evidence=await evidenceLoader(row)}catch{}
   row=await activeRow(vault,id,item,checkpoint);if(!row)continue;
   let gate=entryPrerequisites(row,evidence,Date.parse(now()));

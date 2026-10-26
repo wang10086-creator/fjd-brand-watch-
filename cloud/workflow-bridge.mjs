@@ -14,7 +14,7 @@ export function workflowTaskIndex(vault,now=Date.now()){const tasks={};for(const
 export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
  let capability,activated=false;
  async function origin(){return new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url),'utf8')).endpoint).origin}
- async function call(path,body,token){const r=await fetcher(await origin()+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('工作流任务接口未确认（HTTP '+r.status+'）');return r.json()}
+ async function call(path,body,token){const r=await fetcher(await origin()+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok){let code;try{const value=(await r.json()).error;if(['workflow-bridge-disabled','inactive-review-or-stale-index','invalid-task','task-proof-mismatch','task-conflict','task-capacity-review-required','invalid-task-credential','task-expired'].includes(value))code=value}catch{}throw Object.assign(Error('工作流任务接口未确认'),{httpStatus:r.status,workflowCode:code})}return r.json()}
  return {state:()=>capability??null,everEnabled:()=>activated,async enabled(){if(capability===undefined){try{const response=await call('/workflow/capabilities');if(typeof response.enabled!=='boolean')throw Error();capability=response.enabled;activated=response.activated===true}catch{capability=null}}return capability},
  async deliver(vault,id,{checkpoint,webhook,evidenceLoader,now:isoNow=()=>new Date(now()).toISOString()}={}){
   const item=vault.baseReview.items[id],current=currentBaseReview(vault,id);if(!current.eligible)return;
@@ -33,6 +33,10 @@ export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
   const kind=item.workflowSupplementOnly||item.displayPolicy!=='initial-entry'||item.workflowTasks.initial?.state==='verified'||prior||current.round!==1?'screenshot':'initial';
   if(item.workflowTasks[kind]?.state==='verified'){if(item.status!=='workflow-verified'){item.status='workflow-verified';item.verifiedAt=item.workflowTasks[kind].verifiedAt;await checkpoint()}return}
   let evidence,gate=entryUrlPrerequisites(current.row,now());
+  if(gate.omitScreenshot){
+   item.screenshotSupplement={...item.screenshotSupplement,status:'skipped-access-restriction',reason:'repeated-source-access-restriction',error:gate.reason,urlCheckId:gate.record.id};
+   if(kind==='screenshot')return waiting(gate.reason+'；原记录及已有附件不变');
+  }
   if(kind==='screenshot'){
    try{evidence=await evidenceLoader(current.row)}catch{}
    gate=entryPrerequisites(current.row,evidence,now());
@@ -45,7 +49,7 @@ export function createWorkflowBridge({password,fetcher=fetch,now=Date.now}={}){
   if(!saved){const issuedAt=now(),task={id:randomUUID(),kind,source_id:item.payload.source_id,event_id:item.payload.event_id,round:current.round,url_check_id:gate.record.id,platform_lead_url:baseFields(current.row).platform_lead_url,issuedAt,writeUntil:issuedAt+1200000,readUntil:issuedAt+86400000,...(kind==='screenshot'?{record_id:item.recordId||null,screenshot_view_url:evidence.previewUrl,screenshot_sha256:evidence.manifest.sha256,screenshot_bytes:evidence.manifest.bytes,screenshot_at:evidence.manifest.at,screenshot_version:evidence.manifest.sha256+'@'+evidence.manifest.at}:{})};saved=item.workflowTasks[kind]={task,token:randomBytes(32).toString('base64url'),state:'prepared'};await checkpoint()}
   if(saved.sent)return;
   if(now()>saved.task.writeUntil)return waiting('任务写入窗口已过期；保留原任务，须先核对飞书记录，禁止重新建行');
-  try{await call('/workflow/register',await seal({task:saved.task,token:saved.token},password,'workflow-task'))}catch{return waiting('工作流任务注册或当前授权未确认，尚未发送')}
+  try{await call('/workflow/register',await seal({task:saved.task,token:saved.token},password,'workflow-task'))}catch(error){const detail=Number.isInteger(error.httpStatus)?'（HTTP '+error.httpStatus+(error.workflowCode?'；'+error.workflowCode:'')+'）':'';return waiting('工作流任务注册或当前授权未确认'+detail+'，尚未发送')}
   const before=currentBaseReview(vault,id);if(!before.eligible)return;
   const preparedCheck=gate.record.id,preparedFields=JSON.stringify(baseFields(before.row));
   const payload={...item.payload,...baseFields(before.row),page_status:gate.status,remarks:'',processing_status:'待核查',workflow_protocol:'fjd-workflow-v1',workflow_task_id:saved.task.id,workflow_task_token:saved.token,workflow_operation:kind,review_round:saved.task.round,workflow_preflight_url:await origin()+'/workflow/preflight',workflow_receipt_url:await origin()+'/workflow/receipt',workflow_id:workflowId,table_id:tableId};

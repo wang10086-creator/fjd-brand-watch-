@@ -4,7 +4,7 @@ import {request as httpRequest} from 'node:http';import {request as httpsRequest
 import {lookup} from 'node:dns/promises';import {isIP,BlockList} from 'node:net';import {createGunzip,createInflate} from 'node:zlib';
 import {createHash} from 'node:crypto';
 import {changedContent,normalizedContent,contentText} from '../content-changes.js';
-import {urlStatusOf,mergeUrlChecks,urlStatusLabels} from '../url-status.js';
+import {urlStatusOf,mergeUrlChecks,urlStatusLabels,persistentAccessRestriction} from '../url-status.js';
 const AGENT='FJD-Brand-Monitor',digest=s=>createHash('sha256').update(s).digest('hex');
 const blocks=new BlockList();for(const [ip,prefix]of [['0.0.0.0',8],['10.0.0.0',8],['100.64.0.0',10],['127.0.0.0',8],['169.254.0.0',16],['172.16.0.0',12],['192.0.0.0',24],['192.0.2.0',24],['192.168.0.0',16],['198.18.0.0',15],['198.51.100.0',24],['203.0.113.0',24],['224.0.0.0',4],['240.0.0.0',4]])blocks.addSubnet(ip,prefix,'ipv4');
 for(const [ip,prefix]of [['2001:db8::',32],['2001::',32],['2001:2::',48],['2001:10::',28],['2001:20::',28],['2002::',16],['3fff::',20]])blocks.addSubnet(ip,prefix,'ipv6');
@@ -85,6 +85,7 @@ export async function checkUrlBatch(state,{now=Date.now,deadline,limit=8,detecto
  const priority=new Set(priorityUrls),due=row=>{
   const task=row.urlCheck?.task,current=urlStatusOf(row);
   const requested=['queued','running'].includes(task?.phase)&&Date.parse(task.requestedAt)>Date.parse(current?.at);
+  if(!requested&&persistentAccessRestriction(row,at))return false;
   // First-entry checks expire after 24h. Refresh successful pending-entry checks
   // at 23h even if ordinary monitoring's 3-day interval has not elapsed.
   // A restricted/error result retains its original backoff and robots policy.

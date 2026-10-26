@@ -1,4 +1,5 @@
 import {currentBaseReview} from './base-review-eligibility.mjs';
+import {persistentAccessRestriction} from '../url-status.js';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn} from 'node:child_process';import {randomBytes} from 'node:crypto';
 import {canonical} from '../model.js';import {detectUrl,saveUrlCheck} from './url-check.mjs';import {entryPrerequisites,validWindow,sha256} from './base-evidence.mjs';import {seal,unseal} from './crypto.js';
 const previewFile=hash=>'private-evidence-preview/'+hash+'.json';
@@ -81,7 +82,7 @@ export async function captureCheckedWindow(row,{detector=detectUrl,capture=captu
  if(result.deferred||!result.status)throw Error('同次网址核查尚未完成，保留旧证据');
  saveUrlCheck(copy,result);
  const preliminary=entryPrerequisites(copy,null,now());
- if(preliminary.phase==='waiting-url')throw Error(preliminary.reason);
+ if(['waiting-url','skipped-access-restriction'].includes(preliminary.phase))throw Error(preliminary.reason);
  const evidence=await capture(copy.url,{urlCheck:copy.urlCheck.current});
  evidence.urlCheck=structuredClone(copy.urlCheck.current);
  const gate=entryPrerequisites(copy,evidence,now());
@@ -104,7 +105,8 @@ export function baseEvidenceQueue(vault,{at=Date.now(),limit=2,policies=null}={}
    /^private-evidence\/[a-f0-9]{64}\.json$/.test(stored?.path||'')&&
    Number.isFinite(imageAt)&&Number.isFinite(checkAt)&&imageAt<=at&&at-imageAt<=86400000&&
    Math.abs(imageAt-checkAt)<=3600000;
-  if(!row||['preview-accepted','uncertain','sending','failed','blocked'].includes(item.status)||task?.nextAt&&Date.parse(task.nextAt)>at||item.nextAt&&Date.parse(item.nextAt)>at||evidenceReady||
+  const evidenceBackoff=task?.nextAt&&Date.parse(task.nextAt)>at&&!(task.phase==='skipped-access-restriction'&&task.urlCheckId!==row?.urlCheck?.current?.id);
+  if(!row||persistentAccessRestriction(row,at)||['preview-accepted','uncertain','sending','failed','blocked'].includes(item.status)||evidenceBackoff||item.nextAt&&Date.parse(item.nextAt)>at||evidenceReady||
      item.status==='verified'&&item.verification?.urlCheckId===row.urlCheck?.current?.id){index++;continue}
   const timestamp=Date.parse(reviews.get(id)?.at),when=Number.isFinite(timestamp)?timestamp:0;
   const candidate=candidates.get(key);
@@ -147,6 +149,16 @@ export async function backfillSourceIndexes(vault,{store,checkpoint,limit=5}={})
 }
 export async function supplementBaseEvidence(vault,{store,checkpoint,capture=captureWindow,detector=detectUrl,limit=2,now=Date.now,policies=null}={}){
  let attempted=0;vault.baseEvidenceTasks||={};
+ let skippedChanged=false;
+ for(const [id,item] of Object.entries(vault.baseReview?.items||{})){
+  if(policies&&!policies.includes(item.displayPolicy))continue;
+  const current=currentBaseReview(vault,id);if(!current.eligible)continue;
+  const restriction=persistentAccessRestriction(current.row,now());if(!restriction)continue;
+  const key=canonical(current.row.url),task=vault.baseEvidenceTasks[key]||={attempts:0};
+  if(task.phase==='skipped-access-restriction'&&task.urlCheckId===restriction.record.id)continue;
+  Object.assign(task,{phase:'skipped-access-restriction',reason:restriction.reason,urlCheckId:restriction.record.id,nextAt:new Date(Date.parse(restriction.record.at)+86400000).toISOString()});skippedChanged=true;
+ }
+ if(skippedChanged)await checkpoint();
  for(const {row,key} of baseEvidenceQueue(vault,{at:now(),limit,policies})){
   const task=vault.baseEvidenceTasks[key]||={attempts:0};if(task.nextAt&&Date.parse(task.nextAt)>now())continue;
   attempted++;task.attempts++;task.at=new Date(now()).toISOString();task.phase='running';await checkpoint();
@@ -156,7 +168,7 @@ export async function supplementBaseEvidence(vault,{store,checkpoint,capture=cap
    else{
     saveUrlCheck(row,r);await checkpoint();
     const gate=entryPrerequisites(row,null,now());
-    if(gate.phase==='waiting-url'){task.phase='waiting-url';task.reason=r.reason||gate.reason;}
+    if(['waiting-url','skipped-access-restriction'].includes(gate.phase)){task.phase=gate.phase;task.reason=gate.phase==='skipped-access-restriction'?gate.reason:r.reason||gate.reason;task.urlCheckId=gate.record?.id;}
     else{
      let evidence=await store.load(row);if(!evidence||now()-Date.parse(evidence.manifest.at)>3600000||entryPrerequisites(row,evidence,now()).phase!=='ready')evidence=await capture(row.url,{urlCheck:row.urlCheck.current});
      await store.save(row,evidence);await store.ensurePreview(row,evidence);task.phase='ready';delete task.reason;
