@@ -1725,3 +1725,28 @@ recovered jobs share the existing global Actions concurrency group and event tok
 they must produce at most one external write. Definite GitHub rejection statuses
 are recorded as failed; network/5xx/unrecognized 2xx remain uncertain. Acceptance
 still requires actual native record readback, not an accepted command or HTTP 204.
+
+## Published lightweight daily input, isolated review patch (2026-10-27)
+
+Based on main 955a4f2, preserving the approved history-only/report-day work. Only
+text renderer, secondary publisher, final runner hook, byte-read support, tests and
+docs are included. Stopped Feishu API code and experimental full exporter stay on
+their own branches. No new workflow, credential, permission or Railway changes.
+
+Flow: existing final formal-receipt checkpoint -> same publicFeed -> checksum-
+verified published days after manual-history boundary -> guarded body commit and
+public byte/hash readback -> daily manifest commit/readback -> discovery index.
+Both body and manifest URLs in the index pin immutable Git commits. Failure before
+index leaves recoverable artifacts, not a successful discovery record. Existing
+files and version observations are checked before writes; conflicting content is
+never overwritten. Oversized reports advertise requires_segmentation with no body
+URL and complete=false. All eligible dates are examined, including gaps.
+
+Manual priority free text is deliberately excluded from the public renderer;
+private review notes, transport identities and Feishu IDs never enter artifacts.
+Trace uses a checksum-matched already-public Notion receipt, configured public
+archive entrance explicitly labeled as an index, or explicit unavailable state.
+The first verified trace remains immutable for an exported date. Failures are
+isolated from Notion, group receipts, history tasks, business writes and the existing
+website snapshot. See docs/daily-text-publication.md for exact files/URL modes and
+the still-pending publication approval.
