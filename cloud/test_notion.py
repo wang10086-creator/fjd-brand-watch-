@@ -102,7 +102,7 @@ class Tests(unittest.TestCase):
         now=dt.datetime(2026,10,13,1,30,tzinfo=dt.timezone.utc)
         deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
         deliver(state,'digest',lambda:None,env=env,bot_request=request,now=now)
-        self.assertIn('NOTION_TOKEN',state['archiveError']);self.assertEqual(len(sent),1);self.assertIn(state['publicUrl'],str(sent[0]));self.assertNotIn('private-review',str(sent))
+        self.assertIn('NOTION_TOKEN',state['archiveError']);self.assertEqual(len(sent),1);self.assertIn('https://fjdynamics.feishu.cn/docx/UZzZdC44dolRAqx2lFbcp4yKnVc',str(sent[0]));self.assertIn('待归档',str(sent[0]));self.assertNotIn(state['publicUrl'],str(sent[0]));self.assertNotIn('private-review',str(sent))
     def test_check_is_read_only_then_sync_confirms_notion_receipt(self):
         store=Store();state={'parentId':'parent','publicUrl':'https://public.notion.site/parent','events':[EVENT]}
         deliver(state,'check',lambda:None,env={'NOTION_TOKEN':'dummy'},request=store.request)

@@ -95,9 +95,9 @@ class CardTests(unittest.TestCase):
         c={'new':7,'pending':7,'coverage':{'total':210,'searched':40,'unattempted':161,'failedOnly':9}}
         body=brief_card(state,'2026-10-14',c,[])
         self.assertEqual(body['msg_type'],'interactive');self.assertIn('40 / 210',str(body));self.assertIn('不支持群内问答',str(body));self.assertIn('00:00',str(body))
-        buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),2)
-        self.assertEqual(buttons[0]['actions'][0]['text']['content'],'查阅当日日报')
-        self.assertEqual([(x['text']['content'],x['url']) for x in buttons[1]['actions']], [('监控工作台','https://wang10086-creator.github.io/fjd-brand-watch-/'),('日报总览',state['publicUrl'])])
+        buttons=[x for x in body['card']['elements'] if x['tag']=='action'];self.assertEqual(len(buttons),1)
+        self.assertIn('待归档', str(body))
+        self.assertEqual([(x['text']['content'],x['url']) for x in buttons[0]['actions']], [('历史监控线索表','https://fjdynamics.feishu.cn/base/X9rmbnf25aBv7isYJvYcA9UfnIe?table=tbl76uhMEgt3fmQK'),('日报总览','https://fjdynamics.feishu.cn/docx/UZzZdC44dolRAqx2lFbcp4yKnVc')])
 
 class DeliveryRecoveryTests(unittest.TestCase):
     def test_stale_sending_is_flagged_uncertain_without_duplicate(self):
