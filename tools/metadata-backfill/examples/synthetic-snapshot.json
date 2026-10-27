@@ -1,0 +1,36 @@
+{
+  "protocol": "fjd-metadata-backfill-v2",
+  "table_id": "tbl76uhMEgt3fmQK",
+  "field_bindings": {
+    "screenshot_url": {
+      "field_id": "fldRelatedSynthetic",
+      "field_name": "关联线索",
+      "type": 1
+    }
+  },
+  "complete": true,
+  "captured_at": "2026-10-27T00:00:00Z",
+  "records": [
+    {
+      "record_id": "recExample",
+      "url": "https://shop.example/item?sku=1",
+      "source_id": "",
+      "history_id": "old-001",
+      "fields": {
+        "preview_image_url": "人工简要展示，保留",
+        "screenshot_url": "",
+        "country_region": "待核实",
+        "entity_name": "待核实（尚未识别经营主体）",
+        "attachments": [
+          {
+            "token": "synthetic"
+          }
+        ],
+        "status": "人工处理",
+        "relation": [
+          "recOther"
+        ]
+      }
+    }
+  ]
+}

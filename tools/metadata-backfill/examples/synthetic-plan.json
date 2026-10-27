@@ -1,0 +1,91 @@
+{
+  "protocol": "fjd-metadata-backfill-v2",
+  "mode": "dry-run",
+  "field_bindings": {
+    "screenshot_url": {
+      "field_id": "fldRelatedSynthetic",
+      "field_name": "关联线索",
+      "type": 1
+    }
+  },
+  "enabled_fields": [
+    "country_region",
+    "entity_name",
+    "screenshot_url"
+  ],
+  "table_id": "tbl76uhMEgt3fmQK",
+  "snapshot_hash": "18f84ce8bf712966738611c46ff6235aefbe59edecb16b65f4eb67d324404d1f",
+  "candidate_hash": "3d288b8e204ca8b7c73acf7326cf93ceb9edc7651afb2ef68e145b65714547a4",
+  "snapshot_record_count": 1,
+  "cursor": 0,
+  "next_cursor": 1,
+  "paused": false,
+  "done": true,
+  "items": [
+    {
+      "record_id": "recExample",
+      "status": "proposed",
+      "changes": [
+        {
+          "field": "country_region",
+          "old_value": "待核实",
+          "new_value": "德国",
+          "evidence": {
+            "reviewed": true,
+            "access": "public",
+            "subject_url": "https://shop.example/item?sku=1",
+            "url": "https://shop.example/legal",
+            "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+            "observed_at": "2026-10-27T00:00:00Z",
+            "operator_name": "Example Store Ltd",
+            "supported_value": "德国",
+            "kind": "operator-registration"
+          }
+        },
+        {
+          "field": "entity_name",
+          "old_value": "待核实（尚未识别经营主体）",
+          "new_value": "Example Store Ltd",
+          "evidence": {
+            "reviewed": true,
+            "access": "public",
+            "subject_url": "https://shop.example/item?sku=1",
+            "url": "https://shop.example/legal",
+            "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+            "observed_at": "2026-10-27T00:00:00Z",
+            "operator_name": "Example Store Ltd",
+            "supported_value": "Example Store Ltd",
+            "kind": "seller-profile",
+            "role": "actual-seller",
+            "claims_authorization": false
+          }
+        },
+        {
+          "field": "screenshot_url",
+          "old_value": "",
+          "new_value": "https://shop.example/item.jpg",
+          "evidence": {
+            "reviewed": true,
+            "access": "public",
+            "subject_url": "https://shop.example/item?sku=1",
+            "url": "https://shop.example/legal",
+            "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+            "observed_at": "2026-10-27T00:00:00Z",
+            "operator_name": "Example Store Ltd",
+            "supported_value": "https://shop.example/item.jpg",
+            "kind": "address-bearing-webpage-screenshot",
+            "original_page_url": "https://shop.example/item?sku=1",
+            "address_visible": true,
+            "page_match_reviewed": true,
+            "capture_type": "webpage",
+            "media_url": "https://shop.example/item.jpg"
+          }
+        }
+      ],
+      "skipped": [],
+      "before_hash": "26b8d398668bec99f923fb7759b641f179611fceac0b5059dcd149caad9ce451",
+      "after_hash": "1a4a246a699de1c00b9f5ecf50a88d664addfa390fb6d13c4b260b0523e83219",
+      "operation_id": "55b186aba87b42e15fa2b5171707df5b1a120fc78f1cee1d965502334fa9518a"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+[
+  {
+    "record_id": "recExample",
+    "url": "https://shop.example/item?sku=1",
+    "source_id": "",
+    "history_id": "old-001",
+    "proposals": {
+      "country_region": {
+        "value": "德国",
+        "evidence": {
+          "reviewed": true,
+          "access": "public",
+          "subject_url": "https://shop.example/item?sku=1",
+          "url": "https://shop.example/legal",
+          "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+          "observed_at": "2026-10-27T00:00:00Z",
+          "operator_name": "Example Store Ltd",
+          "supported_value": "德国",
+          "kind": "operator-registration"
+        }
+      },
+      "entity_name": {
+        "value": "Example Store Ltd",
+        "evidence": {
+          "reviewed": true,
+          "access": "public",
+          "subject_url": "https://shop.example/item?sku=1",
+          "url": "https://shop.example/legal",
+          "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+          "observed_at": "2026-10-27T00:00:00Z",
+          "operator_name": "Example Store Ltd",
+          "supported_value": "Example Store Ltd",
+          "kind": "seller-profile",
+          "role": "actual-seller",
+          "claims_authorization": false
+        }
+      },
+      "screenshot_url": {
+        "value": "https://shop.example/item.jpg",
+        "evidence": {
+          "reviewed": true,
+          "access": "public",
+          "subject_url": "https://shop.example/item?sku=1",
+          "url": "https://shop.example/legal",
+          "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+          "observed_at": "2026-10-27T00:00:00Z",
+          "operator_name": "Example Store Ltd",
+          "supported_value": "https://shop.example/item.jpg",
+          "kind": "address-bearing-webpage-screenshot",
+          "original_page_url": "https://shop.example/item?sku=1",
+          "address_visible": true,
+          "page_match_reviewed": true,
+          "capture_type": "webpage",
+          "media_url": "https://shop.example/item.jpg"
+        }
+      }
+    }
+  }
+]

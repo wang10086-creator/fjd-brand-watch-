@@ -1750,3 +1750,86 @@ The first verified trace remains immutable for an exported date. Failures are
 isolated from Notion, group receipts, history tasks, business writes and the existing
 website snapshot. See docs/daily-text-publication.md for exact files/URL modes and
 the still-pending publication approval.
+## 2026-10-27 — isolated historical metadata dry-run
+
+Added tools/metadata-backfill only: local complete snapshot + reviewed evidence →
+5-record JSON plan. No imports or changes to runtime, WF2/enrich, numbering,
+Railway, notifications or publishing. Existing protected fields remain protected.
+Country/entity exact blanks/placeholders can be proposed; preview only accepts
+reviewed matching webpage screenshots with visible addresses, per the user's
+clarification. No text summary or related-link column changes are included. All other native values
+are fingerprinted for concurrent-change and readback checks. Conditional atomic
+writes remain a prerequisite for a future separately authorized adapter; no
+write adapter exists. See docs/history-metadata-backfill.md for input contract,
+evidence requirements, pause/resume and remaining production acceptance scope.
+Validation: 6 focused tests, full npm suite 636/636 and existing project Python
+venv cloud suite 98/98 passed. Synthetic CLI continuation produced no duplicate
+proposals. No real Base snapshot/connector available in this environment; actual
+249-row inventory, source verification and production readback remain unverified.
+Follow-up screenshot semantics: user explicitly requires an address-bearing
+screenshot of the original webpage in preview_image_url. Added reviewed visual
+match/visible-address evidence gates and negative cases for product/logo/no-address
+or mismatched-page images. Related-link column untouched. Focused 7/7 and full
+Node 637/637 pass after this revision; sample plan regenerated with three fields.
+
+## 2026-10-27 — independent history notes cutover planning
+
+User authorized renaming the history table's related-link text column to notes,
+retaining its field ID and all historic content. Added offline history-notes
+contract only; legacy strict 18/22-field payloads and receipts are unchanged.
+Notes append without deleting old links, initial summaries cite facts, and change
+notes require the original ID and a distinct preallocated new row/ID. No allocator,
+production route, workflow edit or column rename is implemented here. Production
+history writes must stay paused across a separately coordinated cutover; the old
+snapshot_url mapping cannot safely continue after rename. See history-notes-cutover.md
+for affected paths, field-ID uncertainty and the unrelated ledger fldEFLQwAo warning.
+Notes validation: 4 new focused cases; full Node 641/641 and Python cloud 98/98
+passed. Two independent synthetic append plans preserve historic mirror content.
+Actual history field ID/workflow binding, in-flight task reconciliation, runtime
+routing and change-row allocation remain prerequisites, not verified deliveries.
+Owner handoff clarification: branch HEAD is 955a4f2e0884c9f8da65c892e4a385a7248d062e,
+not PR6. Read-only origin/main fetch resolved to
+496b02f01529b7f65f35bbde251ee312e043945b; ancestry check confirms PR6 is not in
+HEAD. No merge/rebase performed. The 641/98 results apply only to the older base
+plus local changes. See history-notes-owner-handoff.md for the unimplemented
+runtime migration and owner-specific file/contract/test acceptance checklist.
+
+## Latest user override — manual preview, related screenshot, separate notes
+
+Supersedes the earlier rename/automatic-preview proposal above. Never rename
+related links to notes. Preview is human-only across ALL automatic paths; related
+links retain their column and receive only verified address-bearing webpage
+screenshots; notes are a separate newly added text column next to preview.
+Offline metadata contract bumped to v2, with screenshot_url explicitly bound to
+the related-link field and preview_image_url/snapshot_url rejected as candidates.
+Notes prototype now rejects the related-link column. Old production 18/22-field
+contracts remain unchanged; their automatic preview writes require owner cutoff
+and version migration before resuming. See updated owner handoff for full scope.
+Latest validation: metadata 8 + notes 4 focused cases, full Node 642/642 and
+Python 98/98 pass on 955a4f2 plus local changes (not PR6 integrated). Parent reports
+blank notes column already created to the right of preview: 20 columns, 249
+original records unchanged. Its actual field ID is still unknown; do not recreate
+or guess. Workflow mapping/manual-preview production protection remains pending.
+
+## Executable opt-in history v3 compatibility module (local only)
+
+Added standalone v3 service/dispatcher, shared evidence validators packaged under
+gateway, with stable tools re-export entrypoints. New event registration atomically
+reserves unique IDs in the existing store, retains first-row identity and separate
+change lineage, enforces manual-preview omission, handles unknown results by
+lookup/readback only, and limits batches to 5 at 1-second spacing. Legacy 18/22
+contracts and server remain unchanged. No adapter, HTTP mount, producer or native
+mapping is installed. Atomic snapshot writes + durable operation lookup are
+required to enable; ordinary Feishu find-then-update is not claimed sufficient.
+See history-v3-release-window.md for a single-writer rollout and remaining gates.
+V3 validation: 13 focused cases (25 across this task), full Node 655/655,
+Python cloud 98/98, isolated gateway-image import and diff checks passed.
+Five synthetic dry-run records: 2 proposed, 1 unchanged, 2 blocked. Real first
+batch unavailable without actual field IDs, native export and reviewed sources.
+Private real-sample follow-up: parent supplied verified field identities and five
+actual rows (has_more=true). These data stay only in mode-0600 files outside the
+repository. Public-address source review yields four country-only candidates and
+one protected skip; no entity/preview/screenshot/note mutation. Incomplete snapshot
+still fails the write-capable planner. Gateway locking/idempotency and pre-write
+reads are local safeguards, NOT proof of Feishu CAS or cross-system transactions.
+No new persistent credential or enterprise grant; stop extending abstractions.
