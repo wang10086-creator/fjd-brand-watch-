@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {Readable} from 'node:stream';
+import {createGateway,historyCommandRecovery,historyDispatchFailure,recoverySourceKey} from '../gateway/server.mjs';
+import {hash} from '../gateway/store.mjs';
+import {unseal} from '../cloud/crypto.js';
+import {canonical} from '../core.js';
 import {queueHistory,historySummary} from '../cloud/history-sync.mjs';
 import {singleHistoryTask} from '../cloud/history-only.mjs';
 import {historyTasks} from '../gateway/history-tasks.mjs';
@@ -59,4 +66,72 @@ test('single entry rejects absent sources, stale status, legacy tasks and status
 test('history-only runner returns before delivery pipelines and YAML excludes page archive steps',async()=>{
  const source=await readFile(new URL('../cloud/runner.mjs',import.meta.url),'utf8'),workflow=await readFile(new URL('../.github/workflows/fjd-cloud.yml',import.meta.url),'utf8'),branch=source.slice(source.indexOf("if(op==='history-sync'){"),source.indexOf("if(op==='base-evidence'){"));
  assert.match(branch,/singleHistoryTask/);assert.match(branch,/historyOnly:true/);assert.match(branch,/return;/);assert.doesNotMatch(branch,/await delivery\(|await scan\(|publishWebSnapshot\(/);assert.equal((workflow.match(/inputs.operation != 'history-sync'/g)||[]).length,2);
+});
+
+function recoveryFixture(){
+ const p=Object.values(queueHistory(fixture()).items)[0].payload,request_id='12345678-1234-1234-1234-123456789abc',admin={name:'fixtureadmin',role:'admin'},data={source_id:p.source_id,mode:'send'},expected_digest=hash(JSON.stringify({operation:'history-sync',data}));
+ const input={operation:'recover-command',workflow_id:historyWorkflow,table_id:historyTable,request_id,expected_digest,source_id:p.source_id,event_id:p.event_id};
+ const initial={requests:{['fixtureadmin:'+request_id]:{actor:'fixtureadmin',operation:'history-sync',status:'uncertain',at:now-180000,digest:expected_digest,dispatch_error:{kind:'uncertain',code:'github-dispatch-unconfirmed',http_status:null}}},historySettings:{enabled:false,baselineConfirmed:true},historyTasks:{},historyIdentities:{},historyValidation:{source_id:p.source_id,event_id:p.event_id,tokenHash:null,consumed:false,expiresAt:now+20*60000}};
+ const s=store(initial);return {s,initial,p,input,admin,recovery:historyCommandRecovery({store:s,now:()=>now})};
+}
+test('history recovery reserves one same-UUID attempt atomically and retains the original uncertain receipt',async()=>{
+ const {s,input,admin,recovery,initial}=recoveryFixture(),before=structuredClone(initial.requests['fixtureadmin:'+input.request_id]);
+ const results=await Promise.all([recovery.claim(admin,input),recovery.claim(admin,input)]);assert.equal(results.filter(x=>!x.duplicate).length,1);assert.equal(results.filter(x=>x.duplicate).length,1);
+ const r=s.read().requests['fixtureadmin:'+input.request_id];assert.equal(r.at,before.at);assert.equal(r.digest,before.digest);assert.equal(r.status,'preparing');assert.equal(r.historyRecovery.length,1);assert.deepEqual(r.historyRecovery[0].original,{at:before.at,status:'uncertain',digest:before.digest,dispatch_error:before.dispatch_error});
+ assert.equal((await recovery.claim(admin,input)).duplicate,true);assert.equal(s.read().requests['fixtureadmin:'+input.request_id].historyRecovery.length,1);
+});
+test('history recovery fails closed for actor, digest, lifecycle, window, task and bound-record mismatches',async()=>{
+ const cases=[
+  ['role',f=>f.admin.role='member'],['actor',f=>f.admin.name='differentadmin'],['digest',f=>f.input.expected_digest='0'.repeat(64)],['extra input',f=>f.input.payload={secret:'must-not-read'}],['wrong event',f=>f.input.event_id='history:'+digest('different')],['wrong operation',f=>f.input.operation='renumber'],['wrong workflow',f=>f.input.workflow_id='other'],
+  ...['queued','failed','preparing','sending'].map(status=>['status '+status,f=>f.initial.requests['fixtureadmin:'+f.input.request_id].status=status]),
+  ['recent uncertain',f=>f.initial.requests['fixtureadmin:'+f.input.request_id].at=now-1000],['future uncertain',f=>f.initial.requests['fixtureadmin:'+f.input.request_id].at=now+1],
+  ['enabled',f=>f.initial.historySettings.enabled=true],['baseline',f=>f.initial.historySettings.baselineConfirmed=false],['prepared',f=>f.initial.historyRenumber={state:'prepared'}],['no window',f=>delete f.initial.historyValidation],['unknown expiry',f=>delete f.initial.historyValidation.expiresAt],['unknown consumed',f=>delete f.initial.historyValidation.consumed],['unknown token binding',f=>delete f.initial.historyValidation.tokenHash],['consumed',f=>f.initial.historyValidation.consumed=true],['expired',f=>f.initial.historyValidation.expiresAt=now-1],['stale grant',f=>f.initial.historyValidation.expiresAt=now+14*60000],['future grant',f=>f.initial.historyValidation.expiresAt=now+21*60000],['other source',f=>f.initial.historyValidation.source_id='lead-'+digest('other')],['other event',f=>f.initial.historyValidation.event_id='history:'+digest('other')],['token bound',f=>f.initial.historyValidation.tokenHash=digest('already-registered')],
+  ...['registered','permitted','unknown','verified'].map(state=>['existing '+state,f=>f.initial.historyTasks[f.input.event_id]={state,payload:f.p}]),
+  ['sibling task',f=>f.initial.historyTasks.other={state:'verified',payload:{source_id:f.p.source_id}}],['bound source',f=>f.initial.historyIdentities[f.p.url]={record_id:'recBound',source_id:f.p.source_id}],['bound derived identity',f=>f.initial.historyIdentities[f.p.url]={record_id:'recBound',source_id:''}]
+ ];
+ for(const [name,mutate]of cases){const f=recoveryFixture();mutate(f);const s=store(f.initial),before=s.read(),r=historyCommandRecovery({store:s,now:()=>now});await assert.rejects(r.claim(f.admin,f.input),undefined,name);assert.deepEqual(s.read(),before,name);}
+ const f=recoveryFixture();f.initial.historyTasks.unrelated={state:'verified',payload:{source_id:'lead-'+digest('unrelated')}};f.initial.historyIdentities['https://unrelated.example/item']={record_id:'recOther',source_id:''};const s=store(f.initial);assert.equal((await historyCommandRecovery({store:s,now:()=>now}).claim(f.admin,f.input)).duplicate,false);
+});
+test('protected receipt listing is bounded, actor-specific and never returns request payloads or raw errors',()=>{
+ const f=recoveryFixture();for(let i=0;i<30;i++)f.initial.requests['fixtureadmin:12345678-1234-1234-1234-'+String(i).padStart(12,'0')]={operation:'history-sync',actor:'fixtureadmin',status:'uncertain',at:now+i,digest:'b'.repeat(64),payload:'PRIVATE_PAYLOAD',token:'PRIVATE_TOKEN',headers:{Authorization:'PRIVATE_AUTH'},error:'PRIVATE_ERROR',dispatch_error:{kind:'uncertain',code:'PRIVATE_ERROR',http_status:503}};
+ f.initial.requests['anotheradmin:'+f.input.request_id]={...Object.values(f.initial.requests)[0],actor:'anotheradmin'};f.initial.requests['fixtureadmin:12345678-1234-1234-1234-999999999999']={operation:'review',actor:'fixtureadmin',at:now+100};const s=store(f.initial),r=historyCommandRecovery({store:s,now:()=>now}),listed=r.list(f.admin);assert.equal(listed.length,20);assert.ok(listed.every(x=>x.operation==='history-sync'));assert.ok(!JSON.stringify(listed).includes('PRIVATE_'));assert.throws(()=>r.list({name:'fixtureadmin',role:'member'}),/管理员/);
+});
+test('recovery rechecks live eligibility after claim and before saving external dispatch intent',async()=>{
+ const changes=[s=>delete s.historyValidation,s=>s.historySettings.enabled=true,s=>s.historyValidation.consumed=true,s=>s.historyValidation.expiresAt=now-1,s=>s.historyRenumber={state:'prepared'},(s,f)=>s.historyTasks[f.input.event_id]={state:'registered',payload:f.p},(s,f)=>s.historyIdentities[f.p.url]={record_id:'recLate',source_id:''}];
+ for(const change of changes){const f=recoveryFixture(),claimed=await f.recovery.claim(f.admin,f.input);await f.s.mutate(s=>change(s,f));assert.throws(()=>f.recovery.assertDispatch(f.s.read(),claimed.key));assert.equal(f.s.read().requests[claimed.key].historyRecovery.length,1);}
+ const f=recoveryFixture(),claimed=await f.recovery.claim(f.admin,f.input);assert.doesNotThrow(()=>f.recovery.assertDispatch(f.s.read(),claimed.key));
+});
+test('definite dispatch rejections remain distinct from unknown network, 5xx and unexpected successful responses',()=>{
+ for(const http of [400,401,403,404,405,410,415,422,429])assert.deepEqual(historyDispatchFailure({githubStatus:http,message:'PRIVATE_TOKEN'},true),{status:'failed',dispatch_error:{kind:'rejected',code:'github-dispatch-rejected',http_status:http}});
+ for(const http of [null,200,201,408,500,503]){const r=historyDispatchFailure({githubStatus:http,message:'PRIVATE_TOKEN'},true);assert.equal(r.status,'uncertain');assert.equal(r.dispatch_error.kind,'uncertain');assert.ok(!JSON.stringify(r).includes('PRIVATE_TOKEN'));}
+ assert.equal(historyDispatchFailure({},false).dispatch_error.kind,'not-dispatched');
+});
+test('recovery identity derivation matches production canonical rules for blank stored source keys',()=>{
+ for(const url of ['https://shop.example/item/?utm_source=a&b=2&a=1#fragment','https://item.m.jd.com/product/12345.html?spm=ignored','https://a.nongjitong.com/item/','https://es.wallapop.com/muebles-deco-y-jardin/cortacesped/cordoba'])assert.equal(recoverySourceKey(url),'lead-'+digest(canonical(url)));
+});
+async function recoveryApiFixture(){
+ const directory=await mkdtemp(join(tmpdir(),'history-command-recovery-')),password='FIXTURE_CLOUD_PASSWORD',githubToken='FIXTURE_GITHUB_TOKEN',session='FIXTURE_ADMIN_SESSION',dispatches=[];let clock=now,mode='network';
+ const fetcher=async(url,options)=>{assert.ok(url.endsWith('/actions/workflows/fjd-cloud.yml/dispatches'));dispatches.push(JSON.parse(options.body));if(mode==='network')throw Error('PRIVATE_NETWORK_DETAIL');if(mode==='rejected')return Response.json({message:'PRIVATE_UPSTREAM_DETAIL'},{status:403});if(mode==='unexpected')return Response.json({ok:true},{status:200});return new Response(null,{status:204})};
+ let gateway=await createGateway({directory,fetcher,now:()=>clock});await gateway.store.mutate(s=>{s.config={password,token:githubToken};s.users.fixtureadmin={role:'admin',disabled:false};s.users.fixturemember={role:'member',disabled:false};s.sessions[hash(session)]={name:'fixtureadmin',expiresAt:clock+86400000};s.sessions[hash('FIXTURE_MEMBER_SESSION')]={name:'fixturemember',expiresAt:clock+86400000};s.historySettings={enabled:false,baselineConfirmed:true}});
+ const request=(path,data,bearer=session)=>new Promise((resolve,reject)=>{const req=Readable.from(data===undefined?[]:[Buffer.from(JSON.stringify(data))]);Object.assign(req,{url:path,method:data===undefined?'GET':'POST',headers:{origin:'https://wang10086-creator.github.io','content-type':'application/json',authorization:'Bearer '+bearer},socket:{remoteAddress:'fixture-ip'}});const res={writeHead(status,headers){this.status=status;this.headers=headers},end(bytes){try{resolve({status:this.status,body:JSON.parse(bytes)})}catch(error){reject(error)}}};gateway.server.emit('request',req,res)});
+ return {request,dispatches,password,store:()=>gateway.store,advance:ms=>clock+=ms,time:()=>clock,setMode:v=>mode=v,restart:async()=>{gateway=await createGateway({directory,fetcher,now:()=>clock})},close:()=>rm(directory,{recursive:true,force:true})};
+}
+test('existing maintenance API recovers only once, retains the same UUID across restart, and late jobs write once',async()=>{
+ const f=await recoveryApiFixture();try{
+  const v=fixture(),q=queueHistory(v),item=Object.values(q.items)[0],source_id=item.payload.source_id,event_id=item.payload.event_id,requestId='12345678-1234-1234-1234-123456789abc',data={source_id,mode:'send'},original={requestId,operation:'history-sync',data};
+  const unknown=await f.request('/command',original);assert.equal(unknown.body.status,'uncertain');assert.equal(f.dispatches.length,1);assert.equal((await f.request('/command',original)).body.duplicate,true);assert.equal(f.dispatches.length,1);
+  f.advance(180000);const grant={operation:'validation',action:'grant',workflow_id:historyWorkflow,table_id:historyTable,source_id,event_id,expected_payload_hash:null};assert.equal((await f.request('/maintenance/history-sync',grant)).status,200);
+  const diagnostics=(await f.request('/maintenance/history-sync')).body,receipt=diagnostics.historyCommands[0];assert.equal(receipt.status,'uncertain');assert.equal(receipt.request_id,requestId);assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE_'));
+  const recover={operation:'recover-command',workflow_id:historyWorkflow,table_id:historyTable,request_id:requestId,expected_digest:receipt.digest,source_id,event_id};assert.equal((await f.request('/maintenance/history-sync',recover,'FIXTURE_MEMBER_SESSION')).status,403);assert.equal(f.dispatches.length,1);
+  f.setMode('ok');const resumed=await f.request('/maintenance/history-sync',recover);assert.equal(resumed.body.queued,true);assert.equal(resumed.body.requestId,requestId);assert.equal(f.dispatches.length,2);const retained=f.store().read().requests['fixtureadmin:'+requestId];assert.equal(retained.historyRecovery[0].original.status,'uncertain');assert.equal(retained.at,now);assert.equal(retained.historyRecovery.length,1);
+  await f.restart();assert.equal((await f.request('/maintenance/history-sync',recover)).body.duplicate,true);assert.equal((await f.request('/command',original)).body.duplicate,true);assert.equal(f.dispatches.length,2);
+  const deliveries=await Promise.all(f.dispatches.map(d=>unseal(JSON.parse(d.inputs.payload),f.password,'payload')));assert.deepEqual(deliveries,[data,data]);
+  const g=historyTasks({store:f.store(),now:f.time});let writes=0;const bridge={inspect:i=>inspection(g,i),status:i=>g.status({event_id:i.payload.event_id},i.token),register:(i,{controlled})=>g.register({payload:i.payload,token:i.token,controlled}),send:async(_,i)=>{const pre=await g.preflight({...context(i.payload),url_records:[],source_records:[],history_records:[]},i.token);assert.equal(pre.allowed,true);writes++;await g.receipt({...context(i.payload),write_nonce:pre.write_nonce,operation_record_id:'recFixture',record:created(i.payload,'recFixture')},i.token);return true}},options={bridge,checkpoint:async()=>{},webhook:'https://fjdynamics.feishu.cn/base/workflow/webhook/event/FIXTURE',now:f.time};
+  await assert.rejects(singleHistoryTask(v,data,options),/fresh-status/);await singleHistoryTask(v,{source_id,mode:'status'},options);for(const delivery of deliveries)await singleHistoryTask(v,delivery,options);assert.equal(writes,1);assert.equal(q.items[event_id].attempts,1);assert.equal(q.items[event_id].state,'verified');assert.equal(f.store().read().historyValidation.consumed,true);
+  for(const file of ['fjd-cloud.yml','fjd-images.yml'])assert.match(await readFile(new URL('../.github/workflows/'+file,import.meta.url),'utf8'),/group: fjd-cloud-monitor/);
+ }finally{await f.close()}
+});
+test('failed recovery consumes its one attempt and explicit upstream rejection metadata does not expose secrets',async()=>{
+ const f=await recoveryApiFixture();try{const p=Object.values(queueHistory(fixture()).items)[0].payload,requestId='12345678-1234-1234-1234-123456789abc',data={source_id:p.source_id,mode:'send'},original={requestId,operation:'history-sync',data};await f.request('/command',original);f.advance(180000);await f.request('/maintenance/history-sync',{operation:'validation',action:'grant',workflow_id:historyWorkflow,table_id:historyTable,source_id:p.source_id,event_id:p.event_id,expected_payload_hash:null});const r=(await f.request('/maintenance/history-sync')).body.historyCommands[0],input={operation:'recover-command',workflow_id:historyWorkflow,table_id:historyTable,request_id:requestId,expected_digest:r.digest,source_id:p.source_id,event_id:p.event_id};f.setMode('rejected');const result=await f.request('/maintenance/history-sync',input);assert.equal(result.body.status,'failed');assert.equal(f.dispatches.length,2);const saved=(await f.request('/maintenance/history-sync')).body.historyCommands[0];assert.equal(saved.recovery_attempts,1);assert.deepEqual(saved.dispatch_error,{kind:'rejected',code:'github-dispatch-rejected',http_status:403});assert.ok(!JSON.stringify(saved).includes('PRIVATE_'));await f.restart();assert.equal((await f.request('/maintenance/history-sync',input)).body.duplicate,true);assert.equal(f.dispatches.length,2);
+ }finally{await f.close()}
 });
