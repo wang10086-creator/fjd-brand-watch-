@@ -1,16 +1,17 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {queueHistory,deliverHistory} from '../cloud/history-sync.mjs';
 import {historyTasks} from '../gateway/history-tasks.mjs';
-import {historyTable,historyWorkflow,digest,validatePayload,actualUrl} from '../gateway/history-protocol.mjs';
+import {historyTable,historyWorkflow,digest,validatePayload,actualUrl,keys,beijingDate} from '../gateway/history-protocol.mjs';
+import {withFormal} from './history-fixtures.mjs';
 import {deliverBaseReviews} from '../cloud/base-review.mjs';
 const at=Date.parse('2026-10-26T16:10:00Z'),token='a'.repeat(43),url='https://shop.example/product?id=2&utm_source=keep';
 const row={id:'stable',url,title:'FJD AT2 equipment',platform:'dealer',firstSeen:new Date(at).toISOString(),checkedAt:new Date(at).toISOString(),priorityV2:{}};
-const vault=()=>({state:{rows:[structuredClone(row)]}});
+const vault=()=>withFormal({state:{rows:[structuredClone(row)]}});
 function store(){let data={};let lock=Promise.resolve();return {read:()=>structuredClone(data),mutate(fn){const p=lock.then(async()=>{const next=structuredClone(data);await fn(next);data=next});lock=p.catch(()=>{});return p}}}
 async function gateway(){const s=store(),g=historyTasks({store:s,now:()=>at});await g.configure({enabled:true,expectedCount:1,baseline:[{record_id:'recOld',url:'https://old.example/',source_id:'',history_id:'20261027-001'}]});return {s,g}}
 const context=p=>({event_id:p.event_id,table_id:historyTable,workflow_id:historyWorkflow});
-const native=(p,extra={})=>({record_id:'recNew',url:p.url,source_id:p.source_id,history_id:p.history_id,processing_status:'待IP对接人初核',remarks:'',preview_image_url:p.preview_image_url,snapshot_url:p.snapshot_url,protected_fields:{first_discovered_date:'20261027',...Object.fromEntries(['category','platform','page_title','country_region','entity_name','product_model','url_status','priority'].map(k=>[k,p[k]]))},...extra});
-test('18 fields, true numeric UTC time, Beijing day and conservative URL; no-image does not block enqueue',()=>{const v=vault(),q=queueHistory(v,{now:at}),p=Object.values(q.items)[0].payload;assert.equal(Object.keys(p).length,18);assert.equal(p.preview_image_url,'');assert.equal(p.url,url);assert.equal(actualUrl(url),url);validatePayload(p,{allowUnassigned:true});queueHistory(v,{now:at+1});assert.equal(Object.keys(q.items).length,1);assert.equal(q.conflicts&&Object.keys(q.conflicts).length,0);});
+const native=(p,extra={})=>({record_id:'recNew',url:p.url,source_id:p.source_id,history_id:p.history_id,processing_status:'待IP对接人初核',remarks:'',preview_image_url:p.preview_image_url,snapshot_url:p.snapshot_url,protected_fields:{first_discovered_date:beijingDate(p.first_discovered_at_ms),...(p.schema_version===2?{first_discovered_at:p.first_discovered_at}:{}),...Object.fromEntries(['category','platform','page_title','country_region','entity_name','product_model','url_status','priority'].map(k=>[k,p[k]]))},...extra});
+test('22-field report-day contract retains numeric UTC time, independent Beijing date and conservative URL',()=>{const v=vault(),q=queueHistory(v,{now:at}),p=Object.values(q.items)[0].payload;assert.equal(Object.keys(p).length,22);assert.equal(p.preview_image_url,'');assert.equal(p.url,url);assert.equal(actualUrl(url),url);validatePayload(p,{allowUnassigned:true});queueHistory(v,{now:at+1});assert.equal(Object.keys(q.items).length,1);assert.equal(q.conflicts&&Object.keys(q.conflicts).length,0);});
 test('baseline allocation preserves IDs and cross-midnight date, empty source old record aligns by URL',async()=>{const {g}=await gateway(),v=vault();let p=Object.values(queueHistory(v,{now:at}).items)[0].payload;const r=await g.register({payload:p,token});assert.equal(r.payload.history_id,'20261027-002');assert.deepEqual(await g.register({payload:p,token}),r);assert.throws(()=>validatePayload({...r.payload,history_id:'20261026-002'}));
  const old={...p,url:'https://old.example/',source_id:'lead-'+digest('old'),event_id:'history:'+digest('old')};const oldr=await g.register({payload:old,token});assert.equal(oldr.payload.history_id,'20261027-001');const before=native(oldr.payload,{record_id:'recOld',source_id:'',processing_status:'待IP部门复核',remarks:'manual',preview_image_url:'https://image.example/keep.png'});const pre=await g.preflight({...context(oldr.payload),url_records:[before],source_records:[],history_records:[before]},token);assert.equal(pre.action,'fill-empty');assert.equal(pre.processing_status,'待IP部门复核');assert.equal(pre.preview_image_url,before.preview_image_url);
  await assert.rejects(g.receipt({...context(oldr.payload),write_nonce:pre.write_nonce,operation_record_id:'recOld',record:{...before,remarks:''}},token),/human-fields/);
@@ -26,11 +27,11 @@ test('new creation snapshots the initial status and preserves it across gateway 
  assert.equal((await restarted.status(context(p),token)).state,'permitted');
  assert.equal((await restarted.receipt(receipt,token)).verified,true);assert.equal((await restarted.receipt(receipt,token)).duplicate,true);
 });
-test('legacy creation permits and verified receipts retain the exact old status contract',async()=>{
- const {s,g}=await gateway(),p=(await g.register({payload:Object.values(queueHistory(vault()).items)[0].payload,token})).payload;
+test('legacy creation permits and verified receipts retain the exact old 18-field contract',async()=>{
+ const {s,g}=await gateway(),queued=Object.values(queueHistory(vault()).items)[0].payload,p={...Object.fromEntries(keys.map(k=>[k,queued[k]])),schema_version:1,history_id:'20261027-002'};
  // Fixture represents a persisted pre-release permit, not a new permit whose
  // status snapshot could be changed by a workflow request or a retry.
- const nonce='legacy-permit';await s.mutate(data=>Object.assign(data.historyTasks[p.event_id],{state:'permitted',nonce,before:null,record_id:null,permitUntil:at+60000}));
+ const nonce='legacy-permit';await s.mutate(data=>{data.historyTasks||={};data.historyTasks[p.event_id]={payload:p,tokenHash:digest(token),state:'permitted',nonce,before:null,record_id:null,permitUntil:at+60000,readUntil:at+86400000};data.historyIdentities[p.url]={url:p.url,source_id:p.source_id,history_id:p.history_id}});
  const receipt={...context(p),write_nonce:nonce,operation_record_id:'recNew',record:native(p,{processing_status:'待核查'})};
  assert.equal(Object.hasOwn(s.read().historyTasks[p.event_id],'initialProcessingStatus'),false);
  await assert.rejects(g.receipt({...receipt,record:native(p)},token),/created-fields-mismatch/);

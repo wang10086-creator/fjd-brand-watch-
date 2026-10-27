@@ -1,4 +1,5 @@
 import {queueHistory,deliverHistory,historySummary,historyBridge} from './history-sync.mjs';
+import {singleHistoryTask} from './history-only.mjs';
 import {archiveScreenshotBatch} from './notion-evidence.mjs';
 import {notionEvidenceApi} from './notion-evidence-api.mjs';
 import {evidenceStore,supplementBaseEvidence} from './base-evidence-worker.mjs';
@@ -50,11 +51,11 @@ async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(
 function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{history:historySummary(vault),sourceHealth:['primary','rss','web'].map(source=>{const h=vault.state.searchProviders?.health?.[source]||{};return {source,lastSuccessAt:h.global?.lastSuccessAt||null,consecutive:h.global?.consecutive||0,errorKind:h.global?.kind||null,cooldownUntil:vault.state.searchProviders?.[source+'Until']||0,scopeCooling:Object.values(h.domains||{}).filter(d=>d.until>Date.now()).length}}),coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,urlChecks:vault.state.urlCheckSummary||null,baseUpdates:baseStatusSummary(vault,env.FEISHU_BASE_STATUS_WEBHOOK),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:!!vault.delivery.notionConfigured,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},base:{...baseReviewStatus(vault,env.FEISHU_BASE_REVIEW_WEBHOOK||false),nativeWorkflow:{protocol:'fjd-workflow-v1',enabled:workflowBridge.state()},attachmentConfigured:!!(baseAppCredentials(env).appId&&baseAppCredentials(env).appSecret),previewMode:env.FEISHU_BASE_PREVIEW_MODE==='url'?'url':null,receipts:baseReviewReceipts(vault)},bot:{enabled:config.feishuNotifications!==false,kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function baseDeliveryOptions(){return {workflowBridge,baseApi:feishuBaseApi(baseAppCredentials(env)),evidenceLoader:evidenceStore(vault,{password,read:file,write:put}).load,previewMode:'url',displayPolicy:'single-image-link',deferUpload:false}}
 function dashboard(){return {version:2,baseReviewReceipts:baseReviewReceipts(vault),state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
-async function checkpoint({imagesOnly=false,progressOnly=false,verify=false}={}){
+async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,historyOnly=false}={}){
  if(saveBlocked)throw saveBlocked;
  try{
  if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
- if(vault.integrationPolicy?.historyNative)queueHistory(vault);
+ if(vault.integrationPolicy?.historyNative&&!historyOnly)queueHistory(vault);
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
@@ -123,7 +124,7 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
- const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images','save-only','recover-digest','url-check','base-evidence'].includes(op))throw Error('不支持的云端操作');
+ const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images','save-only','recover-digest','url-check','base-evidence','history-sync'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -135,10 +136,9 @@ async function main(){
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
  vault.integrationPolicy={...vault.integrationPolicy,historyNative:config.feishuHistoryNative===true};
- vault.version=2;if(!['images','url-check'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
+ vault.version=2;if(!['images','url-check','history-sync'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
  // One-time policy activation starts the next complete evening cycle; no historical rebucketing.
- activateReportCycles(vault);
- draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);
+ if(op!=='history-sync'){activateReportCycles(vault);draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);}
  if(['save-only','recover-digest'].includes(op)){
   const request=JSON.parse(await readFile(new URL('./recovery-request.json',import.meta.url),'utf8'));
   const source=await store.readJSONAt('vault.json',request.checkpointSha);
@@ -168,6 +168,19 @@ async function main(){
  }
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
  validatePublicWorkflowPayload(op,payload);
+ if(op==='history-sync'){
+  if(Object.keys(payload).some(k=>!['source_id','mode'].includes(k)))throw Error('invalid-single-history-payload');
+  vault.runtime={phase:'running',operation:op,stage:'history-only',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
+  const save=()=>checkpoint({imagesOnly:true,progressOnly:true,historyOnly:true,verify:true});
+  try{await singleHistoryTask(vault,payload,{bridge:historyTransport,checkpoint:save,webhook:env.FEISHU_HISTORY_WEBHOOK});}
+  catch(error){
+   if(saveBlocked)throw error;
+   const reason=/^(single-history-|invalid-single-history-)/.test(error.message||'')?error.message:'history-task-unconfirmed';
+   if(vault.historySync)vault.historySync.singleCheck={mode:payload.mode,state:'blocked',reason,at:Date.now()};
+   vault.runtime={...vault.runtime,phase:'partial',lastError:reason,endedAt:new Date().toISOString()};await save();console.error('受控历史核验暂停：'+reason);process.exitCode=1;return;
+  }
+  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await save();return;
+ }
  if(op==='base-evidence'){
   const minute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
   if(minute>=550&&minute<585){console.log('日报截止及发布保护时段，飞书补传稍后继续');return}
