@@ -27,19 +27,34 @@ HTTP 原生节点 Header `Authorization: Bearer {{Webhook.sync_task_token}}`，
 不得把完整凭证写到任何业务列、公开日志或对话。写入节点必须紧随许可、在许可有效期内执行。
 这依赖原生工作流真实映射，不能防御工作流管理员主动伪造回读；它不是 OpenAPI 独立读取。
 
-## 18字段保持原名和类型
+## v1旧18字段与v2正式日报归属契约
 
 `schema_version=1` 数字；`first_discovered_at_ms`、`observed_at_ms` 为UTC毫秒整数。
 其余字符串：event_id、event_type、source_id、history_id、category、platform、page_title、
 url、country_region、entity_name、product_model、url_status、priority、preview_image_url、snapshot_url。
 - event_type：upsert/enrich。event_id 初始由稳定source固定生成，补充按素材变化生成，同事件不换ID。
 - source_id 复用原 lead-SHA256 稳定键；实际URL匹配另用保守URL，仅移除fragment，不删查询参数。
-- history_id：原编号先按URL导入对应；新编号为北京时间首次发现日 YYYYMMDD-NNN，网关原子保留序号。
-- 首次日期展示取history_id日期；发送前核对原 first_discovered_at_ms 的北京时间日期。
+- history_id：原编号/身份继续保留；v2新号为首次正式纳入日报归属日 YYYYMMDD-NNN，网关原子保留序号。
+- v1旧请求保持18字段及原自然日校验；不再允许v1未知身份新建或按自然日分配新号。
 - url_status：真实自动检测枚举，未知空；不因图片未完成阻塞。
 - preview_image_url：原线索保存的公开图片地址；snapshot_url：已有公开网页截图地址。
   私有截图访问凭证、不获准的新图片分享、gzip、生成链接均不自动发送。无可用地址留空。
   文本网址不是飞书附件。
+
+v2的 `schema_version=2`，保留以上18字段并新增4个字符串，共22字段：
+- `first_report_day`：`YYYY-MM-DD`，来自 `verifyFormal` 校验通过的封版日报new cohort。
+- `first_report_checksum`：该正式封版的64位SHA-256。未封版观察日、检索日加一天均不是依据。
+- `first_discovered_date`：实际 `first_discovered_at_ms` 的北京时间日期 `YYYYMMDD`。
+- `first_discovered_at`：严格等于 `new Date(first_discovered_at_ms).toISOString()` 的UTC时间文本。
+缺少明确实际首次检索时间、正式归属或校验失败时等待，不用checkedAt补造首次时间。
+后续重复发现、更新或补图不重分配编号；历史无完整归属证据的已有ID保持不变。
+同批全新且未分配的初始候选按真实firstSeen、稳定source排序入队；旧queue/已分配ID不重排。
+晚到补录只追加未使用序号，不为重排先后而更改已有编号；原auto日期组策略和每轮预算保持。
+
+新建节点的“首次发现日期”DATE公式取 `first_discovered_date` 年/月/日，不能再取ID前缀。
+v1兼容时只在该新字段为空回退旧history_id前8位；不要改已有行日期来迎合新编号。
+“首次检索时间”文本列直接写 `first_discovered_at`，保留时分秒及毫秒，不把日期列当完整时间。
+现有行只补媒体，旧日期和新时间列原空值均不回填或覆盖。
 额外接线元数据：sync_protocol=`fjd-history-v1`、sync_task_token、preflight_url、receipt_url、
 workflow_id=`wkfQwGPTGxlwgiUq`、table_id=`tbl76uhMEgt3fmQK`；原18字段无需改名。
 
@@ -91,10 +106,14 @@ workflow_id=`wkfQwGPTGxlwgiUq`、table_id=`tbl76uhMEgt3fmQK`；原18字段无需
         "page_title":"{{回读.页面标题}}","country_region":"{{回读.国家地区}}",
         "entity_name":"{{回读.经营主体}}","product_model":"{{回读.产品型号}}",
         "url_status":"{{回读.网址状态}}","priority":"{{回读.监测级别}}",
-        "first_discovered_date":"{{回读.首次发现日期格式化YYYYMMDD}}"}}}
+        "first_discovered_date":"{{回读.首次发现日期格式化YYYYMMDD}}",
+        "first_discovered_at":"{{回读.首次检索时间或空字符串}}"}}}
    ```
    protected_fields前后须映射同样的实际字段。不要用Webhook入参假装回读结果。
    verified=true才是本任务落表核验。HTTP200/code0仅记受理。
+   v2新建额外核对实际回读ISO时间。已有行的ISO列按写前/写后原值比较，空值必须映射空字符串。
+   v1旧许可原来未映射ISO时，仅允许新映射出的精确空字符串按原形状比较和计算旧回执hash；
+   非空新值拒绝。v1写前已包含该列时仍按原值保护，不忽略真实人工变化。
 
 ## 工作流一：复用现有13节点，现场待核实
 
@@ -124,6 +143,53 @@ workflow_id=`wkfQwGPTGxlwgiUq`、table_id=`tbl76uhMEgt3fmQK`；原18字段无需
 不补造旧值、换事件重发或清空幂等记录。部署与飞书发布均实际确认后方可恢复发送；
 本地测试不等于生产新状态已落表。停用旧初核直写台账的 history-native 隔离保持开启，
 本次不修改旧 API 创建默认值，也不恢复旧流程。
+
+## 有证据更号：管理员两阶段，不重导基线
+
+入口仍为原portal管理员历史表接线区。既有维护会话 `POST /maintenance/history-sync`，
+固定workflow_id/table_id；`operation=renumber`，`action=prepare/confirm`。
+prepare上传已核对计划JSON及改号前完整原生导出JSON。仅change_required=true且confirmed、
+有正式new归属证明的记录进入计划；绑定真实record_id、保守URL、原source单元格和旧ID。
+普通发送须关闭，旧registered/permitted/unknown等未完结任务须先核对，不能猜其是否发送。
+准备只锁定计划并保留所有旧号/预留新号，不切换既有身份，不写飞书。
+
+只在原记录修改ID，导出同形全字段回读。confirm携带plan_id及对应完整records；逐条验证
+真实record_id/URL/newID，除ID外全部fields严格一致，任何状态、图片、关联或人工内容变化即停止。
+成功后才原子切换身份映射并保留旧ID alias；旧task payload、tokenHash、receiptHash均不改变。
+prepare未确认时不能恢复发送。确认回执不明先读取状态，勿重复改行。
+这里比较同一原生导出形状，不把Excel显示关联值冒充OpenAPI关联数组或附件token。
+
+## 仅单条真实队列的受控核验
+
+现有Actions新增 `operation=history-sync`，加密payload仅 `{source_id,mode}`，mode为status/send。
+使用portal管理员“只读检查该已有任务”，不新建业务或初核事件。独立runner提前return，
+不检索、不发送日报、不归档Notion、不发布公开快照/镜像；auto原5条/45秒次序预算不变。
+status读取既有同event任务/回执，未注册只报告not-registered；send要求5分钟内同event的
+已保存检查及再次检查一致。已有dispatchedAt只查回执，绝不重发。
+
+普通发送保持关闭。管理员维护JSON可用 `operation=validation,action=grant`，绑定source_id、
+原event_id、最新检查的expected_payload_hash（未注册为null），授权20分钟精确单条窗口；
+`action=revoke`撤销。只有显式controlled加密注册且同source/event/tokenHash才可使用，
+普通auto即使遇到该source也不能消费窗口。回执verified后窗口消费，过期/撤销不得再写。
+没有新增账户、持续凭据或服务。
+
+若发现v1旧registered未发送，普通register安全等待 `history-legacy-registered-requires-review`。
+须由管理员核对无nonce、无record_id/既有行绑定及旧payload哈希后显式
+`operation=upgrade-registered`，携带event_id/source_id/url/expected_payload_hash及正式
+first_report_day/checksum。同event/tokenHash原子升级v2，记录完整旧payload审计、预留旧号；
+仅在报告日前缀不同时分配新号，permitted/unknown/verified一律拒绝升级。
+升级后重新status再授权单条窗口；不得换event或重放旧业务。未确认真实两场景前保持普通发送关闭。
+
+## 原生工作流公式上限
+
+现场配置8/9/13步时，单独增加一个ISO转义公式触发了节点引用公式数量上限。
+保持原公式数量：将原 `first_discovered_date` 的转义结果、固定JSON分隔文本
+`\",\"first_discovered_at\":\"` 和实际查找结果中的ISO转义结果合并为一个短
+`CONCATENATE` 公式，外层JSON继续保留原来的双引号及闭合括号。
+8/9/13分别引用7/2/12步的真实字段；不能使用Webhook值代替回读。
+两值分别先按原规则转义，分隔文本仅为固定字面量，不拼接未转义数据。
+不要把整个请求体合并为一个超长公式，原生编辑器另有公式长度上限。
+保存刷新后应回读完整表达式与JSON闭合，再做真实回执验收；语法保存成功不等于运行通过。
 
 ## 调度、验收和回退
 

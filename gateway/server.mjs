@@ -153,7 +153,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  async function body(req,max=65536){const parts=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>max)throw issue(413,'提交内容过大，原记录保留');parts.push(chunk)}let bytes=Buffer.concat(parts);if(req.headers['content-encoding']==='gzip'){try{bytes=gunzipSync(bytes,{maxOutputLength:64*1024*1024})}catch{throw issue(400,'提交内容解压失败')}}else if(req.headers['content-encoding'])throw issue(400,'不支持的内容编码');try{return JSON.parse(bytes.toString())}catch{throw issue(400,'提交内容格式不正确')}}
  async function execute(user,input){
   const {operation,data={},requestId}=input;
-  if(!['review','migrate','sync','scan','site-retry','check'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
+  if(!['review','migrate','sync','scan','site-retry','check','history-sync'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
+  if(operation==='history-sync'&&(user.role!=='admin'||Object.keys(data).some(k=>!['source_id','mode'].includes(k))||!/^lead-[a-f0-9]{64}$/.test(data.source_id||'')||!['status','send'].includes(data.mode)))throw issue(403,'仅管理员可核对或受控发送单条历史任务');
   if(operation==='review'&&(!Array.isArray(data.events)||Object.keys(data).some(k=>!['events','retryEventIds'].includes(k))))throw issue(400,'处理事件格式不正确');
   if(operation==='migrate'&&((user.role!=='public'&&!data.state?.config)||!Array.isArray(data.state?.rows)||!data.state?.monitor))throw issue(400,'台账结构不完整');
   if(operation==='sync'&&Object.keys(data).some(k=>!['config','selectedBrandIds','customAliases','imageUpdates','priorityUpdates'].includes(k)))throw issue(400,'同步内容不支持');
@@ -189,10 +190,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
    if(path==='/history/capabilities'&&req.method==='GET'){respond(200,history.capabilities());return}
-   if(['/history/register','/history/preflight','/history/receipt','/history/status'].includes(path)){
+   if(['/history/register','/history/preflight','/history/receipt','/history/status','/history/inspect'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,262144);
     if(path==='/history/register'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-task')}catch{throw issue(401,'invalid-history-envelope')}respond(200,await history.register(ticket));return}
+    if(path==='/history/inspect'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-inspect')}catch{throw issue(401,'invalid-history-envelope')}respond(200,history.inspect(ticket));return}
     respond(200,await history[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
    }
    if(path==='/workflow/capabilities'&&req.method==='GET'){respond(200,workflow.capabilities());return}
@@ -251,10 +253,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    const user=auth(req);limit('api:'+user.name,180,60000);
    if(path==='/maintenance/history-sync'){
     if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
-    if(req.method==='GET'){respond(200,history.capabilities());return}
+    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics()});return}
     if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req,1024*1024);
     if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
-    respond(200,await history.configure(input));return;
+    if(input.operation&&!['renumber','validation','upgrade-registered'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
+    respond(200,input.operation==='renumber'?await history.renumber(input):input.operation==='validation'?await history.validation(input):input.operation==='upgrade-registered'?await history.upgradeRegistered(input):await history.configure(input));return;
    }
    if(path==='/maintenance/workflow-bridge'){
     if(user.role!=='admin')throw issue(403,'仅管理员可确认工作流接线');

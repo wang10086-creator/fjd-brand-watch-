@@ -1667,3 +1667,31 @@ regressions remain covered. This integration does not merge PR #2.
 本地相关13项通过。完整Node回归604项中583项通过，21项因本地Unix socket listen EPERM
 未通过；未修改基线对同3个测试文件复跑仍是相同21项失败。完整Python98项中96项通过，
 2项真实浏览器渲染因本环境缺少Chromium未通过，未跳过或替换真实渲染测试。完整CI仍待运行。
+
+## 2026-10-27 历史编号按首次正式日报归属（本地补丁，未部署）
+
+依赖：scan.run.reportDay→observation.day→不可变formalReports[day].report.cohort；
+只有verifyFormal成功的首次new归属可生成v2，未封版、早期未证实归属或缺真实firstSeen均等待。
+不把检索自然日加一天当归属，不以checkedAt补造首次检索。v2在旧18字段外加正式日报日/
+checksum、独立北京日期和原UTC ISO时间，共22字段；v1旧许可/回执仍保持原契约和哈希。
+编号原子分配改用正式归属日，实际检索UTC毫秒/ISO和日期另存，重复/补图复用同一身份。
+同批全新初始候选按真实firstSeen和稳定source排序，仅影响新建队列项；旧队列/旧ID不重排。
+未知归属的既有ID不动，v1未知身份不得再按自然日分配新号。
+
+有证据的更号采用现有admin会话下prepare/confirm，不重导247基线。prepare绑定真实
+record_id/URL/source/旧号及完整原生导出fields，停发无在途，预留全部旧号和新号；根端仅改ID。
+同形全字段实际回读除ID外必须逐字一致，confirm才切换身份并保留旧ID alias。旧task payload/
+tokenHash/receiptHash不动；旧verified状态查询返回有效当前ID，缓存旧号的enrich亦可对齐。
+Excel显示关联不冒充OpenAPI数组。旧registered不自动改payload，显式审核旧哈希和正式归属后
+方可同event/tokenHash升级，保存完整旧payload审计并保留旧号。permitted/unknown/verified拒绝升级。
+
+history-sync为现有Actions的管理员单条入口，先保存只读status、再重复核对同event并发送一次；
+已有派发意图只查回执。沿既有admin维护授权20分钟精确source/event/token窗口，普通auto仍暂停，
+只能controlled加密注册消费窗口；过期/撤销/更号锁定均阻止许可，verified消费窗口。
+独立runner提前return，仅保存加密台账/安全状态，不运行检索、日报、Notion或公开快照/镜像。
+普通auto原批量顺序和预算不变。v1旧许可未映射ISO时，新空ISO仅还原原回执形状/哈希，真实
+非空值仍拒绝；原许可已映射ISO则严格保护原值。不会用空值兼容掩盖人工时间变化。
+这些隔离测试不代表生产两场景已通过；提交、部署、六行现场回读及恢复普通发送仍待根端验收。
+本地相关32项通过；完整Node 622项中601通过、21项既有Unix socket listen EPERM未通过。
+完整Python98项中96通过、2项真实浏览器渲染因环境缺Chromium未通过，未跳过或伪造渲染。
+实际六条计划和完整旧导出仅在本地纯函数校验，248旧号全部保留并预留6新号；没有生产写入。
