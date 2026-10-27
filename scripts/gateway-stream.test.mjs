@@ -21,3 +21,9 @@ test('public gateway streams only the existing public feed and validates its own
  for(const bad of ['{"version":1,"rows":[],"monitor":{}}','{"version":1,"revision":"123","rows":[],"monitor":{}}','{"version":1,"revision":123,"revision":null,"rows":[],"monitor":{}}','{"version":2,"revision":123,"rows":[],"monitor":{}}','{"version":1,"revision":-1,"rows":[],"monitor":{}}'])await assert.rejects(()=>publicDashboardBytes(gzipSync(bad)));
  await assert.rejects(()=>publicDashboardBytes(gzipSync(good)));
 });
+
+test('token-dense histories are fully validated including a malformed final record',async()=>{
+ const rows=Array.from({length:5000},(_,i)=>({id:i,history:[{at:1,value:null},{at:2,value:'quoted " and 中文',ok:true}]}));
+ const raw=JSON.stringify({ready:true,state:{rows,monitor:{}}});assert.equal((await validateDashboardCompressed(gzipSync(raw))).plainBytes,Buffer.byteLength(raw));
+ await assert.rejects(()=>validateDashboardCompressed(gzipSync(raw.slice(0,-3))));
+});

@@ -132,8 +132,14 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(!fresh&&dashboardRead)return dashboardRead;
   const load=async()=>{const r=await github('/repos/'+REPO+'/contents/dashboard.json?ref='+BRANCH,{token:config.token,raw:true});let compressed;
    try{compressed=await unsealCompressed(await r.json(),config.password,'dashboard')}catch{throw Object.assign(issue(502,'云端台账解密未通过，请核对已有云端数据密码；原台账保留。'),{code:'cloud-decryption-failed',field:'password'})}
-   let stats;try{stats=await validateDashboardCompressed(compressed)}catch{throw issue(502,'云端台账流式验证未完成或结构无效；原数据保留，请管理员核查。')}
-   const body=Buffer.from(compressed.buffer,compressed.byteOffset,compressed.byteLength);dashboardCache={until:now()+10000,body};
+   const body=Buffer.from(compressed.buffer,compressed.byteOffset,compressed.byteLength);
+   // Authentication/decryption and remote read still happen on every refresh.
+   // Only identical bytes previously fully validated may reuse validation.
+   if(dashboardCache?.body.equals(body)){dashboardCache.until=now()+10000;return dashboardCache.body}
+   const started=Date.now();let stats;try{stats=await validateDashboardCompressed(compressed)}catch(error){
+    try{diagnostic({event:'gateway-dashboard-validation-failed',elapsedMs:Date.now()-started,compressedBytes:body.length,aborted:error.name==='AbortError'})}catch{}
+    throw issue(502,'云端台账流式验证未完成或结构无效；原数据保留，请管理员核查。')}
+   dashboardCache={until:now()+10000,body};
    try{diagnostic({event:'gateway-dashboard-validated',compressedBytes:body.length,plainBytes:stats.plainBytes})}catch{}return body;
   };
   if(fresh)return load();dashboardRead=load();try{return await dashboardRead}finally{dashboardRead=null}
@@ -305,7 +311,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     const ref=await(await github('/repos/'+REPO+'/git/ref/heads/'+BRANCH,{token:config.token})).json();
     const revision=ref.object?.sha;if(!/^[a-f0-9]{40}$/.test(revision||''))throw issue(502,'cloud-revision-unverified');
     const encrypted=await boundedJson(await github('/repos/'+REPO+'/contents/vault.json?ref='+revision,{token:config.token,raw:true}),64*1024*1024);
-    const vault=await historyVaultStream(await unsealCompressed(encrypted,config.password,'vault'));
+    const compressed=await unsealCompressed(encrypted,config.password,'vault'),started=Date.now();let vault;
+    try{vault=await historyVaultStream(compressed)}catch(error){
+     try{diagnostic({event:'gateway-history-backup-parse-failed',elapsedMs:Date.now()-started,compressedBytes:compressed.byteLength,aborted:error.name==='AbortError'})}catch{}
+     throw issue(503,'历史备份完整解析未完成；未生成备份，原记录保留。')}
+    try{diagnostic({event:'gateway-history-backup-parsed',elapsedMs:Date.now()-started,compressedBytes:compressed.byteLength})}catch{}
     respond(200,historyBackup(store.read(),vault,{now,cloudRevision:revision}));return;
    }
    if(path==='/maintenance/history-sync'){
