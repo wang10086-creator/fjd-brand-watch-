@@ -1,3 +1,4 @@
+import {historyVaultStream} from './history-vault-stream.mjs';
 import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
 import {digest as historyDigest,actualUrl} from './history-protocol.mjs';
@@ -304,7 +305,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     const ref=await(await github('/repos/'+REPO+'/git/ref/heads/'+BRANCH,{token:config.token})).json();
     const revision=ref.object?.sha;if(!/^[a-f0-9]{40}$/.test(revision||''))throw issue(502,'cloud-revision-unverified');
     const encrypted=await boundedJson(await github('/repos/'+REPO+'/contents/vault.json?ref='+revision,{token:config.token,raw:true}),64*1024*1024);
-    const vault=await unseal(encrypted,config.password,'vault');
+    const vault=await historyVaultStream(await unsealCompressed(encrypted,config.password,'vault'));
     respond(200,historyBackup(store.read(),vault,{now,cloudRevision:revision}));return;
    }
    if(path==='/maintenance/history-sync'){
