@@ -55,8 +55,8 @@ export function planBatch(snapshot,candidates,{cursor=0,batchSize=5,paused=false
  }
  return {protocol,mode:'dry-run',field_bindings:structuredClone(snapshot.field_bindings||{}),enabled_fields:enabledFields,table_id:snapshot.table_id,snapshot_hash:hash(snapshot),candidate_hash:hash(candidates),snapshot_record_count:snapshot.records.length,cursor,next_cursor:cursor+items.length,paused,done:cursor+items.length===candidates.length,items};
 }
-// Future adapters MUST provide a complete fresh snapshot and atomic conditional write.
-// Read-then-write alone does not close the race. This module never executes writes.
+// Offline preflight is not a write permission. Read-then-write cannot close the
+// race; the native v3 path uses its own explicit single-writer/readback protocol.
 export function preflight(plan,item,fresh){
  validateSnapshot(fresh);if(hash(fresh.field_bindings||{})!==hash(plan.field_bindings||{}))fail('field-binding-changed');if(plan.protocol!==protocol||plan.table_id!==fresh.table_id||plan.mode!=='dry-run'||!plan.items.includes(item)||item.status!=='proposed')fail('invalid-plan');
  const current=fresh.records.filter(r=>r.record_id===item.record_id);if(current.length!==1)fail('record-match-conflict');

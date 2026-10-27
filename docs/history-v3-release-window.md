@@ -1,66 +1,50 @@
-# v3本地兼容补丁与单writer执行窗口（尚未发布）
+# History v3：本地已接入，尚未发布
 
-## 当前代码已实现
+基于 PR6 `496b02f01529b7f65f35bbde251ee312e043945b`，保留日报实现。未 push、远端合并、部署、修改原生工作流或写生产表。备注说明列已经现场创建，不再创建或改名。最新原生映射清单见 [history-notes-owner-handoff.md](history-notes-owner-handoff.md)。
 
-- `gateway/history-v3.mjs`：独立`fjd-history-v3`严格契约；注册/暂停/启用/状态/dryRun/run/runBatch/reconcile状态机。没有修改旧18/22字段、旧historyTasks或旧receipt语义。
-- `gateway/history-v3-dispatch.mjs`：可挂载的POST `/history-v3/register`、`/history-v3/status`、`/history-v3/run`分发器。register使用既有密码的`history-v3-task`加密信封（与旧history-task隔离）；其他操作按事件随机token核对。没有创建监听器，尚未挂到server。
-- `gateway/history-metadata-contract.mjs`、`gateway/history-notes-contract.mjs`：先前离线规则的同一实现迁入已打包gateway目录；tools下旧入口仅re-export，未复制两套逻辑。现有Dockerfile无需改变，隔离目录模拟网关镜像的import检查通过。
-- metadata对精确目标record_id/history_id补国家/主体/关联截图，仅空或精确待核实值；人工简要展示完全不在patch白名单。更新后整条原生字段hash核验，备注、状态、附件、关联等均保护。
-- initial/change创建patch完全不含简要展示键（不是写空字符串）；关联线索只从审核合格截图证据产生，备注只从独立note事实生成。所有额外新建字段必须在现场配置create_field_ids白名单，不得包含人工列或核心映射字段。
-- initial固定source事件；change固定source+不可变observation_id事件；同event不同payload/token报冲突。同event重注册返回同号，号码在store.mutate串行事务里与旧保留号共同去重。该实现不是改原编号。
-- change要求与原historyIdentities精确绑定的首次record_id/history_id；新row另号，lineage单独索引，原URL的首次映射不替换。允许已验证lineage下同URL多行，无关同URL行拒绝。
-- 新事件校验正式报告既有snapshotPayload checksum和new/changed cohort；change绑定观察ID及实际原URL。读取校验逻辑不改日报；带sourceSavedAt/不带的checksum均有回归。
-- 发送前持久writing状态；不明结果转unknown，只lookup+read，绝不重发创建。只有适配器明确证明未执行才回registered，同号同event重试。写后错目标/人工值变化/原row变化记录unknown，不冒充成功。
-- 批量上限5、单条间隔至少1秒；暂停在下一条执行前检查。注册写窗口20分钟，读取窗口7天；过期不重分号、不自动延长窗口。
+## 已实现的运行入口
 
-## 真实写入的必要适配器，当前尚不存在
+- `gateway/server.mjs` 挂载 `/history-v3/{register,identity,inspect,preflight,receipt,status}` 和只读 capabilities；既有管理员维护入口新增 `operation=v3` 的 configure/enable/pause/register/status/retire-legacy-unsent。沿用既有密码、管理员会话、持久加密 store、来源限制和限流；每任务短期 token 不是新增长期凭据。
+- `gateway/history-v3.mjs` 在现有串行 store.mutate 内保留编号、任务和写许可；初始事件按 source 幂等，变化按 source+observation_id 幂等。变化从正式报告校验 checksum、真实原网页前后抓取和实质内容差异，另建行另号，保留最初 record_id/history_id 和完整原行。编号日期为该事件正式报告日期。
+- `cloud/history-v3-sync.mjs` 从现有冻结正式报告生成任务，创建独立事实备注；只使用已审核截图证据，不把 imageUrl、preview_image_url 或 snapshot_url 当截图。国家/主体不从域名/语言推断。`cloud/history-sync.mjs` 的生产 bridge 和原有自动调用入口转到 v3；`cloud/history-only.mjs` 的单条 status/send 使用相同路径。runner、日报、通知代码未改。
+- 旧18/22字段解析、旧 status/inspect/receipt 保留语义；旧 register 不再接受新任务，旧 preflight 始终不许可写，旧 enabled=true、validation grant、recover-command 拒绝。保留旧未知命令诊断，不重发旧恢复任务。旧 payload 中 snapshot_url 仍指旧镜像，未重解释。
+- 所有新 patch 都不含简要展示键。关联线索只在空值时接受符合证据规则的截图；旧非空镜像也保留。国家/主体仅空值或明确待核实值可补。独立备注只写新行；旧行已有备注不由此任务覆盖。
 
-`historyV3({store,adapter,now,sleep})`使用现有加密store，不自建凭据。
-adapter缺失或能力不满足时enable直接拒绝；当前没有Feishu适配器、没有自动外部调用。
+## 原生写入合同
 
-| 适配器方法 | 必须实际保证 |
-|---|---|
-| read() | 返回table_id、complete=true、captured_at、现场schema、全记录 `{record_id,fields:{真实field_id:原生值}}`；所有字段齐全，不能用显示文本冒充附件/关联 |
-| createOnce({operation_id,table_id,expected_snapshot_hash,values}) | 对整快照条件作原子检查，operation_id持久幂等；条件变化绝不创建；无人工列写入；可按operation_id查出结果 |
-| compareAndSet({...上述参数,record_id,expected_record_hash}) | 原子比较目标与全快照再更新；人工/其他row变化不能在读后写的缝隙被覆盖 |
-| lookup(operation_id) | 持久查到真实操作record_id；null只能表示结果未证实，不允许据此重新创建 |
-| atomicSnapshotWrites=true | 仅在真实实现与测试证明上面语义后设置，不能给普通Feishu“查找后更新”贴此标志 |
+服务不直接调用 Feishu record API，不假定飞书 CAS/事务/唯一约束。唯一写入方是既有原生工作流。服务在发 webhook 前持久记录发送意图；原生查找后请求 preflight，网关只发一次 nonce 许可；再用真正创建/修改结果 record_id 和原生重新查找数据调用 receipt。
 
-如果现有原生工作流/接口不能提供原子条件写及创建幂等，保持disabled/dry-run；这不是本地状态机能凭空补齐的跨系统能力。真实权限保持现状，不为此自行新增权限或凭据。
-目前原子适配器仅为测试内存实现，不能声称已完成线上CAS、创建幂等或生产回读。
+- preflight POST body：`{table_id,workflow_id,event_id,lookup_complete:true,records:[{record_id,fields:{真实field_id:原生值}}]}`，Authorization 为该事件 token。
+- records 必须是查询范围全部匹配行，每行包含现场 schema 全部字段。空值也显式提供；附件、关联、URL保留原生值，不使用拼接显示文本。`lookup_complete` 不能把分页/截断结果冒充完整结果。查询须覆盖 URL、source、已分配 history_id、原始/目标记录。
+- 许可响应：`allowed,action,record_id,history_id,write_nonce,permit_expires_at,write_fields,original_record_id,original_history_id`。write_fields 是稀疏 fieldID→value map；核心字段也提供独立响应属性（manual_preview 除外），不在 patch 的属性为 null，**null 不是清空指令**。
+- receipt POST body：上述 context + `write_nonce,operation_record_id,lookup_complete:true,records`。创建事件需回读新行；变化还需同时回读最初原行；更新需回读目标整行。不能把发送 payload 当 readback。
+- metadata 比较整行预期 hash；变化还比较原行 hash。校验失败变 unknown 并暂停。重复 nonce 不给第二次许可；断网/超时/丢回执不再次创建。确证后的同回执幂等，重启后状态仍保留；迟到正确回执可以核对，暂停状态不自动恢复。
+- 一次云端调用至多读取5个任务状态、只新发1个 webhook。下一次先核对已发任务；未确定则停止。网关最多1个 permitted/unknown，许可间隔至少1秒，许可有效60秒、注册写窗口20分钟、读取窗口7天。写节点必须检查许可时间，过期停止。
 
-## 配置与生成器边界
+网关锁仅覆盖本服务参与者，且依赖单实例现有持久 store；不能覆盖人工或其他流程。读后写前的外部编辑无法原子阻止，只能尽量缩短窗口并由回读发现。控制窗口必须避免其他 writer/人工编辑目标行。未知结果和超期任务不自动解锁或重新分号；需保留真实原生运行结果并人工核对，不能靠设置能力标志伪造安全。
 
-configure需要真实schema与8个不同field_id绑定：history_id/url/source_id/manual_preview/screenshot_url/note_text/country_region/entity_name。三列中文名必须分别是简要展示/关联线索/备注说明；URL要求type15，其余当前实现支持type1，实测不同类型则停止适配，不能强转猜测。
-新备注列根任务已建好（20列、249原行不变），不得重复创建。根任务随后提供了已实读的身份/三列/国家主体等字段ID，已仅存私有临时输入；全20列schema和全记录原生值仍不完整，本环境未配置生产或注册任务。
-完整快照保留原URL超链接原生对象，所有缺字段/重复字段/重复record均拒绝。
+## 配置与生产门槛
 
-云端真实事件提取/事实审核/创建字段组装尚未接入。生成器必须从已保存正式报告和证据产生完整payload，不能从当前行任意改动假造change。新行其余业务必填字段/默认状态需原owner按真实字段白名单提供，不能靠本模块缺省值替代旧业务规则。
-`dryRun`是只读计划函数；initial/change使用已经注册保留号，register会修改本地任务/保留号状态，但不写飞书。真实首批本次只允许metadata离线计划，不应为“试跑”注册生产新编号。
+configure 要求完整实测 schema 和8个不同绑定 history_id/url/source_id/manual_preview/screenshot_url/note_text/country_region/entity_name；URL type15，其余核心 type1。额外新建字段由实测 fieldID 白名单限定，不含人工列或核心列。
+创建生产器还要求真实映射：监控分类、来源平台、页面标题、产品名称/型号、网址当前状态、监测级别、处理状态、首次发现日期、首次检索时间。日期源于真实 firstSeen；缺失则等待，不伪造为执行日。截图缺证据则不写。
 
-## 首批dry-run实测范围
+enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、无活跃旧受控窗口或待执行renumber、完整编号baselineConfirmed，以及管理员确认 native_mapping_verified 和 single_writer_confirmed。只有能证明从未许可的 registered 旧任务，才可按 event+payload_hash 审计退役；已许可/未知任务必须先回读解决。
 
-`tools/metadata-backfill/examples/first-batch-synthetic-plan.json`为5条明确合成样例：
-1. country/entity/关联截图三项建议；2.全部人工/已有值→no-change；3.证据未经审核→blocked；4.旧关联镜像原样保留，仅国家/主体建议；5.试图写简要展示→blocked。
-合计2 proposed、1 no-change、2 blocked。它不是249条真实盘点，不可直接提交生产。
-真实首批5条旧值及必要fieldID已由根任务实读提供，公开地址证据已核对；私有预览为4条国家候选、1条非空国家保护跳过，主体/截图/人工列/备注均无修改。仍缺完整249行原生快照与全schema、合格带地址截图、写前重读。本环境没有直接飞书读工具，不把has_more样本标成complete，也不推断全表缺失率。
+云端生成器会扫描仍保存的正式报告（不是只看启用当天）。启用前须检查待发事件范围，尤其历史 changed cohort；不得未经范围复核直接放开定时发送。首轮建议仅现有单条 status/send 验收；自动批处理恢复另行确认。
 
-## 单writer统一窗口：准确范围与门禁
+## 统一窗口与验收
 
-本轮只获准本地代码准备/测试；没有push、merge或部署。窗口时间由根任务安排，以下为执行顺序，不是已执行记录。
+1. 备份现有队列、编号保留表、historyIdentities、完整20列schema和全部历史记录原生值；核对当前记录数。已有249行是先前现场数，不能直接当最新数。
+2. 暂停历史自动/受控发送及原生写节点；排空在途。只读诊断并核对旧许可，保留旧回执入口。通知流程不改。
+3. 同一窗口发布本地兼容代码并保持 v3 disabled；按映射清单修改原生 workflow。移除新增与修改中所有简要展示映射。切换不是只替换两个媒体字段。
+4. 用实测 schema 配置 v3、完整 baseline。确认 webhook/preflight/receipt 全字段原生结构能无损往返，查询无截断且分支不再按URL匹配数决定新增变化行。不能仅凭离线单元测试宣称原生链路已验收。
+5. 明确待发范围后 enable，逐条核对首批4国家候选，英国非空值跳过。每条写前重读、写后全行回读。再验初始/变化各一例及同事件重试：新变化新号新行、最初行不变、人工列从未写、旧关联内容不被覆盖。截图无合格证据不写。
+6. 只有真实链路验收完成才恢复历史定时发送。失败暂停；回退保留数据、编号、lineage、回执，绝不恢复旧人工列自动写入，也不删除备注列。
 
-1. **合并前准备**：原owner独占`gateway/server.mjs`、旧history路由和WF2；本任务未修改这些共享文件，避免双writer。基于最新main重新集成本补丁，保留PR6日报代码，重跑全量测试。当前分支仍955a4f2，origin/main已fetch到496b02f但未合并。
-2. **只读预检**：回读真实schema（备注列已存在）、字段ID、249行快照、原生节点映射和当前开关；产出真实首批5条dry-run并复核证据。
-3. **冻结写入**：暂停所有旧历史自动发送/恢复/受控窗口；处理registered/permitted/unknown，未发任务由owner明确终结或迁移审计，不删除/伪造verified。新模块要求旧开关false、无未终结旧任务、无活跃受控窗口或prepared renumber。
-4. **同一发布窗口由单writer接线**：新增上述4个gateway文件与tools入口/测试/文档；owner在server挂载新dispatch，复用既有origin限制、限流、body-size和错误处理、已有密码取值；接真实适配器及真实schema，保持disabled。无需改Dockerfile/Railway配置/通知/日报。server挂载和适配器当前未完成，不能遗漏这两项直接发布本分支称成功。
-5. **原生映射切换（仅owner）**：旧preview→简要展示写映射在新增/enrich/恢复每个分支停用；旧snapshot消费者保持旧回执语义，不改解释；明确新截图→原关联线索，新note→已建备注列。其他字段规则不变。不能把新字段直接塞进旧18/22请求。
-6. **启用门禁**：原子适配器实测通过才enable。先metadata真实5条；再真实initial/change各一条验证同event同号同row、原row完整、人工列不写、新备注/截图准确及真实回读。失败/unknown停写核对，不盲重试。
-7. **回退**：pause，保留旧/新任务、已保留新号、lineage、回执和单元格数据；撤回新路由但不得恢复旧人工列自动写，不删除新备注列，不重放历史事件。
+本地运行模块已接线，原生配置、现场完整schema和真实写入回读尚未完成。这些是生产启用门槛，不是缺失的抽象“原子适配器”。没有新增企业权限、付费或凭据。
 
-## 尚待owner完成，不能标为上线完成
+## dry-run与验证范围
 
-真实适配器/原子能力证明、现场fieldID、云端事件生产器、server挂载、旧发送全面禁写人工列、WF2原生映射、PR6集成、真实首批及新建/变化回读。新增模块实现了状态机与分号逻辑，不代表这些外部环节已完成。
+私有首批5条输入及证据保留于临时目录，不入库：4国家候选（波兰、西班牙、美国、印度尼西亚），1英国已有值保护；主体、人工列、关联截图和备注均无改动。网页地址为网站自述，缓存新鲜度记录在私有证据中；不是工商认证。缺合格截图，保留空值。样本 has_more=true，完整批量 plan 校验仍拒绝不完整快照，不虚构全表缺失率。
 
-验证结果：新增v3专项13/13通过，含保留号并发、变化lineage、人工字段保护、未知结果、暂停/速率/窗口、独立加密dispatch及正式checksum兼容；累计本任务专项25项。全量Node655/655、Python98/98通过。按现有Dockerfile可用文件集合做隔离import检查通过，git diff --check通过。仍基于955a4f2加本地改动，未合入PR6，不声称已验证生产。
-
-最新收敛边界：停止增加接口/抽象层，本轮只交私有真实5条dry-run。现有gateway锁仅覆盖参与该网关的writer；持久event幂等只约束本服务重复执行；写前回读可发现已发生变更，但不能消除读后写前的外部编辑窗口。飞书CAS/唯一约束未实证，原子adapter是未满足的前置假设，不是已交付安全能力；不得把标志设为true替代证明。没有新增持续密钥、企业权限或生产连接。真实适配方案由单owner收敛后再决定，不为本轮dry-run扩建平台。
+测试覆盖真实临时 HTTP server/加密 store 重启、云端生产入口、模拟原生查找/许可/写后回读、丢回执与人工编辑冲突。模拟原生写入不等于已在生产 Feishu 验收。本轮PR6基线完整Node测试670/670、Python98/98通过；旧阶段655项结果不用于本轮结论。

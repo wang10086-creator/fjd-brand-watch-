@@ -10,10 +10,10 @@
 
 根任务已在简要展示右侧新增空白文本备注说明，回报20列、249原记录不变，旧字段/工作流/数据值未改。新field_id已由根任务实读后提供并仅保存在私有输入中，禁止重复创建；本环境未独立回读。新增列本身不是映射上线。不得恢复旧自动写入：旧preview_image_url路径仍会写人工列，旧snapshot_url不能默认为新截图语义。
 
-原owner需完成的运行路径和验收见 [history-notes-owner-handoff.md](history-notes-owner-handoff.md)。已新增独立v3模块实现幂等编号分配与任务执行/回读，但没有server挂载、真实适配器或原生节点修改，尚不可启用生产。精确边界见 history-v3-release-window.md。
+本地server与云端生产入口已接入独立v3，旧写许可已退役，原生工作流尚未修改。根任务独占现场切换，准确合同见 [history-notes-owner-handoff.md](history-notes-owner-handoff.md) 和 [history-v3-release-window.md](history-v3-release-window.md)。本地实现不是生产验收。
 
 已保留的离线成果：metadata-backfill v2每批5条国家/主体/关联截图建议，显式禁止preview_image_url/snapshot_url候选；完整字段前后hash保护人工内容。截图需要审核原网页/地址可见，不以元数据标志冒充自动图像验证。
 备注原型只接受field_name=备注说明的独立文本列；不再接受关联线索。追加保留新备注列已有人工内容，原关联链接/简要展示保持不变；变化仅接受原号引用及独立已分配新号的目标记录，不创建行或分号。
 新备注样例 tools/history-notes/examples/synthetic-plans.json 是两个独立合成场景，非真实生产证据。
 
-分支基线仍为955a4f2，已fetch但未合入PR6 496b02f。所有本地测试结果仅对应此基线与本地改动。
+分支已rebase到PR6 496b02f；旧阶段测试记录不代表本轮集成结果。未push或部署。

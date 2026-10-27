@@ -7,7 +7,7 @@ const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).
 const text=v=>typeof v==='string'&&v.trim()===v&&v.length>0&&v.length<=400&&!/[\r\n]/.test(v);
 function evidence(e,url){
  if(!exact(e,['url','subject_url','quote','observed_at','reviewed'])||e.reviewed!==true||e.subject_url!==url||!text(e.quote)||!Number.isFinite(Date.parse(e.observed_at)))fail('reviewed-note-evidence-required');
- const u=new URL(e.url);if(!['http:','https:'].includes(u.protocol)||u.username||u.password||u.search)fail('unsafe-evidence-url');
+ const u=new URL(e.url);if(!['http:','https:'].includes(u.protocol)||u.username||u.password||/(?:token|signature|secret|auth|api_key)=/i.test(u.search))fail('unsafe-evidence-url');
 }
 export function noteEvent(input){
  if(!exact(input,['protocol','kind','url','original','facts','evidence'])||input.protocol!==protocol||!['initial','change'].includes(input.kind))fail('invalid-note-contract');
@@ -16,7 +16,7 @@ export function noteEvent(input){
   if(input.original!==null||!exact(input.facts,['product','brand','needs_verification'])||!Object.values(input.facts).every(text))fail('initial-facts-required');
  }else if(!exact(input.original,['record_id','history_id'])||!/^rec\w+$/.test(input.original.record_id)||!text(input.original.history_id)||!exact(input.facts,['change'])||!text(input.facts.change))fail('original-reference-and-change-required');
  evidence(input.evidence,input.url);
- const note_text=input.kind==='initial'?`页面销售${input.facts.product}，使用${input.facts.brand}品牌；需核实${input.facts.needs_verification}。`:`关联原线索 ${input.original.history_id}；本次变化：${input.facts.change}。`;
+ const note_text=input.kind==='initial'?`页面展示${input.facts.product}，品牌表述为${input.facts.brand}；需核实${input.facts.needs_verification}。`:`关联原线索 ${input.original.history_id}；本次变化：${input.facts.change}。`;
  return {...structuredClone(input),note_event_id:hash(input),note_text};
 }
 export function legacyWriteDisposition({schema_version,field_semantics}){

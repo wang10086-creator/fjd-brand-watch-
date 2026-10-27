@@ -1,6 +1,6 @@
 # 历史元数据补全：独立离线 dry-run（未发布）
 
-本任务不接 WF2/enrich、runner、Railway、通知或日报，不提供生产写入入口，不新增权限/凭据，不改编号。
+本文件描述离线CLI：它不接网络或生产写入、不改编号。后续已接入的独立v3运行路径另见 history-v3-release-window.md；不把此CLI冒充生产写入。
 分支 `task/history-metadata-backfill-dry-run`。现场249条与19列是根任务提供的事实；本执行环境未读取真实表，不能声称已盘点249条。
 最新定义覆盖此前方案：简要展示由人工填写，任何自动新增/enrich/backfill均不得写；关联线索保留原名，接带原网页地址的截图URL；另在简要展示旁新增空白文本“备注说明”，用于摘要/原号与变化说明。根任务已报告该空白备注列创建完成（20列、249原记录不变），实际field_id已由根任务核实并仅存私有临时输入，禁止重复创建；旧列不改名不清空。
 本工具v2只建议 country_region/entity_name/screenshot_url，截图规范键只对应关联线索。preview_image_url及snapshot_url均不在候选白名单，也不能通过enabledFields启用。
@@ -15,7 +15,7 @@ CLI只使用fs读取输入并向stdout打印结果，无网络、凭据、生产
 snapshot样例见 tools/metadata-backfill/examples/synthetic-snapshot.json。必须完整导出所有匹配记录，标记 complete=true，保留 record_id/url/source_id/history_id 和所有原生 fields。
 field_bindings.screenshot_url必须提供现场读取的关联线索field_id、field_name=关联线索、type=1；合成样例ID不是真实字段ID。fields内screenshot_url是该原生列的规范化值，不是新建业务列；不得把旧snapshot_url直接作为已验证截图来源。
 fields 内三个规范化键对应候选字段；其余全部原值原形保存，包括附件token、选项、关联、状态、编号及人工内容，不以显示文本替代原生值。
-不存在的列不可伪造为空，缺映射拒绝。实际表没有备注列，不要求构造备注。全量快照保留在私有本地，切勿提交实际业务导出。
+不存在的列不可伪造为空，缺映射拒绝。实际表已新增备注列，完整导出需保留其原值；本工具不生成备注候选。全量快照保留在私有本地，切勿提交实际业务导出。
 
 候选绑定原record及全部已有身份。按 record_id、保守URL（仅去fragment，保留query）、非空source/history取并集：零或多条拒绝，任一身份矛盾拒绝。不得新增行。
 只允许精确空字符串/null，国家精确“待核实”，主体精确“待核实”或“待核实（尚未识别经营主体）”。其他内容包括带人工注释的待核实均保护；空白字符串也不擅自清洗。
