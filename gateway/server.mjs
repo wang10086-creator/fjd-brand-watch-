@@ -1,3 +1,4 @@
+import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
 import {digest as historyDigest,actualUrl} from './history-protocol.mjs';
 import {createServer} from 'node:http';
@@ -296,6 +297,16 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/history-sync/backup'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可导出历史维护审计快照');
+    if(req.method!=='GET')throw issue(405,'仅支持只读导出');
+    const config=store.read().config;if(!config)throw issue(503,'gateway-not-configured');
+    const ref=await(await github('/repos/'+REPO+'/git/ref/heads/'+BRANCH,{token:config.token})).json();
+    const revision=ref.object?.sha;if(!/^[a-f0-9]{40}$/.test(revision||''))throw issue(502,'cloud-revision-unverified');
+    const encrypted=await boundedJson(await github('/repos/'+REPO+'/contents/vault.json?ref='+revision,{token:config.token,raw:true}),64*1024*1024);
+    const vault=await unseal(encrypted,config.password,'vault');
+    respond(200,historyBackup(store.read(),vault,{now,cloudRevision:revision}));return;
+   }
    if(path==='/maintenance/history-sync'){
     if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
     if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),historyCommands:commandRecovery.list(user)});return}

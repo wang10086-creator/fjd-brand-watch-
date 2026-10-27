@@ -1750,3 +1750,9 @@ The first verified trace remains immutable for an exported date. Failures are
 isolated from Notion, group receipts, history tasks, business writes and the existing
 website snapshot. See docs/daily-text-publication.md for exact files/URL modes and
 the still-pending publication approval.
+
+## 2026-10-28 maintenance preparation before history v3
+
+A separate main-based release adds GET `/maintenance/history-sync/backup` behind the existing admin session. It resolves data-cloud to a commit before decrypting its vault and exports every persisted history queue entry, history/workflow task (including permitted and unknown), identity, ID reservation, retained receipt and command record. Authentication fields and bearer image URLs are redacted; config/users/sessions are excluded. The export includes state counts, cloud revision, content digest and explicit limitations: separate capture times, no cross-system atomicity, no direct replay, and Feishu schema/records must be exported separately. Cloud read or decrypt failure aborts the export; partial data is not labelled a complete snapshot. No legacy routes, switches, writer permits, schedules or notification flows change.
+
+The administrator download UI creates its DOM anchor lazily when clicked, not during portal initialization. Regression tests exercise real anchor append/click/remove/revoke lifecycle with a faithful document fixture, error paths, credential exclusion, all task states and the admin-only HTTP route. This preparation does not enable v3 or validate Feishu native array transport.
