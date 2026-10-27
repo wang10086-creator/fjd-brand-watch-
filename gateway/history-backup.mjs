@@ -3,10 +3,11 @@ const sensitive=/token|password|secret|authorization|cookie|nonce|webhook|creden
 // This is an audit export, deliberately not a replayable credential backup.
 export function historyBackup(state,vault,{now=Date.now,cloudRevision}={}){
  const removed=[];const secrets=Object.values(state.config||{}).filter(v=>typeof v==='string'&&v.length>=8);
+ const unsafe=value=>secrets.some(s=>value.includes(s))||/Bearer\s|\/(?:manual-)?evidence-preview\/|\/base\/automation\/webhook\/|[?&](?:token|key|signature|auth)=/i.test(value);
  function clean(value,path=''){
   if(Array.isArray(value))return value.map((v,i)=>clean(v,path+'.'+i));
-  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>{const p=path+'.'+k;if(sensitive.test(k)){removed.push(p);return [k,'[REDACTED]']}return [k,clean(v,p)]}));
-  if(typeof value==='string'&&(secrets.some(s=>value.includes(s))||/Bearer\s|\/evidence-preview\/|\/base\/automation\/webhook\/|[?&](?:token|key|signature|auth)=/i.test(value))){removed.push(path);return '[REDACTED]'}
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>{const key=unsafe(k)?'[REDACTED_KEY_'+createHash('sha256').update(k).digest('hex').slice(0,16)+']':k;const p=path+'.'+key;if(key!==k||sensitive.test(k)){removed.push(p);return [key,'[REDACTED]']}return [key,clean(v,p)]}));
+  if(typeof value==='string'&&unsafe(value)){removed.push(path);return '[REDACTED]'}
   return value;
  }
  const gateway=Object.fromEntries(Object.entries(state).filter(([k])=>/^history|^workflow/.test(k)||k==='requests'));

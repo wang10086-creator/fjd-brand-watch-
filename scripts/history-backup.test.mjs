@@ -37,3 +37,9 @@ test('backup HTTP is admin-only GET, pins cloud revision, and preserves enabled 
   assert.equal((await fetch(url,{method:'POST',headers:{Authorization:'Bearer admin',Origin:'https://wang10086-creator.github.io'}})).status,405);
  }finally{await new Promise(r=>g.server.close(r));await rm(directory,{recursive:true,force:true})}
 });
+
+test('maintenance export redacts protected manual preview URLs and unsafe object keys without leaking paths',()=>{
+ const url='https://example.com/manual-evidence-preview/hash/bearer-image.png';
+ const result=historyBackup({config:{token:'synthetic-secret'},historyIdentities:{[url]:{record_id:'rec1'},['https://example.com?key=synthetic-secret']:{record_id:'rec2'}},historyTasks:{a:{payload:{image:url}}}},{});
+ const serialized=JSON.stringify(result);assert.ok(!serialized.includes('bearer-image'));assert.ok(!serialized.includes('synthetic-secret'));assert.equal(Object.keys(result.data.gateway.historyIdentities).length,2);assert.equal(result.data.gateway.historyTasks.a.payload.image,'[REDACTED]');
+});
