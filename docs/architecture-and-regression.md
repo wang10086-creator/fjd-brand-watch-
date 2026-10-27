@@ -1839,3 +1839,5 @@ No new persistent credential or enterprise grant; stop extending abstractions.
 后续授权允许当前任务接管原owner历史生产入口。已rebase至PR6 496b02f，保留日报和通知代码。gateway/server挂载v3注册/身份/许可/回读，cloud/history-sync及history-only路由新生产器；旧18/22回执语义保留，但旧注册/许可/恢复窗口禁写。此前“未挂载server/需原子适配器”的阶段描述已由此更新取代：采用现有原生writer、串行持久幂等与写前查找/写后核对，明确不承诺Feishu CAS。简要展示所有新自动patch不含该列，关联线索只接审核截图，独立备注用于新行摘要或原号+变化。真实变化从正式报告取证、另号另行，同事件只许可一次。
 
 完整合同与切换门槛见history-v3-release-window.md及history-notes-owner-handoff.md。尚需完整现场schema、排空旧队列和原生节点配置验收；不能用离线contract或模拟native测试替代真实回读。首批5条私有dry-run为4国家候选+1保护跳过，has_more样本未冒充全表快照。没有生产写入、push、部署、新凭据或权限。
+
+收口安全修正：原v3生成器会扫描全部冻结报告，原先仅文档要求复核范围，存在误建历史变化的风险。已增加默认country-pilot策略、最多4个精确国家候选event_id白名单以及2026-10-28正式报告硬下界；pilot在注册/分号前拒绝所有新建事件，云端队列和网关preflight共同执行，旧缓存不能绕过。事件模式不自动启用，须既有管理员另行显式配置。没有新增角色、凭据或权限。

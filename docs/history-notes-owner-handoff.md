@@ -21,3 +21,5 @@
 现场已建独立备注列，保留原关联列名/field_id及全部旧内容。完整实际fieldID配置由现场读取组成，示例合成ID不能复制到生产。维护入口仅管理员：相同table_id/workflow_id，加operation=v3；configure传config，enable明确native_mapping_verified=true和single_writer_confirmed=true。已有连接/密码复用，不新增权限。
 
 切换期间必须暂停相关历史写入和旧恢复；在途旧nonce先收回执。旧unknown不可直接标失败重试。新旧不可双writer。新v3代码暂停时不自动回退旧写路径。变更事件另建新号新行且引用最初原号，同事件重试不分第二号；原行保留。这一行为已本地实现和测试，仍需原生工作流实际验收。
+
+本次pilot configure必须明确execution_policy.mode=country-pilot，event_not_before=2026-10-28，country_pilot_event_ids仅含4条复核国家候选的精确event_id（不得把真实ID提交公开仓库）。默认空名单拒绝启用。pilot不生成/注册初始或变化事件，也不保留新号。后续events模式须另行批准、暂停后重新configure；最早正式报告日期硬下界为2026-10-28。旧缓存任务不能绕过网关策略。

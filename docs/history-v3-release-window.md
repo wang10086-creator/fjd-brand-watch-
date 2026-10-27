@@ -4,7 +4,7 @@
 
 ## 已实现的运行入口
 
-- `gateway/server.mjs` 挂载 `/history-v3/{register,identity,inspect,preflight,receipt,status}` 和只读 capabilities；既有管理员维护入口新增 `operation=v3` 的 configure/enable/pause/register/status/retire-legacy-unsent。沿用既有密码、管理员会话、持久加密 store、来源限制和限流；每任务短期 token 不是新增长期凭据。
+- `gateway/server.mjs` 挂载 `/history-v3/{register,identity,inspect,preflight,receipt,status}` 和只读 capabilities；完整执行白名单仅由既有密码信封认证的POST capabilities返回，公共GET不暴露候选event_id；既有管理员维护入口新增 `operation=v3` 的 configure/enable/pause/register/status/retire-legacy-unsent。沿用既有密码、管理员会话、持久加密 store、来源限制和限流；每任务短期 token 不是新增长期凭据。
 - `gateway/history-v3.mjs` 在现有串行 store.mutate 内保留编号、任务和写许可；初始事件按 source 幂等，变化按 source+observation_id 幂等。变化从正式报告校验 checksum、真实原网页前后抓取和实质内容差异，另建行另号，保留最初 record_id/history_id 和完整原行。编号日期为该事件正式报告日期。
 - `cloud/history-v3-sync.mjs` 从现有冻结正式报告生成任务，创建独立事实备注；只使用已审核截图证据，不把 imageUrl、preview_image_url 或 snapshot_url 当截图。国家/主体不从域名/语言推断。`cloud/history-sync.mjs` 的生产 bridge 和原有自动调用入口转到 v3；`cloud/history-only.mjs` 的单条 status/send 使用相同路径。runner、日报、通知代码未改。
 - 旧18/22字段解析、旧 status/inspect/receipt 保留语义；旧 register 不再接受新任务，旧 preflight 始终不许可写，旧 enabled=true、validation grant、recover-command 拒绝。保留旧未知命令诊断，不重发旧恢复任务。旧 payload 中 snapshot_url 仍指旧镜像，未重解释。
@@ -30,7 +30,9 @@ configure 要求完整实测 schema 和8个不同绑定 history_id/url/source_id
 
 enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、无活跃旧受控窗口或待执行renumber、完整编号baselineConfirmed，以及管理员确认 native_mapping_verified 和 single_writer_confirmed。只有能证明从未许可的 registered 旧任务，才可按 event+payload_hash 审计退役；已许可/未知任务必须先回读解决。
 
-云端生成器会扫描仍保存的正式报告（不是只看启用当天）。启用前须检查待发事件范围，尤其历史 changed cohort；不得未经范围复核直接放开定时发送。首轮建议仅现有单条 status/send 验收；自动批处理恢复另行确认。
+默认执行策略为 `execution_policy={mode:"country-pilot",event_not_before:"2026-10-28",country_pilot_event_ids:[]}`。空白名单不可enable；本次只配置已复核4条国家候选的精确event_id，最多4个，候选值/证据/目标变化会改变event_id，必须重新复核。pilot只接受单字段country_region metadata；初始、变化、主体、截图及其他国家任务全部拒绝，且拒绝发生在任务注册/保留新号之前。云端不生成正式报告事件，缓存中旧待发事件也不注册/发送。已有发出任务仍仅查状态，不重发。
+
+事件模式必须暂停后由既有管理员显式configure为 `execution_policy={mode:"events",event_not_before:"2026-10-28",country_pilot_event_ids:[]}` 并重新验收启用。允许设置更晚日期，但不能早于2026-10-28。云端生成器及网关注册/预检均检查正式报告日期，因此启用不会补建所有历史变化。pilot结束不自动切换事件模式。
 
 ## 统一窗口与验收
 
@@ -38,7 +40,7 @@ enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、
 2. 暂停历史自动/受控发送及原生写节点；排空在途。只读诊断并核对旧许可，保留旧回执入口。通知流程不改。
 3. 同一窗口发布本地兼容代码并保持 v3 disabled；按映射清单修改原生 workflow。移除新增与修改中所有简要展示映射。切换不是只替换两个媒体字段。
 4. 用实测 schema 配置 v3、完整 baseline。确认 webhook/preflight/receipt 全字段原生结构能无损往返，查询无截断且分支不再按URL匹配数决定新增变化行。不能仅凭离线单元测试宣称原生链路已验收。
-5. 明确待发范围后 enable，逐条核对首批4国家候选，英国非空值跳过。每条写前重读、写后全行回读。再验初始/变化各一例及同事件重试：新变化新号新行、最初行不变、人工列从未写、旧关联内容不被覆盖。截图无合格证据不写。
+5. 将4个国家候选event_id写入pilot白名单后 enable，逐条核对首批4国家候选，英国非空值跳过。每条写前重读、写后全行回读。国家pilot结束后另行确认切换events模式，再验2026-10-28及以后的初始/变化各一例及同事件重试：新变化新号新行、最初行不变、人工列从未写、旧关联内容不被覆盖。截图无合格证据不写。
 6. 只有真实链路验收完成才恢复历史定时发送。失败暂停；回退保留数据、编号、lineage、回执，绝不恢复旧人工列自动写入，也不删除备注列。
 
 本地运行模块已接线，原生配置、现场完整schema和真实写入回读尚未完成。这些是生产启用门槛，不是缺失的抽象“原子适配器”。没有新增企业权限、付费或凭据。
@@ -47,4 +49,4 @@ enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、
 
 私有首批5条输入及证据保留于临时目录，不入库：4国家候选（波兰、西班牙、美国、印度尼西亚），1英国已有值保护；主体、人工列、关联截图和备注均无改动。网页地址为网站自述，缓存新鲜度记录在私有证据中；不是工商认证。缺合格截图，保留空值。样本 has_more=true，完整批量 plan 校验仍拒绝不完整快照，不虚构全表缺失率。
 
-测试覆盖真实临时 HTTP server/加密 store 重启、云端生产入口、模拟原生查找/许可/写后回读、丢回执与人工编辑冲突。模拟原生写入不等于已在生产 Feishu 验收。本轮PR6基线完整Node测试670/670、Python98/98通过；旧阶段655项结果不用于本轮结论。
+测试覆盖真实临时 HTTP server/加密 store 重启、云端生产入口、模拟原生查找/许可/写后回读、丢回执与人工编辑冲突。模拟原生写入不等于已在生产 Feishu 验收。激活策略修正后专项23/23、全量Node674/674通过；Python代码未改，沿用本轮此前98/98结果，未重复执行。旧阶段655项结果不用于本轮结论。

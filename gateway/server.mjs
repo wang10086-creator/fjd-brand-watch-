@@ -102,6 +102,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const history=historyTasks({store,now});
  const historyNext=historyV3({store,now}),dispatchHistoryNext=historyV3Dispatch({service:historyNext,getPassword:()=>store.read().config?.password});
+ const publicHistoryNext=()=>{const c=historyNext.capabilities();return {...c,execution_policy:{mode:c.execution_policy.mode,event_not_before:c.execution_policy.event_not_before}};};
  const commandRecovery=historyCommandRecovery({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
  const workflow=workflowTasks({store,now,index:async()=>{
@@ -237,9 +238,9 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
-   if(path==='/history/capabilities'&&req.method==='GET'){respond(200,{...history.capabilities(),enabled:false,writesRetired:true,v3:historyNext.capabilities()});return}
-   if(path==='/history-v3/capabilities'&&req.method==='GET'){respond(200,historyNext.capabilities());return}
-   if(['/history-v3/register','/history-v3/identity','/history-v3/inspect','/history-v3/preflight','/history-v3/receipt','/history-v3/status'].includes(path)){
+   if(path==='/history/capabilities'&&req.method==='GET'){respond(200,{...history.capabilities(),enabled:false,writesRetired:true,v3:publicHistoryNext()});return}
+   if(path==='/history-v3/capabilities'&&req.method==='GET'){respond(200,publicHistoryNext());return}
+   if(['/history-v3/capabilities','/history-v3/register','/history-v3/identity','/history-v3/inspect','/history-v3/preflight','/history-v3/receipt','/history-v3/status'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,16*1024*1024);
     respond(200,await dispatchHistoryNext({path,method:req.method,input,token:(req.headers.authorization||'').replace(/^Bearer /,'')}));return;

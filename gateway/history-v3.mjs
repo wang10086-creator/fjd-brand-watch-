@@ -8,6 +8,16 @@ export const protocol='fjd-history-v3';
 const table='tbl76uhMEgt3fmQK';
 const fail=m=>{throw Object.assign(Error(m),{status:/token/.test(m)?401:409})};
 const exact=(o,keys)=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
+export function executionPolicy(config){
+ const p=config?.execution_policy||{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]};
+ if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode==='events'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
+ return structuredClone(p);
+}
+export function policyAllows(policy,p){
+ if(policy.mode==='country-pilot')return p.kind==='metadata'&&Object.keys(p.proposals).length===1&&Object.hasOwn(p.proposals,'country_region')&&policy.country_pilot_event_ids.includes(p.event_id);
+ return p.kind==='metadata'||p.report_day>=policy.event_not_before;
+}
+
 const identity=r=>exact(r,['record_id','history_id'])&&/^rec\w+$/.test(r.record_id)&&typeof r.history_id==='string'&&r.history_id.length>0;
 export function eventId(p){return 'history-v3:'+hash(p.kind==='metadata'?[p.source_id,p.kind,p.target,p.proposals,p.note]:[p.source_id,p.kind,p.kind==='initial'?'initial':p.observation_id]);}
 export function validateV3(p){
@@ -26,6 +36,7 @@ export function validateV3(p){
  return p;
 }
 export function validateBindings(config){
+ executionPolicy(config);
  if(!config||config.table_id!==table||!Array.isArray(config.schema)||!config.bindings||!Array.isArray(config.create_field_ids))fail('actual-schema-required');
  const keys=['history_id','url','source_id','manual_preview','screenshot_url','note_text','country_region','entity_name'];
  if(!exact(config.bindings,keys)||new Set(Object.values(config.bindings)).size!==keys.length)fail('distinct-field-bindings-required');
@@ -93,17 +104,18 @@ export function historyV3({store,now=Date.now}){
  const snapshot=(i,c)=>{if(i.lookup_complete!==true||!Array.isArray(i.records)||i.records.length>1000)fail('v3-complete-lookup-required');return {table_id:table,complete:true,captured_at:new Date(now()).toISOString(),schema:c.schema,records:i.records};};
  const original=(s,p)=>{const r=s.historyIdentities?.[actualUrl(p.url)];if(r?.source_id&&r.source_id!==p.source_id)fail('v3-original-source-conflict');return r?.record_id?{record_id:r.record_id,history_id:r.history_id}:null;};
  return {
-  capabilities(){const v=store.read().historyV3;return {protocol,enabled:v?.enabled===true,configured:!!v?.config,table_id:table,workflow_id:workflow,manual_preview_writable:false,safety:'single-writer-preflight-readback-not-cas'};},
+  capabilities(){const v=store.read().historyV3;return {protocol,enabled:v?.enabled===true,configured:!!v?.config,table_id:table,workflow_id:workflow,manual_preview_writable:false,execution_policy:executionPolicy(v?.config),safety:'single-writer-preflight-readback-not-cas'};},
   diagnostics(){const v=store.read().historyV3;return {...this.capabilities(),tasks:Object.entries(v?.tasks||{}).map(([event_id,t])=>({event_id,kind:t.payload.kind,state:t.state,history_id:t.history_id,record_id:t.record_id||null,payload_hash:t.payload_hash,error:t.error||null})),config:v?.config||null};},
   inspect(p){if(!/^history-v3:[a-f0-9]{64}$/.test(p.event_id||'')||!/^lead-[a-f0-9]{64}$/.test(p.source_id||'')||!/^[a-f0-9]{64}$/.test(p.token_hash||''))fail('invalid-v3-inspection');const t=store.read().historyV3?.tasks?.[p.event_id];if(!t)return {event_id:p.event_id,source_id:p.source_id,state:'not-registered',payload_hash:null};if(t.payload.source_id!==p.source_id||t.token_hash!==p.token_hash)fail('v3-inspection-mismatch');return {event_id:p.event_id,source_id:p.source_id,state:t.state,payload_hash:t.payload_hash,has_nonce:!!t.nonce,record_id:t.record_id||null};},
   resolveIdentity(p){if(!/^lead-[a-f0-9]{64}$/.test(p.source_id||''))fail('invalid-v3-source');actualUrl(p.url);const s=store.read();return {original:original(s,p),config:s.historyV3?.config||null,enabled:s.historyV3?.enabled===true};},
   async configure(config){validateBindings(config);await store.mutate(s=>{live(s);if(s.historyV3?.enabled)fail('pause-before-reconfigure');if(Object.values(s.historyV3?.tasks||{}).some(t=>!['verified','failed'].includes(t.state)))fail('v3-tasks-in-flight');s.historyV3||={tasks:{},lineage:{},enabled:false};s.historyV3.config=structuredClone(config);s.historyV3.enabled=false;});return this.capabilities();},
   async pause(){await store.mutate(s=>{if(s.historyV3)s.historyV3.enabled=false;});return this.capabilities();},
-  async enable({native_mapping_verified,single_writer_confirmed}={}){if(native_mapping_verified!==true||single_writer_confirmed!==true)fail('native-single-writer-confirmation-required');await store.mutate(s=>{live(s);validateBindings(s.historyV3?.config);if(!s.historySettings.baselineConfirmed)fail('complete-baseline-required');if(Object.values(s.historyV3.tasks).some(t=>['permitted','unknown'].includes(t.state)))fail('v3-unresolved-task');s.historyV3.enabled=true;s.historyV3.activated_at=now();});return this.capabilities();},
+  async enable({native_mapping_verified,single_writer_confirmed}={}){if(native_mapping_verified!==true||single_writer_confirmed!==true)fail('native-single-writer-confirmation-required');await store.mutate(s=>{live(s);validateBindings(s.historyV3?.config);if(!s.historySettings.baselineConfirmed)fail('complete-baseline-required');if(executionPolicy(s.historyV3.config).mode==='country-pilot'&&!executionPolicy(s.historyV3.config).country_pilot_event_ids.length)fail('country-pilot-allowlist-required');if(Object.values(s.historyV3.tasks).some(t=>['permitted','unknown'].includes(t.state)))fail('v3-unresolved-task');s.historyV3.enabled=true;s.historyV3.activated_at=now();});return this.capabilities();},
   async retireLegacyUnsent({event_id,expected_payload_hash}){await store.mutate(s=>{if(s.historySettings?.enabled!==false)fail('legacy-must-be-paused');const t=s.historyTasks?.[event_id];if(!t||t.state!=='registered'||t.nonce||t.record_id||hash(t.payload)!==expected_payload_hash)fail('legacy-not-provably-unpermitted');s.historyV3Retirements||=[];s.historyV3Retirements.push({event_id,before_hash:expected_payload_hash,at:now(),reason:'retired-before-v3-cutover'});t.state='failed';t.reason='retired-before-v3-cutover';});return {retired:true,event_id};},
   async register({payload,token,formal_report=null}){
    validateV3(payload);if(!/^[\w-]{43}$/.test(token||''))fail('invalid-task-token');proof(payload,formal_report);
    let result;await store.mutate(s=>{live(s);const v=s.historyV3;if(!v?.config)fail('v3-not-configured');if(!v.enabled){result={ready:false,reason:'v3-paused'};return;}
+    if(!policyAllows(executionPolicy(v.config),payload))fail('v3-event-outside-execution-policy');
     const old=v.tasks[payload.event_id];if(old){if(old.payload_hash!==hash(payload)||old.token_hash!==hash(token))fail('v3-event-conflict');result={ready:true,event_id:payload.event_id,history_id:old.history_id,state:old.state};return;}
     if(Object.keys(v.tasks).length>=20000)fail('v3-task-capacity');const first=original(s,payload);
     if(payload.kind==='initial'&&first){result={ready:false,reason:'initial-existing',original:first};return;}
@@ -121,7 +133,7 @@ export function historyV3({store,now=Date.now}){
   async preflight(input,token){
    context(input);let result;await store.mutate(s=>{const t=auth(s,input.event_id,token),v=s.historyV3;
     if(t.state!=='registered'){result={allowed:false,action:'reconcile-only',...this.status(input.event_id,token)};return;}
-    live(s);if(!v.enabled)fail('v3-paused');if(now()>t.write_until)fail('v3-write-window-expired');
+    live(s);if(!v.enabled)fail('v3-paused');if(!policyAllows(executionPolicy(v.config),t.payload))fail('v3-event-outside-execution-policy');if(now()>t.write_until)fail('v3-write-window-expired');
     if(Object.values(v.tasks).some(x=>x!==t&&['permitted','unknown'].includes(x.state)))fail('v3-write-in-flight');if((v.next_write_at||0)>now())fail('v3-rate-limited');
     const snap=snapshot(input,v.config),plan=prepareV3(t.payload,snap,v.config,{history_id:t.history_id,knownLineage:Object.values(v.lineage).filter(x=>x.original_record_id===t.payload.original?.record_id)});
     if(plan.action==='no-change'){t.state='verified';t.record_id=plan.record_id;t.receipt_hash=plan.after_hash;t.verified_at=now();result={allowed:false,action:'no-change',record_id:t.record_id};return;}
