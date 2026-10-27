@@ -43,3 +43,14 @@ test('maintenance export redacts protected manual preview URLs and unsafe object
  const result=historyBackup({config:{token:'synthetic-secret'},historyIdentities:{[url]:{record_id:'rec1'},['https://example.com?key=synthetic-secret']:{record_id:'rec2'}},historyTasks:{a:{payload:{image:url}}}},{});
  const serialized=JSON.stringify(result);assert.ok(!serialized.includes('bearer-image'));assert.ok(!serialized.includes('synthetic-secret'));assert.equal(Object.keys(result.data.gateway.historyIdentities).length,2);assert.equal(result.data.gateway.historyTasks.a.payload.image,'[REDACTED]');
 });
+
+import {gzipSync} from 'node:zlib';
+import {historyVaultStream} from '../gateway/history-vault-stream.mjs';
+test('streaming backup preserves all history fields and excludes a large unrelated vault value',async()=>{
+ const expected={historySync:{items:{a:{text:'中文\\\"',number:42,empty:null,flags:[false,true]}}},historyV3:{tasks:[]}};
+ const compressed=gzipSync(JSON.stringify({state:{large:'x'.repeat(8*1024*1024)},...expected,other:'ignored'}));
+ assert.deepEqual(await historyVaultStream(compressed,{maxSelectedBytes:2048}),expected);
+ await assert.rejects(historyVaultStream(compressed,{maxPlainBytes:1024}),/vault-limit/);
+ await assert.rejects(historyVaultStream(gzipSync(JSON.stringify({historySync:{large:'x'.repeat(4096)}})),{maxSelectedBytes:256}),/selected-limit/);
+ await assert.rejects(historyVaultStream(gzipSync('{"historySync":{}')),/./);
+});
