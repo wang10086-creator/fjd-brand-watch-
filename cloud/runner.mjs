@@ -1,3 +1,4 @@
+import {publishLightReports} from './publish-light-reports.mjs';
 import {queueHistory,deliverHistory,historySummary,historyBridge} from './history-sync.mjs';
 import {singleHistoryTask} from './history-only.mjs';
 import {archiveScreenshotBatch} from './notion-evidence.mjs';
@@ -280,7 +281,16 @@ async function main(){
    try{if(!saveBlocked)await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
  finally{vault.runtime={...vault.runtime,currentSite:null,lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
- try{await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');}catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}
+ try{
+  const feed=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts});
+  // Final checkpoint above has synchronized and saved the formal publication status.
+  // Secondary public text export never replays Notion, bot or business-table writes.
+  if(['auto','digest','sync','scan','site-retry'].includes(op)){
+   try{const result=await publishLightReports({feed,store,repository:config.repository,branch:config.branch,archiveReceipts:vault.delivery.formalReceipts||{},archiveIndexUrl:config.notionPublicUrl});console.log('轻量日报公开输入：'+result.status);}
+   catch{console.warn('轻量日报公开输入未确认；保留原索引等待补齐，Notion 与群回执不变');}
+  }
+  await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed,status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');
+ }catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}
  if(uploadName&&!vault.lastError)await store.remove(uploadName);
  console.log('监控范围：'+vault.state.config.platforms.length+' 类平台 / '+vault.state.config.regions.length+' 个市场');
  console.log('归档状态：'+(vault.delivery.archiveError||('已确认 '+Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length+' 次更新')));

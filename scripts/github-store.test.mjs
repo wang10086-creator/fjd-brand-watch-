@@ -149,3 +149,14 @@ test('multipart checkpoint reads current and historic snapshot from matching com
  const saved=await store.write(entries);assert.deepEqual((await store.readJSON('public-dashboard.json')).value,feed);assert.deepEqual((await store.readJSONAt('public-dashboard.json',saved.sha)).value,feed);assert.equal((await store.verifyWrite(entries,saved.sha)).confirmed,true);
  assert.equal(repo.value('inbox/keep.json'),'private-cipher');repo.external('public-dashboard.json',JSON.stringify({version:1,rows:[],monitor:{version:1}}));assert.deepEqual((await store.readJSONAt('public-dashboard.json',saved.sha)).value,feed);
 });
+
+test('byte reads return verified Markdown and commit proof while fencing subsequent writes',async()=>{
+ const repo=repository({'daily-text/2026-10-28/body.md':'# 正式日报\n'}),store=storeFor(repo),head=repo.head;
+ const value=await store.readBytes('daily-text/2026-10-28/body.md');assert.equal(value.bytes.toString(),'# 正式日报\n');assert.equal(value.commitSha,head);assert.equal(value.sha,blobSha(value.bytes));
+ repo.external('daily-text/2026-10-28/body.md','different writer');await assert.rejects(store.write([{path:'daily-text/2026-10-28/body.md',bytes:Buffer.from('overwrite')}]),/其他写入者/);assert.equal(repo.value('daily-text/2026-10-28/body.md'),'different writer');
+});
+test('an absent byte read protects against a concurrent create; corrupt blob bytes fail closed',async()=>{
+ const repo=repository(),store=storeFor(repo);assert.equal(await store.readBytes('body.md'),null);repo.external('body.md','concurrent');await assert.rejects(store.write([{path:'body.md',bytes:Buffer.from('ours')}]),/其他写入者/);
+ const bad=repository({'body.md':'valid'}),reader=storeFor(bad);bad.intercept=({path,method,response})=>method==='GET'&&path.startsWith('/git/blobs/')?response(200,{content:Buffer.from('wrong').toString('base64')}):null;
+ await assert.rejects(reader.readBytes('body.md'),/字节校验失败/);
+});

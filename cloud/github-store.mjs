@@ -71,6 +71,14 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
   if(cachedSnapshot)retiredHeads.add(cachedSnapshot.sha);
   return cachedSnapshot={sha:ref.object.sha,tree:commit.tree.sha,files:new Map(tree.tree.filter(f=>f.type==='blob').map(f=>[f.path,f.sha]))};
  }
+ // Immutable public artifacts need byte reads with the same observation fence as JSON.
+ async function readBytes(name){
+  const current=await snapshot(),sha=current.files.get(name)||null;observed.set(name,sha);
+  if(!sha)return null;
+  const blob=await read('/git/blobs/'+sha),bytes=Buffer.from(blob.content,'base64');
+  if(blobSha(bytes)!==sha)throw Error('GitHub 读取文件字节校验失败');
+  return {sha,bytes,commitSha:current.sha};
+ }
  async function readJSON(name){
   const current=await snapshot(),sha=current.files.get(name)||null;observed.set(name,sha);
   if(!sha)return null;
@@ -147,5 +155,5 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
    }
   }
  }
- return {request,readJSON,readJSONAt,verifyWrite,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
+ return {request,readBytes,readJSON,readJSONAt,verifyWrite,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
 }
