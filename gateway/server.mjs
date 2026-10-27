@@ -1,4 +1,5 @@
 import {historyTasks} from './history-tasks.mjs';
+import {digest as historyDigest,actualUrl} from './history-protocol.mjs';
 import {createServer} from 'node:http';
 import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {gunzipSync,createGunzip} from 'node:zlib';
@@ -55,10 +56,50 @@ function connectionToken(value){
  if(!token||!/^[A-Za-z0-9_]+$/.test(token))throw Object.assign(issue(400,'请粘贴 GitHub 生成的完整个人访问令牌（Token），不要填写账号密码、仓库地址或令牌名称。'),{code:'github-token-format',field:'token'});
  return token;
 }
+// Only fixed, non-sensitive diagnostics are retained. A timeout or unexpected
+// successful HTTP response is still unknown; it is not proof of no dispatch.
+export function historyDispatchFailure(error,sending){
+ const httpStatus=Number.isInteger(error?.githubStatus)?error.githubStatus:null;
+ const rejected=[400,401,403,404,405,410,415,422,429].includes(httpStatus);
+ return {status:!sending||rejected?'failed':'uncertain',dispatch_error:{kind:!sending?'not-dispatched':rejected?'rejected':'uncertain',code:rejected?'github-dispatch-rejected':!sending?'dispatch-preparation-failed':'github-dispatch-unconfirmed',http_status:httpStatus}};
+}
+// Mirrors core.canonical for this fail-closed identity guard without importing
+// the scanner/catalog into the small gateway image. No URL is fetched here.
+export function recoverySourceKey(value){const u=new URL(actualUrl(value));if(/^(a|toutiao)\.nongjitong\.com$/.test(u.hostname))u.hostname='www.nongjitong.com';const jd=u.pathname.match(/^\/product\/(\d+)\.html$/);if(u.hostname==='item.m.jd.com'&&jd){u.hostname='item.jd.com';u.pathname='/'+jd[1]+'.html';}for(const k of [...u.searchParams.keys()])if(/^(utm_|ref$|spm$|fbclid$|gclid$|msclkid$|srsltid$|_ga$|_gl$|igshid$)/i.test(k))u.searchParams.delete(k);u.searchParams.sort();return 'lead-'+historyDigest(u.href.replace(/\/$/,''))}
+export function historyCommandRecovery({store,now=Date.now}){
+ const uuid=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
+ const checkAdmin=user=>{if(user?.role!=='admin'||!validUser(user.name))throw issue(403,'仅管理员本人可核对单条历史命令回执')};
+ const safe=r=>r&&['not-dispatched','rejected','uncertain'].includes(r.kind)?{kind:r.kind,code:r.code==='github-dispatch-rejected'?r.code:r.kind==='not-dispatched'?'dispatch-preparation-failed':'github-dispatch-unconfirmed',http_status:Number.isInteger(r.http_status)?r.http_status:null}:null;
+ const liveGate=(s,source_id,event_id)=>{
+  const w=s.historyValidation;
+  if(s.historySettings?.enabled!==false||s.historySettings?.baselineConfirmed!==true||s.historyRenumber?.state==='prepared'||!w||w.consumed!==false||w.tokenHash!==null||!Number.isSafeInteger(w.expiresAt)||w.source_id!==source_id||w.event_id!==event_id||now()>w.expiresAt||now()<w.expiresAt-20*60000||now()-(w.expiresAt-20*60000)>5*60000)throw issue(409,'history-command-recovery-window-required');
+  if(s.historyTasks?.[event_id]||Object.values(s.historyTasks||{}).some(t=>t.payload?.source_id===source_id))throw issue(409,'history-command-recovery-task-exists');
+  for(const [url,identity]of Object.entries(s.historyIdentities||{}))if(identity.record_id&&(identity.source_id===source_id||recoverySourceKey(url)===source_id))throw issue(409,'history-command-recovery-record-exists');
+ };
+ return {
+  assertDispatch(s,key){const r=s.requests?.[key],attempt=r?.historyRecovery?.[0];if(!r||r.operation!=='history-sync'||r.status!=='preparing'||!attempt||r.historyRecovery?.length!==1||attempt.status!=='preparing'||attempt.event_id!=='history:'+historyDigest([attempt.source_id,'upsert','initial'])||r.digest!==hash(JSON.stringify({operation:'history-sync',data:{source_id:attempt.source_id,mode:'send'}})))throw issue(409,'history-command-recovery-claim-changed');liveGate(s,attempt.source_id,attempt.event_id)},
+  list(user){checkAdmin(user);const prefix=user.name+':';return Object.entries(store.read().requests||{}).filter(([key,r])=>key.startsWith(prefix)&&uuid.test(key.slice(prefix.length))&&r.actor===user.name&&r.operation==='history-sync').sort(([,a],[,b])=>b.at-a.at).slice(0,20).map(([key,r])=>({request_id:key.slice(prefix.length),operation:r.operation,status:r.status,at:r.at,digest:r.digest,recovery_attempts:r.historyRecovery?.length||0,dispatch_error:safe(r.dispatch_error)}))},
+  async claim(user,input){
+   checkAdmin(user);const {request_id,expected_digest,source_id,event_id}=input;
+   if(input.operation!=='recover-command'||input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK'||Object.keys(input).some(k=>!['operation','workflow_id','table_id','request_id','expected_digest','source_id','event_id'].includes(k)))throw issue(400,'history-command-recovery-invalid');
+   if(!uuid.test(request_id||'')||!/^lead-[a-f0-9]{64}$/.test(source_id||'')||event_id!=='history:'+historyDigest([source_id,'upsert','initial']))throw issue(400,'history-command-recovery-invalid');
+   const data={source_id,mode:'send'},expected=hash(JSON.stringify({operation:'history-sync',data})),key=user.name+':'+request_id;
+   if(expected_digest!==expected)throw issue(409,'history-command-recovery-digest-mismatch');
+   let duplicate=false;await store.mutate(s=>{
+    const r=s.requests?.[key];if(!r||r.actor!==user.name||r.operation!=='history-sync'||r.digest!==expected)throw issue(409,'history-command-recovery-original-mismatch');
+    if(r.historyRecovery?.length){duplicate=true;return}
+    if(r.status!=='uncertain'||!Number.isFinite(r.at)||now()-r.at<120000)throw issue(409,'history-command-recovery-not-ready');
+    liveGate(s,source_id,event_id);
+    r.historyRecovery=[{at:now(),source_id,event_id,original:{at:r.at,status:r.status,digest:r.digest,dispatch_error:safe(r.dispatch_error)},status:'preparing'}];r.status='preparing';
+   });return {key,requestId:request_id,operation:'history-sync',data,duplicate};
+  }
+ };
+}
 export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOrigin=SITE,selfOrigin='',testOrigins=[],diagnostic=()=>{},accessMode='accounts',screenshotShareSpec=approvedScreenshot}={}){
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const history=historyTasks({store,now});
+ const commandRecovery=historyCommandRecovery({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
  const workflow=workflowTasks({store,now,index:async()=>{
   const config=store.read().config;if(!config)throw issue(503,'gateway-not-configured');
@@ -78,10 +119,10 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  function limit(key,max,ms){const t=now();for(const [k,v]of limiter)if(v.until<=t)limiter.delete(k);const value=limiter.get(key)||{count:0,until:t+ms};value.count++;limiter.set(key,value);if(value.count>max||limiter.size>3000)throw issue(429,'请求过于频繁，请稍后重试')}
  async function github(path,{token,method='GET',body,raw=false}={}){let r;try{r=await fetcher(API+path,{method,redirect:'error',headers:{Authorization:'Bearer '+token,Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'fjd-shared-sync'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(25000)})}catch{throw issue(502,'GitHub 请求回执未确认，本机记录保留')}
   if(!r.ok){
-   if(r.status===401)throw connectionIssue('GitHub 同步凭据未通过验证（HTTP 401）。凭据可能无效、过期或已撤销；请重新生成并粘贴完整 Token。工作台登录密码和云端数据密码不能代替它。','github-token-rejected');
-   if(r.status===403)throw connectionIssue('GitHub 拒绝访问（HTTP 403）。请检查凭据的仓库权限、有效期及 GitHub 的访问限制。','github-access-denied');
-   if(r.status===404)throw connectionIssue('未能读取原仓库云端文件（HTTP 404）。请确认凭据选择了 fjd-brand-watch- 仓库并具备 Contents 读取权限。请勿重建或清空台账。','github-resource-unavailable');
-   throw connectionIssue('GitHub 服务返回 HTTP '+r.status+'；请稍后重试，原记录保留。','github-unavailable');
+   if(r.status===401)throw Object.assign(connectionIssue('GitHub 同步凭据未通过验证（HTTP 401）。凭据可能无效、过期或已撤销；请重新生成并粘贴完整 Token。工作台登录密码和云端数据密码不能代替它。','github-token-rejected'),{githubStatus:r.status});
+   if(r.status===403)throw Object.assign(connectionIssue('GitHub 拒绝访问（HTTP 403）。请检查凭据的仓库权限、有效期及 GitHub 的访问限制。','github-access-denied'),{githubStatus:r.status});
+   if(r.status===404)throw Object.assign(connectionIssue('未能读取原仓库云端文件（HTTP 404）。请确认凭据选择了 fjd-brand-watch- 仓库并具备 Contents 读取权限。请勿重建或清空台账。','github-resource-unavailable'),{githubStatus:r.status});
+   throw Object.assign(connectionIssue('GitHub 服务返回 HTTP '+r.status+'；请稍后重试，原记录保留。','github-unavailable'),{githubStatus:r.status});
   }return r;
  }
  async function readDashboard(config,{fresh=false}={}){
@@ -173,15 +214,19 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(existing)return {requestId,status:existing.status,queued:existing.status==='queued',duplicate:true};
   // Fence only new accepted commands, not a repeated status poll for the same request.
   if(['review','migrate'].includes(operation)){const workflowFenceId=hash(key+':'+digest);business={...business,workflowFenceId};await store.mutate(s=>{s.requests[key].workflowFenceId=workflowFenceId})}
+  return dispatchCommand({key,operation,business,requestId});
+ }
+ async function dispatchCommand({key,operation,business,requestId,recovery=false}){
   const config=store.read().config;let sending=false;
+  const update=(status,dispatch_error)=>store.mutate(s=>{if(recovery&&status==='sending')commandRecovery.assertDispatch(s,key);const r=s.requests[key];r.status=status;if(dispatch_error)r.dispatch_error=dispatch_error;else if(status==='queued')delete r.dispatch_error;if(recovery){const attempt=r.historyRecovery?.[0];if(attempt){attempt.status=status;attempt.updatedAt=now();if(dispatch_error)attempt.dispatch_error=dispatch_error}}});
   try{
    const cipher=await seal(business,config.password,'payload'),payload=JSON.stringify(cipher);let pointer=payload;
    if(Buffer.byteLength(payload)>60000){const uploadId=requestId;await github('/repos/'+REPO+'/contents/inbox/'+uploadId+'.json',{token:config.token,method:'PUT',body:{message:'Encrypted shared workspace transfer',branch:BRANCH,content:Buffer.from(payload).toString('base64')}});pointer=JSON.stringify({uploadId})}
-   await store.mutate(s=>{s.requests[key].status='sending'});sending=true;
+   await update('sending');sending=true;
    const r=await github('/repos/'+REPO+'/actions/workflows/fjd-cloud.yml/dispatches',{token:config.token,method:'POST',body:{ref:'main',inputs:{operation,payload:pointer}}});
-   if(r.status!==204)throw issue(502,'工作流提交回执未确认');
-   await store.mutate(s=>{s.requests[key].status='queued'});dashboardCache=null;publicCache=null;return {requestId,status:'queued',queued:true};
-  }catch{await store.mutate(s=>{s.requests[key].status=sending?'uncertain':'failed'});return {requestId,status:sending?'uncertain':'failed',queued:false,message:sending?'工作流提交回执未确认，请核对云端记录；不会自动重复提交':'提交前保存未完成，原本机记录保留'};}
+   if(r.status!==204)throw Object.assign(issue(502,'工作流提交回执未确认'),{githubStatus:r.status});
+   await update('queued');dashboardCache=null;publicCache=null;return {requestId,status:'queued',queued:true,...(recovery?{recovery:true}:{})};
+  }catch(error){const failure=historyDispatchFailure(error,sending);await update(failure.status,failure.dispatch_error);return {requestId,status:failure.status,queued:false,...(recovery?{recovery:true}:{}),message:failure.status==='uncertain'?'工作流提交回执未确认，请核对云端记录；不会自动重复提交':failure.dispatch_error.kind==='rejected'?'GitHub 已明确拒绝提交；请核对安全错误码，原业务记录保留':'提交前保存未完成，原本机记录保留'};}
  }
  const server=createServer(async(req,res)=>{
   const origin=req.headers.origin||'',path=(req.url||'').split('?')[0];
@@ -253,10 +298,15 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    const user=auth(req);limit('api:'+user.name,180,60000);
    if(path==='/maintenance/history-sync'){
     if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
-    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics()});return}
+    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),historyCommands:commandRecovery.list(user)});return}
     if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req,1024*1024);
     if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
-    if(input.operation&&!['renumber','validation','upgrade-registered'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
+    if(input.operation&&!['renumber','validation','upgrade-registered','recover-command'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
+    if(input.operation==='recover-command'){
+     const claimed=await commandRecovery.claim(user,input);
+     if(claimed.duplicate){const r=store.read().requests[claimed.key];respond(200,{requestId:claimed.requestId,status:r.status,queued:r.status==='queued',duplicate:true,recovery:true});return}
+     respond(200,await dispatchCommand({key:claimed.key,operation:claimed.operation,business:claimed.data,requestId:claimed.requestId,recovery:true}));return;
+    }
     respond(200,input.operation==='renumber'?await history.renumber(input):input.operation==='validation'?await history.validation(input):input.operation==='upgrade-registered'?await history.upgradeRegistered(input):await history.configure(input));return;
    }
    if(path==='/maintenance/workflow-bridge'){

@@ -1695,3 +1695,33 @@ history-sync为现有Actions的管理员单条入口，先保存只读status、�
 本地相关32项通过；完整Node 622项中601通过、21项既有Unix socket listen EPERM未通过。
 完整Python98项中96通过、2项真实浏览器渲染因环境缺Chromium未通过，未跳过或伪造渲染。
 实际六条计划和完整旧导出仅在本地纯函数校验，248旧号全部保留并预留6新号；没有生产写入。
+
+### History command dispatch recovery (2026-10-27)
+
+The deployed first-report-day release exposed a separate command-boundary issue:
+`/command` retains an uncertain UUID after a GitHub dispatch error, but offered
+no protected receipt readback or bounded recovery. The original GitHub failure
+cause remains unknown; absence of a run or history task is not proof of rejection.
+The existing administrator history maintenance GET now lists at most 20 receipts
+belonging to that administrator: UUID, digest, time, status, recovery count and
+whitelisted upstream status/error code only. It never returns payloads or credentials.
+
+Explicit `operation=recover-command` is restricted to that same administrator's
+original uncertain `history-sync/send` UUID and recomputed digest, source and
+initial event. It requires a fresh matching validation window, paused ordinary
+sending, no prepared renumber, no task for the source and no bound record identity.
+The original uncertain receipt is retained in an append-only attempt snapshot;
+only one recovery is reserved durably before GitHub is contacted, including when
+the retry fails or the gateway restarts. Repeating this maintenance request reads
+that attempt instead of dispatching again. Immediately before saving the external
+dispatch intent, the window, paused state, task absence and identity binding are
+checked again to cover changes during encryption/save. Ordinary `/command` retries
+remain inert.
+
+Recovery dispatches the same existing source/event, never a new business event.
+The unchanged runner still demands a fresh source-bound status within five minutes,
+rechecks it and persists `dispatchedAt` before the Webhook. Late original and
+recovered jobs share the existing global Actions concurrency group and event token;
+they must produce at most one external write. Definite GitHub rejection statuses
+are recorded as failed; network/5xx/unrecognized 2xx remain uncertain. Acceptance
+still requires actual native record readback, not an accepted command or HTTP 204.
