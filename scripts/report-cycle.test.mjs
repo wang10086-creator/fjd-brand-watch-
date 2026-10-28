@@ -96,3 +96,14 @@ test('runtime center exposes cycle date, remaining budget and deadline without o
  const c=continuationInfo(a,{},at);assert.equal(c.day,'2026-10-22');assert.equal(c.remainingBudget,720);assert.match(c.cutoffAt,/2026-10-22T09:20/);
  const html=cloudPanel({automation:a,monitor:{updateChain:[]}});assert.match(html,/data-cycle-status/);assert.match(html,/日报归属/);assert.match(html,/剩余/);assert.match(html,/截止/);
 });
+
+test('paused Notion uses a checksum-bound local save without inventing external archive success',()=>{
+ const s=fixture(),r=freezeReport(s,day,day+'T01:30Z'),checksum=r.checksum;
+ const old={old:{status:'archived',checksum:'old'}};
+ const v={state:s,delivery:{notionPaused:true,formalReceipts:structuredClone(old),publicationReceipts:{},pushes:{[day]:{status:'sent',checksum,sentAt:day+'T01:36Z'}}}};
+ syncFormalReceipts(v);assert.notEqual(r.status,'published');
+ v.delivery.publicationReceipts[day]={status:'saved'};assert.throws(()=>syncFormalReceipts(v),/校验值/);
+ v.delivery.publicationReceipts[day]={status:'saved',checksum,at:day+'T01:35Z'};
+ syncFormalReceipts(v);assert.equal(r.status,'published');assert.equal(r.receipt.archiveStatus,'awaiting-external-confirmation');assert.equal(r.receipt.archiveAt,undefined);assert.deepEqual(v.delivery.formalReceipts,old);assert.equal(r.checksum,checksum);verifyFormal(r);
+ const before=JSON.stringify(r);syncFormalReceipts(v);assert.equal(JSON.stringify(r),before);
+});

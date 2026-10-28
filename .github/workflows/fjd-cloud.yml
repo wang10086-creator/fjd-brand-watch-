@@ -61,7 +61,7 @@ jobs:
           FEISHU_BASE_APP_SECRET: ${{ secrets.FEISHU_BASE_APP_SECRET }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          FJD_NOTION_PAUSED: 'true'
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}

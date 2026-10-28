@@ -37,6 +37,6 @@ jobs:
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           # Disabled unless explicitly approved; the private vault also pins pages/events.
           FJD_NOTION_EVIDENCE_ENABLED: 'false' # Production archive remains off pending separate approval.
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          FJD_NOTION_PAUSED: 'true'
           FJD_OPERATION: base-evidence
         run: node cloud/runner.mjs

@@ -45,7 +45,9 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
         from formal_delivery import deliver_formal
         return deliver_formal(state, operation, checkpoint, env,
                               request or notion_request(env.get('NOTION_TOKEN','')), bot_request, now)
-    token = env.get('NOTION_TOKEN', '')
+    paused = env.get('FJD_NOTION_PAUSED') == 'true'
+    state['notionPaused'] = paused
+    token = '' if paused else env.get('NOTION_TOKEN', '')
     state['notionConfigured'] = bool(token)
     state['botConfigured'] = state.get('notificationsEnabled') is not False and bool(env.get('FEISHU_BOT_WEBHOOK'))
     if state.get('notificationsEnabled') is not False:
@@ -54,7 +56,9 @@ def deliver(state, operation, checkpoint, env=None, request=None, bot_request=No
     if operation in ('digest','digest-only','test-digest'):state['botError'] = ''
     else:state.setdefault('botError','')
     state['baseUrl'] = state['publicUrl']  # Shared digest formatter's report link.
-    if operation != 'digest-only':
+    if paused:
+        state['archiveError'] = ''
+    if operation != 'digest-only' and not paused:
         try:
             if not token:
                 raise ValueError('Notion 自动归档待配置：请添加 NOTION_TOKEN，并将连接加入日报总页')
