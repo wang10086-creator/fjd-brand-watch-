@@ -2086,3 +2086,13 @@ The existing administrator status display now includes the current config
 projected to table_id/schema/bindings/create_field_ids for manual file reuse.
 It uses the same response, adds no request or endpoint, and omits credentials
 and policy from the upload configuration.
+
+### Fixed source-key diagnostic
+Manual-only read-only Actions diagnostic reads the pinned data-cloud vault commit,
+authenticates it with the existing vault cipher, verifies the fixed 2026-10-28
+formal report and two unique private URL rows, and projects only URL/source key/day,
+key provenance and an existing initial event ID. It reuses production canonical
+and digest functions; no queue, registration, checkpoint or delivery is invoked.
+No gateway request or Railway deployment is part of this diagnostic. Failures emit
+one fixed code. Tests cover output projection, immutability, duplicate/conflicting
+identities, invalid formal proof and GET-only transport.
