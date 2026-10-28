@@ -1806,3 +1806,7 @@ captures, checkpoint-before-send, no ambiguous resend, webhook origin validation
 and the real gateway routes. Full local socket tests require a runtime permitting
 Unix sockets; CI is the authoritative full suite when the local host returns
 `EPERM` on `listen`.
+
+## 2026-10-28 暂停 Notion 路径
+生产 runner 强制 FJD_NOTION_PAUSED 并剥离子进程的 NOTION_TOKEN；三个现有工作流停止注入该令牌，截图 Notion 归档同时保持关闭。旧 Notion 页面、回执与仓库凭据不删除。正式快照经加密持久化 ACK 后产生独立 publicationReceipts（saved，encrypted-ledger），用于继续原冻结/群简报/公开文字输出流程；不伪造 Notion 或飞书 archived 回执。飞书云文档仍由现有归档执行方完成，完成回执发布映射独立验收。旧已发布报告不修改；未确认保存不得发送。
+回退必须经业务确认后同时恢复 runner 策略与工作流令牌注入；不能仅改页面提示自动恢复 Notion 写入。
