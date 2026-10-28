@@ -2054,3 +2054,28 @@ idempotency, late requests, other-task isolation and real HTTP administrator
 permissions, including spoofed actor rejection. The portal form is exercised
 locally at desktop and mobile widths with mocked maintenance responses; this
 is not production/native-write acceptance.
+
+The same rollout adds native_first_discovered_date to daily-initial create
+permits only. The alias is derived from the actual plan.patch field selected by
+the unique schema name 首次发现日期 (type 5), never the current date or reserved
+number. Missing/ambiguous schema, missing patch value, nonnumeric, negative or unsafe
+milliseconds, non-UTC+8-midnight values, or dates beyond year 9999 reject before
+issuing a nonce. The fixed UTC+8 date is rendered YYYY/MM/DD for the native
+TODATE(text) input. The existing numeric write_fields, plan hashes, payload and
+event identity remain authoritative and unchanged; other modes/kinds/actions
+receive no alias. This adds no transport or receipt coercion. Node 7 must return
+its actual native date timestamp; node 8 still compares exact milliseconds.
+Regressions include UTC day crossing, leap day, year end, invalid ranges/types,
+non-midnight values, excluded actions, transactional rejection and readback drift.
+
+Permits also expose native_create_shape_supported, a read-only compatibility
+flag for the fixed native node. It is true only for daily-initial initial/create,
+a valid native date, exactly the nine named create-field IDs in the configured
+allowlist, and a patch containing exactly those IDs plus history_id/url/source_id/
+note_text bindings. Extra screenshot/country/entity keys are unsupported even
+when empty; missing keys and other combinations are false. The patch is never
+filtered. Node 5 must require allowed=true, action=create, event_kind=initial,
+native_create_shape_supported=true and a nonempty native date before node 6.
+A false shape flag is not a retry grant: the task may already have a nonce, so
+operators must inspect rather than blindly resending the write. The existing
+permitted-update reconciliation does not apply to a create task.

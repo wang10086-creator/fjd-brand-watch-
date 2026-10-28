@@ -33,6 +33,29 @@ export function decodeWorkflowRecords(input,config,payload){
  }
  return rows;
 }
+// Presentation alias only: the original millisecond patch remains authoritative.
+export function nativeInitialDate(config,payload,plan){
+ if(executionPolicy(config).mode!=='daily-initial'||payload.kind!=='initial'||plan.action!=='create')return {};
+ const fields=config.schema.filter(f=>f.field_name==='首次发现日期');
+ if(fields.length!==1||fields[0].type!==5||!Object.hasOwn(plan.patch,fields[0].field_id))fail('v3-native-date-field-required');
+ const value=plan.patch[fields[0].field_id],shifted=value+8*3600000;
+ if(!Number.isSafeInteger(value)||value<0||!Number.isSafeInteger(shifted)||shifted%86400000!==0||shifted>253402214400000)fail('v3-native-date-midnight-required');
+ const text=new Date(shifted).toISOString().slice(0,10).replaceAll('-','/');
+ return {native_first_discovered_date:text};
+}
+// The native fixed create node maps exactly these fields; this flag grants no
+// permission and never removes optional fields from the authoritative patch.
+export function nativeCreateShapeSupported(config,payload,plan){
+ if(executionPolicy(config).mode!=='daily-initial'||payload.kind!=='initial'||plan.action!=='create')return false;
+ const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
+ const fields=names.map(name=>config.schema.filter(f=>f.field_name===name));
+ if(fields.some(matches=>matches.length!==1))return false;
+ const ids=fields.map(matches=>matches[0].field_id),allowed=config.create_field_ids;
+ if(new Set(ids).size!==9||allowed.length!==9||new Set(allowed).size!==9||ids.some(id=>!allowed.includes(id)))return false;
+ const keys=[...['history_id','url','source_id','note_text'].map(key=>config.bindings[key]),...ids];
+ if(new Set(keys).size!==13||!exact(plan.patch,keys))return false;
+ try{return typeof nativeInitialDate(config,payload,plan).native_first_discovered_date==='string'}catch{return false;}
+}
 export function executionPolicy(config){
  const p=config?.execution_policy||{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]};
  if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','daily-initial','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode!=='country-pilot'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
@@ -201,8 +224,9 @@ export function historyV3({store,now=Date.now}){
     if(Object.values(v.tasks).some(x=>x!==t&&['permitted','unknown'].includes(x.state)))fail('v3-write-in-flight');if((v.next_write_at||0)>now())fail('v3-rate-limited');
     const snap=snapshot(input,v.config,t.payload),plan=prepareV3(t.payload,snap,v.config,{history_id:t.history_id,knownLineage:Object.values(v.lineage).filter(x=>x.original_record_id===t.payload.original?.record_id)});
     if(plan.action==='no-change'){t.state='verified';t.record_id=plan.record_id;t.receipt_hash=plan.after_hash;t.verified_at=now();result={allowed:false,action:'no-change',record_id:t.record_id};return;}
+    const nativeDate=nativeInitialDate(v.config,t.payload,plan),native_create_shape_supported=nativeCreateShapeSupported(v.config,t.payload,plan);
     const write_nonce=randomBytes(24).toString('base64url');t.state='permitted';t.nonce=write_nonce;t.plan=plan;t.config=structuredClone(v.config);t.permit_until=now()+60000;t.before_records=structuredClone(snap.records);v.next_write_at=now()+1000;
-    result={allowed:true,protocol,action:plan.action,event_kind:t.payload.kind,record_id:plan.record_id,history_id:t.history_id,write_nonce,permit_expires_at:new Date(t.permit_until).toISOString(),write_fields:plan.patch,original_record_id:t.payload.original?.record_id||'',original_history_id:t.payload.original?.history_id||'',...Object.fromEntries(Object.entries(v.config.bindings).filter(([key])=>key!=='manual_preview').map(([key,id])=>[key,Object.hasOwn(plan.patch,id)?plan.patch[id]:null]))};
+    result={allowed:true,...nativeDate,native_create_shape_supported,protocol,action:plan.action,event_kind:t.payload.kind,record_id:plan.record_id,history_id:t.history_id,write_nonce,permit_expires_at:new Date(t.permit_until).toISOString(),write_fields:plan.patch,original_record_id:t.payload.original?.record_id||'',original_history_id:t.payload.original?.history_id||'',...Object.fromEntries(Object.entries(v.config.bindings).filter(([key])=>key!=='manual_preview').map(([key,id])=>[key,Object.hasOwn(plan.patch,id)?plan.patch[id]:null]))};
    });return result;
   },
   async receipt(input,token){
