@@ -35,7 +35,7 @@ export function queueHistoryV3(vault,{sourceId=null}={}){
     const url=actualUrl(e.snapshot?.url),source_id=(vault.state.rows||[]).find(r=>canonical(r.url)===canonical(url))?.source_id||'lead-'+digest(canonical(url));if(sourceId&&sourceId!==source_id)continue;
     const row=vault.state.rows?.find(r=>canonical(r.url)===canonical(url));if(!row)continue;
     const known=q.sources[source_id];if(!known?.config){q.waiting[source_id]={url,reason:'identity-and-field-mapping-required'};continue;}
-    const policy=q.execution_policy||executionPolicy(known.config);if(policy.mode!=='events'||formal.day<policy.event_not_before)continue;
+    const policy=q.execution_policy||executionPolicy(known.config);if(!['events','daily-initial'].includes(policy.mode)||formal.day<policy.event_not_before||policy.mode==='daily-initial'&&e.kind!=='new')continue;
     const initial=e.kind==='new';if(initial&&known.original){delete q.waiting[source_id];continue;}
     if(!initial&&!known.original){q.waiting[source_id]={url,reason:'original-record-baseline-required'};continue;}
     const changes=initial?[null]:observationChanges(e).filter(c=>!c.insufficient&&!c.partial&&c.fields.length&&c.before?.verification==='page-fetched'&&c.after?.verification==='page-fetched');
@@ -65,7 +65,10 @@ export async function deliverHistoryV3(vault,{bridge,checkpoint,webhook,now=Date
  const q=state(vault);if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('v3-batch-limit');
  const caps=await bridge.capabilities();if(!caps.enabled){q.lastError='history-v3-paused';await checkpoint();return summaryHistoryV3(vault);}
  q.execution_policy=caps.execution_policy||executionPolicy(null);
- let reads=0;for(const row of vault.state.rows||[]){if(reads>=5||now()>deadline-15000)break;const source_id=row.source_id||'lead-'+digest(canonical(row.url));if(sourceId&&sourceId!==source_id)continue;if(q.sources[source_id]?.config)continue;try{const resolved=await bridge.identity({source_id,url:actualUrl(row.url)});q.sources[source_id]={url:actualUrl(row.url),...resolved};}catch{q.lastError='history-v3-identity-unconfirmed';}reads++;}
+ // Resolve current formal new leads before unrelated historical rows.
+ const currentNew=new Set(Object.values(vault.state.monitor?.formalReports||{}).filter(f=>f.day>=q.execution_policy.event_not_before).flatMap(f=>(f.report?.cohort||[]).filter(e=>e.kind==='new').map(e=>canonical(e.snapshot?.url||''))));
+ const identityRows=[...(vault.state.rows||[])].sort((a,b)=>Number(currentNew.has(canonical(b.url)))-Number(currentNew.has(canonical(a.url))));
+ let reads=0;for(const row of identityRows){if(reads>=5||now()>deadline-15000)break;const source_id=row.source_id||'lead-'+digest(canonical(row.url));if(sourceId&&sourceId!==source_id)continue;if(q.sources[source_id]?.config)continue;try{const resolved=await bridge.identity({source_id,url:actualUrl(row.url)});q.sources[source_id]={url:actualUrl(row.url),...resolved};}catch{q.lastError='history-v3-identity-unconfirmed';}reads++;}
  queueHistoryV3(vault,{sourceId});await checkpoint();let count=0;
  for(const item of Object.values(q.items).filter(i=>!eventId||i.payload.event_id===eventId).sort((a,b)=>Number(!!b.dispatchedAt)-Number(!!a.dispatchedAt)||a.queuedAt-b.queuedAt)){
   if(count>=limit||now()>deadline-5000)break;if(['verified','existing','conflict','failed'].includes(item.state)||item.retryAt>now())continue;if(!item.dispatchedAt&&!policyAllows(q.execution_policy,item.payload)){item.reason='v3-event-outside-execution-policy';continue;}if(!item.dispatchedAt&&q.execution_policy.mode==='country-pilot'&&!controlled){item.reason='country-pilot-explicit-single-send-required';continue;}count++;

@@ -2012,3 +2012,18 @@ requires separate configuration, registration and single-send acceptance.
 The deployed native lookup uses unique history ID plus URL and exact record-ID
 validation at the gateway, not a direct target_record_id formula filter.
 Country write/readback and daily new/change paths are still not accepted.
+
+### Daily initial native transport (2026-10-28)
+
+After the four country pilots, the daily rollout uses a separate `daily-initial`
+policy: only checksummed formal-report new leads at/after the cutover date can
+register. Existing metadata and change events remain outside this policy. The
+native initial preflight must serialize an actual zero-match lookup across URL,
+source key and reserved history ID; a nonzero count cannot receive a permit.
+The receipt requires one exact operation record with all schema fields and an
+empty manual attachment cell. The existing nonce, expiry, deduplication, reserved
+number and complete write-field readback checks are preserved. Manual previews
+are omitted from creation and never synthesized. Identity resolution prioritizes
+current formal new leads so a historical backlog cannot starve daily entries.
+Native mapping and live initial acceptance remain required before enabling this
+policy; passing unit tests or saving configuration does not constitute rollout.

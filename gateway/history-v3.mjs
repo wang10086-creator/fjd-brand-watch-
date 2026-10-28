@@ -11,14 +11,18 @@ const fail=m=>{throw Object.assign(Error(m),{status:/token/.test(m)?401:409})};
 const exact=(o,keys)=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
 // The native workflow serializes a single exact-ID lookup into one formula to
 // stay below its per-node formula-reference limit. This tested transport is
-// deliberately restricted to the country pilot, not initial/change creation.
+// supports verified country updates and zero-match daily initial creation.
+// Changes to existing leads still require the separate multi-row transport.
 export function decodeWorkflowRecords(input,config,payload){
  const receipt=Object.hasOwn(input,'write_nonce');
  const keys=['transport','event_id','table_id','workflow_id','lookup_count','records_json',...(receipt?['write_nonce','operation_record_id']:[])];
- if(!exact(input,keys)||input.transport!==workflowJsonTransport||input.lookup_count!==1||typeof input.records_json!=='string'||Buffer.byteLength(input.records_json)>131072)fail('invalid-workflow-json-envelope');
- if(executionPolicy(config).mode!=='country-pilot'||payload.kind!=='metadata'||Object.keys(payload.proposals).length!==1||!Object.hasOwn(payload.proposals,'country_region'))fail('workflow-json-country-pilot-only');
+ if(!exact(input,keys)||input.transport!==workflowJsonTransport||!Number.isInteger(input.lookup_count)||typeof input.records_json!=='string'||Buffer.byteLength(input.records_json)>131072)fail('invalid-workflow-json-envelope');
+ const mode=executionPolicy(config).mode,initial=mode==='daily-initial'&&payload.kind==='initial';
+ if(!initial&&(mode!=='country-pilot'||payload.kind!=='metadata'||Object.keys(payload.proposals).length!==1||!Object.hasOwn(payload.proposals,'country_region')))fail('workflow-json-country-pilot-only');
  let rows;try{rows=JSON.parse(input.records_json)}catch{fail('invalid-workflow-record-json')}
- if(!Array.isArray(rows)||rows.length!==1||rows[0]?.record_id!==payload.target.record_id||!exact(rows[0],['record_id','fields'])||!rows[0].fields||Array.isArray(rows[0].fields)||typeof rows[0].fields!=='object')fail('workflow-json-exact-record-required');
+ if(initial&&!receipt){if(input.lookup_count!==0||!Array.isArray(rows)||rows.length!==0)fail('workflow-json-initial-zero-match-required');return rows;}
+ const expectedId=initial?input.operation_record_id:payload.target.record_id;
+ if(input.lookup_count!==1||!Array.isArray(rows)||rows.length!==1||rows[0]?.record_id!==expectedId||!exact(rows[0],['record_id','fields'])||!rows[0].fields||Array.isArray(rows[0].fields)||typeof rows[0].fields!=='object')fail('workflow-json-exact-record-required');
  const fields=rows[0].fields;
  if(Object.keys(fields).length!==config.schema.length||config.schema.some(f=>!Object.hasOwn(fields,f.field_id)))fail('workflow-json-full-fields-required');
  for(const f of config.schema){const value=fields[f.field_id];
@@ -31,11 +35,12 @@ export function decodeWorkflowRecords(input,config,payload){
 }
 export function executionPolicy(config){
  const p=config?.execution_policy||{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]};
- if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode==='events'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
+ if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','daily-initial','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode!=='country-pilot'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
  return structuredClone(p);
 }
 export function policyAllows(policy,p){
  if(policy.mode==='country-pilot')return p.kind==='metadata'&&Object.keys(p.proposals).length===1&&Object.hasOwn(p.proposals,'country_region')&&policy.country_pilot_event_ids.includes(p.event_id);
+ if(policy.mode==='daily-initial')return p.kind==='initial'&&p.report_day>=policy.event_not_before;
  return p.kind==='metadata'||p.report_day>=policy.event_not_before;
 }
 

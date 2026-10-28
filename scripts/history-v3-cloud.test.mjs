@@ -39,3 +39,11 @@ test('a reconciled failed dispatch stays terminal and is never sent again',async
  const p=await pipeline(),v=vault();queueHistoryV3(v);const item=Object.values(v.historyV3.items)[0];item.state='pending-confirmation';item.dispatchedAt=Date.now();p.bridge.status=async()=>({state:'failed',error:'native-run-stopped-without-write'});
  await singleHistoryV3Task(v,{source_id:source,mode:'status'},p);assert.equal(item.state,'failed');await deliverHistoryV3(v,p);assert.equal(p.sends(),0);assert.equal(item.state,'failed');
 });
+
+test('daily initial queues new formal leads only, not changed or reviewed metadata',()=>{
+ for(const kind of ['initial','change']){const v=vault(kind);v.historyV3.execution_policy={mode:'daily-initial',event_not_before:'2026-10-28',country_pilot_event_ids:[]};assert.equal(Object.keys(queueHistoryV3(v).items).length,kind==='initial'?1:0);}
+});
+test('daily resolution prioritizes new formal leads over an unresolved historical backlog',async()=>{
+ const v=vault();v.historyV3.sources={};v.state.rows.unshift(...Array.from({length:8},(_,i)=>({url:'https://older.example/'+i,source_id:'lead-'+digest('old-'+i)})));const seen=[];
+ await deliverHistoryV3(v,{bridge:{capabilities:async()=>({enabled:true,execution_policy:{mode:'daily-initial',event_not_before:'2026-10-28',country_pilot_event_ids:[]}}),identity:async x=>{seen.push(x.source_id);return {config:full,original:null};},register:async()=>({ready:false,reason:'fixture'})},checkpoint:async()=>{}});assert.equal(seen[0],source);assert.equal(seen.length,5);
+});
