@@ -131,6 +131,23 @@ export function historyV3({store,now=Date.now}){
   resolveIdentity(p){if(!/^lead-[a-f0-9]{64}$/.test(p.source_id||''))fail('invalid-v3-source');actualUrl(p.url);const s=store.read();return {original:original(s,p),config:s.historyV3?.config||null,enabled:s.historyV3?.enabled===true};},
   async configure(config){validateBindings(config);await store.mutate(s=>{live(s);if(s.historyV3?.enabled)fail('pause-before-reconfigure');if(Object.values(s.historyV3?.tasks||{}).some(t=>!['verified','failed'].includes(t.state)))fail('v3-tasks-in-flight');s.historyV3||={tasks:{},lineage:{},enabled:false};s.historyV3.config=structuredClone(config);s.historyV3.enabled=false;});return this.capabilities();},
   async pause(){await store.mutate(s=>{if(s.historyV3)s.historyV3.enabled=false;});return this.capabilities();},
+  // Operator-only reconciliation of a stopped native run. This never issues a
+  // new permit or retries a write. A fresh full export must still equal the
+  // original preflight row, including every protected/manual field.
+  async reconcileUnwritten({event_id,expected_payload_hash,snapshot:observed,workflow_stopped,failed_run_id}){
+   if(workflow_stopped!==true||!/^\d{10,30}$/.test(failed_run_id||'')||!/^history-v3:[a-f0-9]{64}$/.test(event_id||'')||!/^[a-f0-9]{64}$/.test(expected_payload_hash||''))fail('v3-reconciliation-evidence-required');
+   let result;await store.mutate(s=>{live(s);const v=s.historyV3,t=v?.tasks?.[event_id];
+    if(v?.enabled!==false||!t||t.payload_hash!==expected_payload_hash||t.payload.kind!=='metadata'||t.plan?.action!=='update'||!['permitted','unknown'].includes(t.state))fail('v3-reconciliation-paused-update-required');
+    if(now()<t.permit_until+300000)fail('v3-reconciliation-settlement-required');
+    const captured=Date.parse(observed?.captured_at);if(!Number.isFinite(captured)||captured<t.permit_until||captured>now()+30000||now()-captured>300000)fail('v3-reconciliation-fresh-export-required');
+    const rows=records(observed,t.config),row=find(rows,t.payload.target,t.config.bindings);
+    if(rows.length!==1||hash(row)!==t.plan.before_hash)fail('v3-reconciliation-before-row-mismatch');
+    t.state='failed';t.error='native-run-stopped-without-write';t.reconciliation={at:now(),failed_run_id,snapshot_hash:hash(observed),before_hash:t.plan.before_hash};
+    // Retain the original nonce/plan for audit, but failed tasks can no longer
+    // pass receipt binding or receive a new permit through preflight.
+    result={reconciled:true,state:t.state,event_id,record_id:row.record_id,retry_allowed:false};
+   });return result;
+  },
   async enable({native_mapping_verified,single_writer_confirmed}={}){if(native_mapping_verified!==true||single_writer_confirmed!==true)fail('native-single-writer-confirmation-required');await store.mutate(s=>{live(s);validateBindings(s.historyV3?.config);if(!s.historySettings.baselineConfirmed)fail('complete-baseline-required');if(executionPolicy(s.historyV3.config).mode==='country-pilot'&&!executionPolicy(s.historyV3.config).country_pilot_event_ids.length)fail('country-pilot-allowlist-required');if(Object.values(s.historyV3.tasks).some(t=>['permitted','unknown'].includes(t.state)))fail('v3-unresolved-task');s.historyV3.enabled=true;s.historyV3.activated_at=now();});return this.capabilities();},
   async retireLegacyUnsent({event_id,expected_payload_hash}){await store.mutate(s=>{if(s.historySettings?.enabled!==false)fail('legacy-must-be-paused');const t=s.historyTasks?.[event_id];if(!t||t.state!=='registered'||t.nonce||t.record_id||hash(t.payload)!==expected_payload_hash)fail('legacy-not-provably-unpermitted');s.historyV3Retirements||=[];s.historyV3Retirements.push({event_id,before_hash:expected_payload_hash,at:now(),reason:'retired-before-v3-cutover'});t.state='failed';t.reason='retired-before-v3-cutover';});return {retired:true,event_id};},
   async register({payload,token,formal_report=null}){

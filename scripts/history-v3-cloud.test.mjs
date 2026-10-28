@@ -34,3 +34,8 @@ test('single pilot status selects approved country even with stale initial event
  await singleHistoryV3Task(v,{source_id:source,mode:'status'},{checkpoint:async()=>{},bridge:{identity:async()=>({original:p.target,config:scoped,enabled:true}),inspect:async item=>{inspected=item.payload;return {state:'not-registered',payload_hash:null};}}});
  assert.equal(inspected.event_id,p.event_id);assert.equal(inspected.kind,'metadata');assert.deepEqual(Object.keys(inspected.proposals),['country_region']);
 });
+
+test('a reconciled failed dispatch stays terminal and is never sent again',async()=>{
+ const p=await pipeline(),v=vault();queueHistoryV3(v);const item=Object.values(v.historyV3.items)[0];item.state='pending-confirmation';item.dispatchedAt=Date.now();p.bridge.status=async()=>({state:'failed',error:'native-run-stopped-without-write'});
+ await singleHistoryV3Task(v,{source_id:source,mode:'status'},p);assert.equal(item.state,'failed');await deliverHistoryV3(v,p);assert.equal(p.sends(),0);assert.equal(item.state,'failed');
+});

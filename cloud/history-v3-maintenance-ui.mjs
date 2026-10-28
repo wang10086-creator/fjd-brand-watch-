@@ -22,6 +22,12 @@ export function bindHistoryV3Maintenance({root,request,send,FormData=globalThis.
  const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
  const post=data=>request('/maintenance/history-sync',{method:'POST',data:{...context,...data}});
  const command=async(data)=>{if(typeof send!=='function')throw Error('单条命令入口不可用');await send('history-sync',data);message.textContent='已提交受控命令；请读取云端执行结果。受理不等于注册或飞书写入成功。'};
+ el('history-v3-reconcile').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
+  const form=new FormData(e.target),file=form.get('evidence');if(!form.has('workflow_stopped')||!file?.size||file.size>200000)throw Error('需要已终止运行及新鲜完整原记录导出证据');
+  const evidence=JSON.parse(await file.text());if(!exact(evidence,['event_id','expected_payload_hash','snapshot','failed_run_id']))throw Error('核销证据不能包含操作、凭据或其他字段');
+  const current=await read();if(current.enabled)throw Error('先暂停新规则');
+  await post({...evidence,action:'reconcile-unwritten',workflow_stopped:true});await read();
+ })};
  el('history-v3-country-prepare').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
   const form=new FormData(e.target),source_id=String(form.get('source_id')||'').trim(),selected=e.target.querySelector('select[name=history_id]').selectedOptions[0];
   if(!/^lead-[a-f0-9]{64}$/.test(source_id)||!form.has('reviewed'))throw Error('需要真实稳定键及人工复核过的经营者证据');
