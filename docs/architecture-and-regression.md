@@ -2076,6 +2076,13 @@ note_text bindings. Extra screenshot/country/entity keys are unsupported even
 when empty; missing keys and other combinations are false. The patch is never
 filtered. Node 5 must require allowed=true, action=create, event_kind=initial,
 native_create_shape_supported=true and a nonempty native date before node 6.
-A false shape flag is not a retry grant: the task may already have a nonce, so
-operators must inspect rather than blindly resending the write. The existing
-permitted-update reconciliation does not apply to a create task.
+For workflowJsonTransport + daily-initial + initial/create only, an unsupported
+shape rejects atomically before nonce/plan/permit state is persisted. The task
+stays registered, does not lock later permits, and can use the expired-window
+unpermitted retirement path. Other transports and country/metadata behavior
+remain unchanged. No automatic resend is introduced.
+
+The existing administrator status display now includes the current config
+projected to table_id/schema/bindings/create_field_ids for manual file reuse.
+It uses the same response, adds no request or endpoint, and omits credentials
+and policy from the upload configuration.

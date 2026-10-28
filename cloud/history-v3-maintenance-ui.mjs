@@ -19,7 +19,7 @@ export function configuration(input,{mode,event_not_before,pilotEvents=[]}){
 export function bindHistoryV3Maintenance({root,request,send,FormData=globalThis.FormData}){
  const el=id=>root.querySelector('#'+id),message=el('history-v3-result');
  const run=async(button,action)=>{button.disabled=true;try{await action()}catch(error){message.textContent=error.message}finally{button.disabled=false}};
- const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
+ const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,config:v.config?{table_id:v.config.table_id,schema:v.config.schema,bindings:v.config.bindings,create_field_ids:v.config.create_field_ids}:null,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
  const post=data=>request('/maintenance/history-sync',{method:'POST',data:{...context,...data}});
  const command=async(data)=>{if(typeof send!=='function')throw Error('单条命令入口不可用');await send('history-sync',data);message.textContent='已提交受控命令；请读取云端执行结果。受理不等于注册或飞书写入成功。'};
  el('history-v3-retire').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{

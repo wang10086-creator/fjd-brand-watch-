@@ -37,3 +37,8 @@ test('retirement UI requires explicit evidence and paused state, posts only fixe
  const blocked=ui(async()=>({v3:{enabled:true}}));await blocked.nodes.get('#history-v3-retire').onsubmit(blocked.event('history-v3-retire',{...values,workflow_stopped:'on'}));assert.match(blocked.nodes.get('#history-v3-result').textContent,/先暂停/);
  const failed=ui(async(path,options)=>{if(options)throw Error('v3-retirement-window-active');return {v3:{enabled:false}}});await failed.nodes.get('#history-v3-retire').onsubmit(failed.event('history-v3-retire',{...values,workflow_stopped:'on'}));assert.equal(failed.nodes.get('#history-v3-result').textContent,'v3-retirement-window-active');
 });
+test('visible status reuses its response to expose only the four upload configuration keys',async()=>{
+ let requests=0;const current={...structuredClone(config),token:'must-not-display',password:'must-not-display',enabled:true};
+ const f=ui(async()=>{requests++;return {v3:{enabled:false,config:current,tasks:[]}}});await f.nodes.get('#history-v3-read').onclick(f.event('history-v3-read'));
+ assert.equal(requests,1);const shown=JSON.parse(f.nodes.get('#history-v3-result').textContent);assert.deepEqual(shown.config,{table_id:config.table_id,schema:config.schema,bindings:config.bindings,create_field_ids:config.create_field_ids});assert.equal(f.nodes.get('#history-v3-result').textContent.includes('must-not-display'),false);
+});
