@@ -1773,3 +1773,36 @@ failure refreshes. Local socket tests may require CI because this work runtime
 rejects Unix socket listen with EPERM; never suppress those assertions.
 Production backup and dashboard restoration remain unverified until deployed
 and observed separately. This patch does not change history gates or notifications.
+# Read-only Feishu native transport acceptance (2026-10-28)
+
+PR #7 requires complete typed native records; selecting all 20 fields in the
+Feishu lookup does not prove the HTTP serialization preserves those values.
+Before retiring the accepted legacy path, this separate preparation adds an
+admin-only `history-sync/native-probe` command for the four approved country
+targets. It reuses the existing cloud job, encrypted checkpoints and history
+webhook. It never queues or replays a business history event.
+
+Flow: admin selection -> encrypted command -> cloud checkpoint -> sealed probe
+registration -> durable dispatch intent -> existing Feishu native lookup ->
+`/history/native-probe/capture` -> private admin report. Registration/capture
+require paused legacy sending, a confirmed baseline and no unresolved history
+tasks or maintenance window. The callback always returns `allowed:false` and
+cannot mutate business tasks, identities, rows or notification configuration.
+Each source has one probe; ambiguous transmission is status-only thereafter.
+Probe tokens expire after 30 minutes and are omitted from admin reports.
+
+The report preserves the raw bounded sample, count, shape and hash but explicitly
+does **not** certify a complete native record snapshot. Production mapping must
+be backed up, then temporarily point only preflight reads at this deny-write
+callback while senders are paused. A fresh native table export remains required;
+gateway audit snapshots do not include the Feishu rows. Do not promote PR #7 or
+enable writes until real typed values, empty values, link/attachment/relationship
+fields, counts and full record identity have been compared. Restore the saved
+mapping if the native transport cannot preserve them.
+
+Regression covers callback authentication, exact target scope, pause/in-flight
+gates, preserving business state, token redaction, nested values, immutable
+captures, checkpoint-before-send, no ambiguous resend, webhook origin validation
+and the real gateway routes. Full local socket tests require a runtime permitting
+Unix sockets; CI is the authoritative full suite when the local host returns
+`EPERM` on `listen`.

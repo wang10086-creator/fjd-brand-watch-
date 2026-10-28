@@ -1,3 +1,4 @@
+import {historyNativeProbe,probeTarget} from './history-native-probe.mjs';
 import {historyVaultStream} from './history-vault-stream.mjs';
 import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
@@ -101,6 +102,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const history=historyTasks({store,now});
+ const nativeProbe=historyNativeProbe({store,now});
  const commandRecovery=historyCommandRecovery({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
  const workflow=workflowTasks({store,now,index:async()=>{
@@ -203,7 +205,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  async function execute(user,input){
   const {operation,data={},requestId}=input;
   if(!['review','migrate','sync','scan','site-retry','check','history-sync'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
-  if(operation==='history-sync'&&(user.role!=='admin'||Object.keys(data).some(k=>!['source_id','mode'].includes(k))||!/^lead-[a-f0-9]{64}$/.test(data.source_id||'')||!['status','send'].includes(data.mode)))throw issue(403,'仅管理员可核对或受控发送单条历史任务');
+  if(operation==='history-sync'&&(user.role!=='admin'||Object.keys(data).some(k=>!['source_id','mode'].includes(k))||!/^lead-[a-f0-9]{64}$/.test(data.source_id||'')||!['status','send','native-probe'].includes(data.mode)))throw issue(403,'仅管理员可核对或受控发送单条历史任务');
+  if(operation==='history-sync'&&data.mode==='native-probe')probeTarget(data.source_id);
   if(operation==='review'&&(!Array.isArray(data.events)||Object.keys(data).some(k=>!['events','retryEventIds'].includes(k))))throw issue(400,'处理事件格式不正确');
   if(operation==='migrate'&&((user.role!=='public'&&!data.state?.config)||!Array.isArray(data.state?.rows)||!data.state?.monitor))throw issue(400,'台账结构不完整');
   if(operation==='sync'&&Object.keys(data).some(k=>!['config','selectedBrandIds','customAliases','imageUpdates','priorityUpdates'].includes(k)))throw issue(400,'同步内容不支持');
@@ -242,6 +245,12 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
+   if(['/history/native-probe/register','/history/native-probe/status','/history/native-probe/capture'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'native-probe-request-rejected');
+    limit('native-probe:'+req.socket.remoteAddress,20,60000);const input=await body(req,262144);
+    if(path.endsWith('/register')){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-native-probe')}catch{throw issue(401,'invalid-native-probe-envelope')}respond(200,await nativeProbe.register(ticket));return}
+    respond(200,await nativeProbe[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
+   }
    if(path==='/history/capabilities'&&req.method==='GET'){respond(200,history.capabilities());return}
    if(['/history/register','/history/preflight','/history/receipt','/history/status','/history/inspect'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
@@ -304,6 +313,10 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/history-native-probe'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可读取原生结构验收');
+    if(req.method!=='GET')throw issue(405,'仅支持只读验收报告');respond(200,nativeProbe.report());return;
+   }
    if(path==='/maintenance/history-sync/backup'){
     if(user.role!=='admin')throw issue(403,'仅管理员可导出历史维护审计快照');
     if(req.method!=='GET')throw issue(405,'仅支持只读导出');
