@@ -53,6 +53,7 @@ function buildReport(state,day,at){
 }
 export function syncFormalReceipts(vault){for(const [day,r] of Object.entries(vault.state.monitor.formalReports||{})){verifyFormal(r);const paused=vault.delivery.notionPaused===true,d=paused?vault.delivery.publicationReceipts?.[day]:vault.delivery.formalReceipts?.[day],p=vault.delivery.pushes?.[day];if(r.status==='published')continue;
  const previousStatus=r.status;
+ if(paused&&d?.status==='saved'&&d.checksum!==r.checksum)throw Error('本地正式快照保存回执缺少匹配校验值');
  if(d?.checksum&&d.checksum!==r.checksum||p?.checksum&&p.checksum!==r.checksum)throw Error('正式日报发布回执校验值不一致');
  const archiveOnly=vault.delivery.notificationsEnabled===false;
  r.status=d?.status===(paused?'saved':'archived')&&(archiveOnly||p?.status==='sent')?'published':d?.status==='failed'||!archiveOnly&&['failed','uncertain'].includes(p?.status)?'failed':!archiveOnly&&p?.status==='sending'?'publishing':'pending';

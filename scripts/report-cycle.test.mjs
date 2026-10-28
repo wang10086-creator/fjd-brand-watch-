@@ -102,6 +102,7 @@ test('paused Notion uses a checksum-bound local save without inventing external 
  const old={old:{status:'archived',checksum:'old'}};
  const v={state:s,delivery:{notionPaused:true,formalReceipts:structuredClone(old),publicationReceipts:{},pushes:{[day]:{status:'sent',checksum,sentAt:day+'T01:36Z'}}}};
  syncFormalReceipts(v);assert.notEqual(r.status,'published');
+ v.delivery.publicationReceipts[day]={status:'saved'};assert.throws(()=>syncFormalReceipts(v),/校验值/);
  v.delivery.publicationReceipts[day]={status:'saved',checksum,at:day+'T01:35Z'};
  syncFormalReceipts(v);assert.equal(r.status,'published');assert.equal(r.receipt.archiveStatus,'awaiting-external-confirmation');assert.equal(r.receipt.archiveAt,undefined);assert.deepEqual(v.delivery.formalReceipts,old);assert.equal(r.checksum,checksum);verifyFormal(r);
  const before=JSON.stringify(r);syncFormalReceipts(v);assert.equal(JSON.stringify(r),before);
