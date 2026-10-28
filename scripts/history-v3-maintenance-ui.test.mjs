@@ -23,3 +23,10 @@ test('pilot UI sends preparation only to fixed history command and does not auto
  const target={form:new Map(Object.entries({source_id:source,reviewed:'on',evidence_url:'https://operator.example/legal',operator_name:'Synthetic operator',quote:'Synthetic address',observed_at:'2026-10-28T01:00:00Z',kind:'operator-address'})),querySelector:q=>q==='button'?button:{selectedOptions:[option]}};
  await nodes.get('#history-v3-country-prepare').onsubmit({preventDefault(){},target});assert.equal(calls.length,1);assert.equal(calls[0][0],'history-sync');assert.equal(calls[0][1].mode,'prepare-country');assert.equal(calls[0][1].candidate.record_id,option.dataset.record);assert.equal(button.disabled,false);assert.match(nodes.get('#history-v3-result').textContent,/不等于注册或飞书写入成功/);
 });
+
+test('reconciliation UI requires stopped workflow and exact evidence, and never enables sending',async()=>{
+ const calls=[],f=ui(async(path,options)=>{calls.push({path,options});return {v3:{enabled:false}}});
+ const evidence={event_id:'history-v3:'+'a'.repeat(64),expected_payload_hash:'b'.repeat(64),snapshot:{records:[]},failed_run_id:'7701647212519148831'},file={size:200,text:async()=>JSON.stringify(evidence)};
+ await f.nodes.get('#history-v3-reconcile').onsubmit(f.event('history-v3-reconcile',{evidence:file}));assert.equal(calls.length,0);
+ await f.nodes.get('#history-v3-reconcile').onsubmit(f.event('history-v3-reconcile',{evidence:file,workflow_stopped:'on'}));assert.equal(calls.length,3);assert.equal(calls[1].options.data.action,'reconcile-unwritten');assert.equal(calls[1].options.data.workflow_stopped,true);assert.ok(!calls.some(c=>c.options?.data.action==='enable'));
+});

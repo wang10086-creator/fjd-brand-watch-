@@ -68,7 +68,7 @@ export async function deliverHistoryV3(vault,{bridge,checkpoint,webhook,now=Date
  let reads=0;for(const row of vault.state.rows||[]){if(reads>=5||now()>deadline-15000)break;const source_id=row.source_id||'lead-'+digest(canonical(row.url));if(sourceId&&sourceId!==source_id)continue;if(q.sources[source_id]?.config)continue;try{const resolved=await bridge.identity({source_id,url:actualUrl(row.url)});q.sources[source_id]={url:actualUrl(row.url),...resolved};}catch{q.lastError='history-v3-identity-unconfirmed';}reads++;}
  queueHistoryV3(vault,{sourceId});await checkpoint();let count=0;
  for(const item of Object.values(q.items).filter(i=>!eventId||i.payload.event_id===eventId).sort((a,b)=>Number(!!b.dispatchedAt)-Number(!!a.dispatchedAt)||a.queuedAt-b.queuedAt)){
-  if(count>=limit||now()>deadline-5000)break;if(['verified','existing','conflict'].includes(item.state)||item.retryAt>now())continue;if(!item.dispatchedAt&&!policyAllows(q.execution_policy,item.payload)){item.reason='v3-event-outside-execution-policy';continue;}if(!item.dispatchedAt&&q.execution_policy.mode==='country-pilot'&&!controlled){item.reason='country-pilot-explicit-single-send-required';continue;}count++;
+  if(count>=limit||now()>deadline-5000)break;if(['verified','existing','conflict','failed'].includes(item.state)||item.retryAt>now())continue;if(!item.dispatchedAt&&!policyAllows(q.execution_policy,item.payload)){item.reason='v3-event-outside-execution-policy';continue;}if(!item.dispatchedAt&&q.execution_policy.mode==='country-pilot'&&!controlled){item.reason='country-pilot-explicit-single-send-required';continue;}count++;
   try{
    if(item.dispatchedAt){const s=await bridge.status(item);item.state=s.state==='verified'?'verified':'pending-confirmation';if(s.record_id){item.record_id=s.record_id;if(item.payload.kind==='initial')q.sources[item.payload.source_id].original={record_id:s.record_id,history_id:s.history_id};}await checkpoint();if(item.state!=='verified')break;continue;}
    const registration=await bridge.register(item);if(!registration.ready){if(registration.reason==='initial-existing'){q.sources[item.payload.source_id].original=registration.original;item.state='existing';}else{item.reason=registration.reason;item.retryAt=now()+60000;}await checkpoint();continue;}
@@ -100,7 +100,7 @@ export async function singleHistoryV3Task(vault,input,{bridge,checkpoint,webhook
   const resolved=await bridge.identity({source_id,url:actualUrl(row.url)});
   if(!resolved.config||resolved.enabled||executionPolicy(resolved.config).mode!=='country-pilot')throw Error('single-country-paused-pilot-config-required');
   if(hash(resolved.original)!==hash(prepared.target))throw Error('single-country-current-baseline-mismatch');
-  const existing=Object.values(q.items).filter(i=>i.payload.source_id===source_id&&i.payload.event_id!==prepared.event_id&&!['verified','existing','conflict'].includes(i.state));
+  const existing=Object.values(q.items).filter(i=>i.payload.source_id===source_id&&i.payload.event_id!==prepared.event_id&&!['verified','existing','conflict','failed'].includes(i.state));
   if(existing.length)throw Error('single-country-other-task-unresolved');
   const old=q.items[prepared.event_id];if(old&&hash(old.payload)!==hash(prepared))throw Error('single-country-payload-conflict');
   if(!old)q.items[prepared.event_id]={payload:prepared,formal_report:null,state:'queued',token:randomBytes(32).toString('base64url'),queuedAt:now(),countryPilotPrepared:true};
@@ -110,9 +110,9 @@ export async function singleHistoryV3Task(vault,input,{bridge,checkpoint,webhook
  }
 
  if(mode==='status'){const resolved=await bridge.identity({source_id,url:actualUrl(row.url)});q.execution_policy=executionPolicy(resolved.config);q.sources[source_id]={url:actualUrl(row.url),...resolved};queueHistoryV3(vault,{sourceId:source_id});}
- const items=Object.values(q.items).filter(i=>i.payload.source_id===source_id&&(i.dispatchedAt||policyAllows(q.execution_policy||executionPolicy(q.sources[source_id]?.config),i.payload))),item=items.find(i=>!['verified','existing'].includes(i.state))||items.at(-1);
+ const items=Object.values(q.items).filter(i=>i.payload.source_id===source_id&&(i.dispatchedAt||policyAllows(q.execution_policy||executionPolicy(q.sources[source_id]?.config),i.payload))),item=items.find(i=>!['verified','existing','failed'].includes(i.state))||items.at(-1);
  if(!item){q.singleCheck={source_id,mode,state:'waiting-evidence',reason:q.waiting[source_id]?.reason||'no-event',at:now()};await checkpoint();return q.singleCheck;}
- if(mode==='status'||item.dispatchedAt){const result=item.dispatchedAt?await bridge.status(item):await bridge.inspect(item);if(result.state==='verified'){item.state='verified';item.record_id=result.record_id;}q.singleCheck={...result,source_id,event_id:item.payload.event_id,mode:'status',at:now()};await checkpoint();return q.singleCheck;}
+ if(mode==='status'||item.dispatchedAt){const result=item.dispatchedAt?await bridge.status(item):await bridge.inspect(item);if(result.state==='verified'){item.state='verified';item.record_id=result.record_id;}else if(result.state==='failed')item.state='failed';q.singleCheck={...result,source_id,event_id:item.payload.event_id,mode:'status',at:now()};await checkpoint();return q.singleCheck;}
  const checked=q.singleCheck;if(!checked||checked.source_id!==source_id||checked.event_id!==item.payload.event_id||checked.mode!=='status'||now()-checked.at>300000||!['registered','not-registered'].includes(checked.state)||checked.has_nonce||checked.record_id)throw Error('single-v3-fresh-status-required');
  const fresh=await bridge.inspect(item);if(fresh.state!==checked.state||fresh.payload_hash!==checked.payload_hash||fresh.has_nonce||fresh.record_id)throw Error('single-v3-status-changed');
  if(mode==='register-country'){

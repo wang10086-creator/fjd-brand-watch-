@@ -1986,3 +1986,29 @@ not enabled by this adapter. No production business write has occurred yet.
 
 Targeted regression: 21/21 passed (including 5 transport integration tests).
 Full regression and remote CI for this addition remain pending.
+
+## 2026-10-28 stopped native pilot reconciliation
+
+Production pilot 20261010-001 reached a valid v3 preflight at 09:24:55Z,
+then native run 7701647212519148831 stopped at switch 10 with condition 0.
+The modify/readback nodes did not execute. Both gateway and native workflow
+were paused; the permit is retained and must not be blindly resent.
+
+Dependency flow: the existing authenticated administrator maintenance route
+calls historyV3.reconcileUnwritten; the portal uploads evidence through that
+same route; cloud single-task status then records the terminal failed state.
+No Feishu app credentials, direct write API, retry permission, report/schedule
+change, or new authentication surface is introduced.
+
+Reconciliation requires a paused gateway, an operator-confirmed stopped native
+workflow/run, exact task hash, five minutes after permit expiry, and an export
+captured after expiry and within five minutes. All configured fields must
+match the preflight before-row hash. Any changed field or actual write blocks
+unwritten reconciliation; the original receipt can still verify a real write.
+The audit preserves the original permit and records the export hash and run ID.
+Cloud delivery excludes failed tasks, and a fresh explicitly prepared candidate
+requires separate configuration, registration and single-send acceptance.
+
+The deployed native lookup uses unique history ID plus URL and exact record-ID
+validation at the gateway, not a direct target_record_id formula filter.
+Country write/readback and daily new/change paths are still not accepted.
