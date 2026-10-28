@@ -1,5 +1,4 @@
 import {timingSafeEqual} from 'node:crypto';
-import {canonical} from '../core.js';
 import {digest,historyTable,historyWorkflow} from './history-protocol.mjs';
 
 // Temporary read-only transport acceptance. Never creates a write permit, edits
@@ -10,7 +9,9 @@ export const nativeProbeTargets=Object.freeze({
  '20261010-004':{record_id:'reczz28Rz623wMPN',url:'https://www.mysurveyingdirect.com/products/fj-dynamics-trion-p2-lidar-scanner'},
  '20261012-001':{record_id:'reczz28Rz623vNAO',url:'https://artechequipmentsupply.com/new-fjd-trion-p1-3d-handheld-lidar-scanner'}
 });
-export const probeSource=url=>'lead-'+digest(canonical(url));
+// Only used for the four fixed, already-canonical URLs above. Do not import the
+// frontend model (and its scanner dependencies) into the small gateway image.
+export const probeSource=url=>'lead-'+digest(new URL(url).href.replace(/\/$/,''));
 export const probeEvent=source_id=>'history-native-probe:'+digest(source_id);
 const fail=(status,message)=>{throw Object.assign(Error(message),{status})};
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
