@@ -1,3 +1,4 @@
+import {recoveryTarget} from './history-receipt-recovery.mjs';
 // Opt-in compatibility boundary. No HTTP route, credentials or Feishu adapter is
 // installed by importing this module. Legacy history modules remain unchanged.
 import {randomBytes} from 'node:crypto';
@@ -233,6 +234,7 @@ export function historyV3({store,now=Date.now}){
   async receipt(input,token){
    context(input);let result;try{await store.mutate(s=>{
     const t=auth(s,input.event_id,token);if(!['permitted','unknown','verified'].includes(t.state)||input.write_nonce!==t.nonce||!/^rec\w+$/.test(input.operation_record_id||''))fail('v3-receipt-binding');
+    if(t.receiptRecovery&&input.operation_record_id!==recoveryTarget.target_record_id)fail('v3-recovery-record-mismatch');
     const rows=records(snapshot(input,t.config,t.payload),t.config),hits=rows.filter(r=>r.record_id===input.operation_record_id),b=t.config.bindings;
     if(hits.length!==1)fail('v3-readback-nonunique');const r=hits[0];
     if(t.plan.action==='update'){if(r.record_id!==t.plan.record_id||hash(r)!==t.plan.after_hash)fail('v3-protected-fields-changed');}

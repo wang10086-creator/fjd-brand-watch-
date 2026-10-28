@@ -1,3 +1,4 @@
+import {recoveryTarget} from '../history-recovery-contract.js';
 // Fixed maintenance actions only. Never accepts an executable JSON envelope,
 // a token, or a native-mapping success inferred from a saved configuration.
 export const context={workflow_id:'wkfQwGPTGxlwgiUq',table_id:'tbl76uhMEgt3fmQK',operation:'v3'};
@@ -19,9 +20,17 @@ export function configuration(input,{mode,event_not_before,pilotEvents=[]}){
 export function bindHistoryV3Maintenance({root,request,send,FormData=globalThis.FormData}){
  const el=id=>root.querySelector('#'+id),message=el('history-v3-result');
  const run=async(button,action)=>{button.disabled=true;try{await action()}catch(error){message.textContent=error.message}finally{button.disabled=false}};
- const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,config:v.config?{table_id:v.config.table_id,schema:v.config.schema,bindings:v.config.bindings,create_field_ids:v.config.create_field_ids}:null,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
+ const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,receipt_recovery:v.receipt_recovery||null,config:v.config?{table_id:v.config.table_id,schema:v.config.schema,bindings:v.config.bindings,create_field_ids:v.config.create_field_ids}:null,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
  const post=data=>request('/maintenance/history-sync',{method:'POST',data:{...context,...data}});
  const command=async(data)=>{if(typeof send!=='function')throw Error('单条命令入口不可用');await send('history-sync',data);message.textContent='已提交受控命令；请读取云端执行结果。受理不等于注册或飞书写入成功。'};
+ const recoveryForm=el('history-v3-receipt-recovery');
+ if(recoveryForm)recoveryForm.onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
+  const form=new FormData(e.target);if(!['workflow_stopped','original_workflow_verified','receipt_only_published'].every(k=>form.has(k)))throw Error('须确认原运行终止、原工作流身份和只读恢复分支已发布');
+  const result=await post({...recoveryTarget,action:'authorize-receipt-recovery',workflow_stopped:true,original_workflow_verified:true,receipt_only_published:true});
+  await read();message.textContent+='\n恢复授权：'+result.state+(result.state==='authorized'?'；尚未领取发送。':'；已领取或结果待核对，禁止重发。');
+ })};
+ const recoverySend=el('history-v3-receipt-recovery-send');
+ if(recoverySend)recoverySend.onclick=e=>run(e.currentTarget,async()=>{const current=await read(),r=current.receipt_recovery;if(current.enabled||!r||r.state!=='authorized'||Date.now()>Date.parse(r.expires_at))throw Error('需要有效且未领取的恢复授权；结果不明禁止重试');await command({source_id:recoveryTarget.source_id,mode:'recover-receipt',recovery_id:r.recovery_id});});
  el('history-v3-retire').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
   const form=new FormData(e.target);
   if(!form.has('workflow_stopped'))throw Error('必须确认该原生运行已终止且无在途写入');

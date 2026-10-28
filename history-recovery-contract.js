@@ -1,0 +1,2 @@
+export const recoveryTarget=Object.freeze({event_id:'history-v3:d31cd365dc2f4067f5485c6da57ccf84777591b08f88e8e7204da49223ddf61c',source_id:'lead-2cda1b2127a53354429d6a3b24567936d0b933890d83dbc57865faacdeec9467',expected_payload_hash:'73f51c904e1df49c2321d47ce1e91fa0a6012112555dc89b9708b0c17f9ff4e3',target_record_id:'reczz28SraqZIMtc',failed_run_id:'7701725295279492351',history_id:'20261028-001',url:'https://prom.ua/m5195952981348039955-robot-konstruktor-robobeetle.html'});
+export const validRecoveryId=id=>typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id);
