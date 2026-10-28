@@ -61,7 +61,7 @@ if(typeof window!=='undefined'){
  $('#shared-logout').onclick=()=>sharedAction(()=>sharedLogout());
  $('#shared-sync').onclick=()=>sharedAction(async()=>{const state=await loadState();await syncArchive(state,{force:true});persist(state);const r=await flush();if(!r.fullOK)throw Error('本机同步回执未保存，请保留当前页面');const status=reviewSyncStatus(state);if(status.pending)throw Error(status.message)});
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();
- bindHistoryV3Maintenance({root:document,request:sharedRequest});
+ bindHistoryV3Maintenance({root:document,request:sharedRequest,send});
  const historyMessage=$('#history-sync-status');
  $('#history-backup-download').onclick=()=>downloadHistoryBackup({request:sharedRequest,button:$('#history-backup-download'),message:$('#history-backup-status')});
 

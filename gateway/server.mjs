@@ -1,3 +1,4 @@
+import {validateSingleHistoryCommand} from './history-country-pilot.mjs';
 import {historyV3} from './history-v3.mjs';
 import {historyV3Dispatch} from './history-v3-dispatch.mjs';
 import {historyVaultStream} from './history-vault-stream.mjs';
@@ -207,7 +208,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  async function execute(user,input){
   const {operation,data={},requestId}=input;
   if(!['review','migrate','sync','scan','site-retry','check','history-sync'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
-  if(operation==='history-sync'&&(user.role!=='admin'||Object.keys(data).some(k=>!['source_id','mode'].includes(k))||!/^lead-[a-f0-9]{64}$/.test(data.source_id||'')||!['status','send'].includes(data.mode)))throw issue(403,'仅管理员可核对或受控发送单条历史任务');
+  if(operation==='history-sync'){if(user.role!=='admin')throw issue(403,'仅管理员可核对或受控发送单条历史任务');try{validateSingleHistoryCommand(data,{now:now()})}catch{throw issue(400,'单条历史任务不符合受限协议；未提交')}}
   if(operation==='review'&&(!Array.isArray(data.events)||Object.keys(data).some(k=>!['events','retryEventIds'].includes(k))))throw issue(400,'处理事件格式不正确');
   if(operation==='migrate'&&((user.role!=='public'&&!data.state?.config)||!Array.isArray(data.state?.rows)||!data.state?.monitor))throw issue(400,'台账结构不完整');
   if(operation==='sync'&&Object.keys(data).some(k=>!['config','selectedBrandIds','customAliases','imageUpdates','priorityUpdates'].includes(k)))throw issue(400,'同步内容不支持');

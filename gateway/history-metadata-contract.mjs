@@ -72,3 +72,7 @@ export function verifyReadback(item,records){
  if(records.length!==1||records[0].record_id!==item.record_id||hash(records[0])!==item.after_hash)fail('readback-mismatch');
  return {operation_id:item.operation_id,status:'verified',record_id:item.record_id};
 }
+
+// Reuse evidence validation for bounded preparation, without inventing a record
+// snapshot. Actual current field eligibility remains a native preflight check.
+export {evidence as validateMetadataEvidence};

@@ -16,11 +16,21 @@ export function configuration(input,{mode,event_not_before,pilotEvents=[]}){
  if(!Array.isArray(pilotEvents)||pilotEvents.length>4||new Set(pilotEvents).size!==pilotEvents.length||pilotEvents.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||mode==='events'&&pilotEvents.length)throw Error('国家试点仅接受最多四个精确事件标识');
  return {...structuredClone(input),execution_policy:{mode,event_not_before,country_pilot_event_ids:[...pilotEvents]}};
 }
-export function bindHistoryV3Maintenance({root,request,FormData=globalThis.FormData}){
+export function bindHistoryV3Maintenance({root,request,send,FormData=globalThis.FormData}){
  const el=id=>root.querySelector('#'+id),message=el('history-v3-result');
  const run=async(button,action)=>{button.disabled=true;try{await action()}catch(error){message.textContent=error.message}finally{button.disabled=false}};
  const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
  const post=data=>request('/maintenance/history-sync',{method:'POST',data:{...context,...data}});
+ const command=async(data)=>{if(typeof send!=='function')throw Error('单条命令入口不可用');await send('history-sync',data);message.textContent='已提交受控命令；请读取云端执行结果。受理不等于注册或飞书写入成功。'};
+ el('history-v3-country-prepare').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
+  const form=new FormData(e.target),source_id=String(form.get('source_id')||'').trim(),selected=e.target.querySelector('select[name=history_id]').selectedOptions[0];
+  if(!/^lead-[a-f0-9]{64}$/.test(source_id)||!form.has('reviewed'))throw Error('需要真实稳定键及人工复核过的经营者证据');
+  const url=selected.dataset.url,country=selected.dataset.country;
+  const candidate={history_id:selected.value,record_id:selected.dataset.record,url,country,evidence:{reviewed:true,access:'public',subject_url:url,url:String(form.get('evidence_url')||'').trim(),quote:String(form.get('quote')||'').trim(),observed_at:String(form.get('observed_at')||'').trim(),operator_name:String(form.get('operator_name')||'').trim(),supported_value:country,kind:form.get('kind')}};
+  await command({source_id,mode:'prepare-country',candidate});
+ })};
+ for(const [id,mode]of [['history-v3-country-check','status'],['history-v3-country-register','register-country'],['history-v3-country-send','send']])el(id).onclick=e=>run(e.currentTarget,async()=>{const source_id=el('history-v3-country-source').value.trim();if(!/^lead-[a-f0-9]{64}$/.test(source_id))throw Error('需要真实稳定线索键');await command({source_id,mode})});
+
  el('history-v3-read').onclick=e=>run(e.currentTarget,read);
  el('history-v3-pause').onclick=e=>run(e.currentTarget,async()=>{await post({action:'pause'});await read()});
  el('history-v3-configure').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{

@@ -1,3 +1,4 @@
+import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {publishLightReports} from './publish-light-reports.mjs';
 import {queueHistory,deliverHistory,historySummary,historyBridge} from './history-sync.mjs';
 import {singleHistoryTask} from './history-only.mjs';
@@ -170,7 +171,7 @@ async function main(){
  let payload={},uploadName=null;if(env.FJD_PAYLOAD){let source=JSON.parse(env.FJD_PAYLOAD);if(source.uploadId){if(!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(source.uploadId))throw Error('云端传输编号不合法');uploadName='inbox/'+source.uploadId+'.json';const uploaded=await file(uploadName);if(!uploaded)throw Error('尚未找到已上传的加密台账');source=uploaded.value;}if(source.publicRequest){if(!['scan','site-retry'].includes(op))throw Error('不支持的公开执行请求');const p=source.publicRequest;if(p.site&&(!/^[a-z0-9-]+$/.test(p.site.platform||'')||!/^[a-z0-9.-]*$/.test(p.site.domain||'')))throw Error('目标网站格式不正确');payload={...(p.site?{site:p.site}:{}),watchOnly:!!p.watchOnly};}else payload=await unseal(source,password,'payload');}
  validatePublicWorkflowPayload(op,payload);
  if(op==='history-sync'){
-  if(Object.keys(payload).some(k=>!['source_id','mode'].includes(k)))throw Error('invalid-single-history-payload');
+  validateSingleHistoryCommand(payload);
   vault.runtime={phase:'running',operation:op,stage:'history-only',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const save=()=>checkpoint({imagesOnly:true,progressOnly:true,historyOnly:true,verify:true});
   try{await singleHistoryTask(vault,payload,{bridge:historyTransport,checkpoint:save,webhook:env.FEISHU_HISTORY_WEBHOOK});}

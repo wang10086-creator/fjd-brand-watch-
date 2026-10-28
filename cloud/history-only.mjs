@@ -1,10 +1,12 @@
+import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {singleHistoryV3Task} from './history-v3-sync.mjs';
 import {deliverHistory} from './history-sync.mjs';
 import {digest} from '../gateway/history-protocol.mjs';
 
-export async function singleHistoryTask(vault,{source_id,mode},{bridge,checkpoint,webhook,now=Date.now}={}){
- if(!/^lead-[a-f0-9]{64}$/.test(source_id||'')||!['status','send'].includes(mode))throw Error('invalid-single-history-request');
- if(bridge?.protocol==='fjd-history-v3')return singleHistoryV3Task(vault,{source_id,mode},{bridge,checkpoint,webhook,now});
+export async function singleHistoryTask(vault,input,{bridge,checkpoint,webhook,now=Date.now}={}){
+ validateSingleHistoryCommand(input,{now:now()});const {source_id,mode}=input;
+ if(bridge?.protocol==='fjd-history-v3')return singleHistoryV3Task(vault,input,{bridge,checkpoint,webhook,now});
+ if(!['status','send'].includes(mode))throw Error('single-history-v3-required');
  const q=vault.historySync,event_id=q?.sources?.[source_id]?.initialEvent,item=q?.items?.[event_id];
  if(!item||item.payload.event_type!=='upsert'||event_id!=='history:'+digest([source_id,'upsert','initial']))throw Error('single-history-existing-task-required');
  if(mode==='status'){
