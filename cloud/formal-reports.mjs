@@ -51,13 +51,14 @@ function buildReport(state,day,at){
  const entry={version:1,day,cycle,generatedAt:at,report,overview,chain:sm.updateChain.filter(e=>e.day===day)};entry.checksum=hash(snapshotPayload(entry));entry.status='pending';
  return entry;
 }
-export function syncFormalReceipts(vault){for(const [day,r] of Object.entries(vault.state.monitor.formalReports||{})){verifyFormal(r);const d=vault.delivery.formalReceipts?.[day],p=vault.delivery.pushes?.[day];if(r.status==='published')continue;
+export function syncFormalReceipts(vault){for(const [day,r] of Object.entries(vault.state.monitor.formalReports||{})){verifyFormal(r);const paused=vault.delivery.notionPaused===true,d=paused?vault.delivery.publicationReceipts?.[day]:vault.delivery.formalReceipts?.[day],p=vault.delivery.pushes?.[day];if(r.status==='published')continue;
  const previousStatus=r.status;
+ if(paused&&d?.status==='saved'&&d.checksum!==r.checksum)throw Error('本地正式快照保存回执缺少匹配校验值');
  if(d?.checksum&&d.checksum!==r.checksum||p?.checksum&&p.checksum!==r.checksum)throw Error('正式日报发布回执校验值不一致');
  const archiveOnly=vault.delivery.notificationsEnabled===false;
- r.status=d?.status==='archived'&&(archiveOnly||p?.status==='sent')?'published':d?.status==='failed'||!archiveOnly&&['failed','uncertain'].includes(p?.status)?'failed':!archiveOnly&&p?.status==='sending'?'publishing':'pending';
+ r.status=d?.status===(paused?'saved':'archived')&&(archiveOnly||p?.status==='sent')?'published':d?.status==='failed'||!archiveOnly&&['failed','uncertain'].includes(p?.status)?'failed':!archiveOnly&&p?.status==='sending'?'publishing':'pending';
  if(r.status!==previousStatus)r.statusAt=new Date().toISOString();
- if(r.status==='published'){r.publishedAt=archiveOnly?d.at:p.sentAt||p.at;r.receipt={archiveAt:d.at,...(archiveOnly?{notification:'disabled'}:{pushAt:r.publishedAt}),checksum:r.checksum};}
+ if(r.status==='published'){r.publishedAt=archiveOnly?d.at:p.sentAt||p.at;r.receipt={...(paused?{savedAt:d.at,archiveProvider:'feishu',archiveStatus:'awaiting-external-confirmation'}:{archiveAt:d.at}),...(archiveOnly?{notification:'disabled'}:{pushAt:r.publishedAt}),checksum:r.checksum};}
 }}
 
 export function updateCycleDraft(state,at=new Date().toISOString()){

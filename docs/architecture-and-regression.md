@@ -1927,3 +1927,32 @@ wrong schema types, and empty/nonempty new-row receipts. No production row or
 workflow fixture is committed. Local Node 683/705 pass; 22 socket tests hit host
 EPERM. Python 98/100 pass; two rendering tests remain local-runtime failures.
 Full remote CI is required before any release claim.
+## 2026-10-28 暂停 Notion 路径
+生产 runner 强制 FJD_NOTION_PAUSED 并剥离子进程的 NOTION_TOKEN；三个现有工作流停止注入该令牌，截图 Notion 归档同时保持关闭。旧 Notion 页面、回执与仓库凭据不删除。正式快照经加密持久化 ACK 后产生独立 publicationReceipts（saved，encrypted-ledger），用于继续原冻结/群简报/公开文字输出流程；不伪造 Notion 或飞书 archived 回执。飞书云文档仍由现有归档执行方完成，完成回执发布映射独立验收。旧已发布报告不修改；未确认保存不得发送。
+回退必须经业务确认后同时恢复 runner 策略与工作流令牌注入；不能仅改页面提示自动恢复 Notion 写入。
+
+
+### PR #7 acceptance checkpoint after the Notion pause
+
+Integrated current main (including PR #15 and the refreshed public snapshot)
+without restoring Notion tokens, writes, or trace links. The sole merge conflict
+was in this append-only architecture log; both decisions are retained. This is
+branch preparation, not a deployment or a history-send enablement.
+
+Live acceptance established that the two manual-preview columns are attachment
+fields and the history import create/update nodes no longer map that manual
+field. The separate transfer workflow copies the source attachment. A one-shot
+native raw-JSON probe returned HTTP 400 before any write permit; full typed-row
+transport remains unverified. The temporary JavaScript-node draft was discarded.
+
+The cloud status observed on 2026-10-28 reports attachmentConfigured=false.
+This means the runner has no complete selected application credential pair; it
+does not prove which Secrets exist or whether a configured application has Base
+permissions. The next API-read option must reuse baseAppCredentials precedence,
+request only field/record reads for the authorized history table, and keep the
+native workflow as the sole writer. Credentials belong in the existing GitHub
+Secrets slots, never in source, logs, reports, or chat. The existing single-image
+read diagnostic targets the monitoring table and is not history acceptance.
+A successful API read alone must not be labeled complete native workflow
+transport: explicit empty values, typed attachments/relationships/URLs, stable
+identity, complete lookup and post-write comparison still require validation.
