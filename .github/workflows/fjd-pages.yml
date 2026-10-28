@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_run:
+    workflows: [发布已确认飞书日报链接]
+    types: [completed]
+    branches: [main]
 permissions:
   contents: write
   pages: write
@@ -12,6 +16,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -54,6 +59,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node cloud/verify-published-snapshot.mjs
+      - name: 核对公开日报链接映射
+        if: steps.source.outputs.ready == 'true' && steps.deploy.conclusion == 'success'
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile} from 'node:fs/promises';
+          const expected=await readFile('assets/feishu-daily-archives.json');
+          const response=await fetch('https://wang10086-creator.github.io/fjd-brand-watch-/assets/feishu-daily-archives.json?version='+process.env.GITHUB_SHA,{redirect:'error',signal:AbortSignal.timeout(20000)});
+          if(!response.ok||!Buffer.from(await response.arrayBuffer()).equals(expected))throw Error('公开日报链接映射尚未回读确认');
+          console.log('公开日报链接映射字节回读一致');
+          JS
       - name: 部署成功后回收过期独立资产
         if: steps.source.outputs.ready == 'true' && steps.deploy.conclusion == 'success'
         continue-on-error: true
