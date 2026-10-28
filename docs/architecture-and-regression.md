@@ -1841,3 +1841,26 @@ No new persistent credential or enterprise grant; stop extending abstractions.
 完整合同与切换门槛见history-v3-release-window.md及history-notes-owner-handoff.md。尚需完整现场schema、排空旧队列和原生节点配置验收；不能用离线contract或模拟native测试替代真实回读。首批5条私有dry-run为4国家候选+1保护跳过，has_more样本未冒充全表快照。没有生产写入、push、部署、新凭据或权限。
 
 收口安全修正：原v3生成器会扫描全部冻结报告，原先仅文档要求复核范围，存在误建历史变化的风险。已增加默认country-pilot策略、最多4个精确国家候选event_id白名单以及2026-10-28正式报告硬下界；pilot在注册/分号前拒绝所有新建事件，云端队列和网关preflight共同执行，旧缓存不能绕过。事件模式不自动启用，须既有管理员另行显式配置。没有新增角色、凭据或权限。
+
+## 2026-10-28 maintenance preparation before history v3
+
+A separate main-based release adds GET `/maintenance/history-sync/backup` behind the existing admin session. It resolves data-cloud to a commit before decrypting its vault and exports every persisted history queue entry, history/workflow task (including permitted and unknown), identity, ID reservation, retained receipt and command record. Authentication fields and bearer image URLs are redacted; config/users/sessions are excluded. The export includes state counts, cloud revision, content digest and explicit limitations: separate capture times, no cross-system atomicity, no direct replay, and Feishu schema/records must be exported separately. Cloud read or decrypt failure aborts the export; partial data is not labelled a complete snapshot. No legacy routes, switches, writer permits, schedules or notification flows change.
+
+The administrator download UI creates its DOM anchor lazily when clicked, not during portal initialization. Regression tests exercise real anchor append/click/remove/revoke lifecycle with a faithful document fixture, error paths, credential exclusion, all task states and the admin-only HTTP route. This preparation does not enable v3 or validate Feishu native array transport.
+
+
+### 2026-10-28 read recovery
+Dashboard refreshes re-read and authenticate the remote envelope after cache expiry,
+but only re-run complete JSON validation when authenticated compressed bytes differ
+from the last fully validated body. A changed invalid body is never cached or
+served from stale fallback. This avoids repeatedly parsing the same ~213 MB
+production dashboard every minute. Validation consumes tokens through a bounded
+Writable sink instead of creating an async-iterator promise per token; byte,
+time, nesting, full-tail syntax and gzip checks remain enforced. Backup parse
+failures log only elapsed time, compressed byte count and abort classification;
+no payload, credentials, source URLs or raw exception messages are logged.
+Regression covers identical, changed-valid, changed-invalid and upstream-auth
+failure refreshes. Local socket tests may require CI because this work runtime
+rejects Unix socket listen with EPERM; never suppress those assertions.
+Production backup and dashboard restoration remain unverified until deployed
+and observed separately. This patch does not change history gates or notifications.
