@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,cp,mkdir,symlink} from 'node:fs/promises';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {canonical} from '../core.js';
+import {digest} from '../gateway/history-protocol.mjs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Readable} from 'node:stream';
@@ -12,6 +16,17 @@ import {seal} from '../cloud/crypto.js';
 import {historyTable,historyWorkflow} from '../gateway/history-protocol.mjs';
 const now=1000000,token='a'.repeat(43),source_id=probeSource(nativeProbeTargets['20261010-001'].url),event_id=probeEvent(source_id);
 const ticket={source_id,event_id,token};
+test('fixed source keys match the application and gateway starts with only Dockerfile contents',async()=>{
+ for(const t of Object.values(nativeProbeTargets))assert.equal(probeSource(t.url),'lead-'+digest(canonical(t.url)));
+ const directory=await mkdtemp(join(tmpdir(),'gateway-image-'));
+ try{
+  await cp(new URL('../gateway',import.meta.url),join(directory,'gateway'),{recursive:true});
+  await mkdir(join(directory,'cloud'));await cp(new URL('../cloud/crypto.js',import.meta.url),join(directory,'cloud/crypto.js'));
+  await cp(new URL('../package.json',import.meta.url),join(directory,'package.json'));
+  await symlink(new URL('../node_modules',import.meta.url).pathname,join(directory,'node_modules'),'dir');
+  await promisify(execFile)(process.execPath,['--input-type=module','-e',"await import('./gateway/server.mjs')"],{cwd:directory});
+ }finally{await rm(directory,{recursive:true,force:true})}
+});
 const initial=()=>({historySettings:{enabled:false,baselineConfirmed:true},historyTasks:{old:{state:'verified'}},historyIdentities:{old:{history_id:'20261010-002'}},workflowTasks:{old:{state:'verified'}}});
 function fixture(data=initial()){let s=structuredClone(data),clock=now,chain=Promise.resolve();const store={read:()=>structuredClone(s),mutate(fn){const p=chain.then(async()=>{const next=structuredClone(s);await fn(next);s=next});chain=p.catch(()=>{});return p}};return {store,g:historyNativeProbe({store,now:()=>clock}),advance:n=>clock+=n}}
 const capture=()=>({event_id,table_id:historyTable,workflow_id:historyWorkflow,lookup_count:1,sample:{record_ids:['reczz28Rz623uefi'],notes:[[{type:'text',text:'Original note'}]],linked:[{record_ids:['recLinked1','recLinked2']}],empty:[null],link:[{text:'Original label',link:'https://example.com/'}]}});
