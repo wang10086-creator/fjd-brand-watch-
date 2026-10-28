@@ -2,7 +2,13 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {countryPilotTargets,countryPilotPayload,validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {singleHistoryV3Task,deliverHistoryV3} from '../cloud/history-v3-sync.mjs';
 import {config,source} from './history-v3-fixtures.mjs';
+import {probeSource} from '../gateway/history-native-probe.mjs';
 const now=()=>Date.parse('2026-10-28T01:00:00Z');
+test('shared command validation preserves bounded read probes after v3 integration',()=>{
+ for(const t of Object.values(countryPilotTargets))assert.equal(validateSingleHistoryCommand({source_id:probeSource(t.url),mode:'native-probe'}),null);
+ assert.throws(()=>validateSingleHistoryCommand({source_id:'lead-'+'f'.repeat(64),mode:'native-probe'}),/four-targets/);
+ assert.throws(()=>validateSingleHistoryCommand({source_id:probeSource(countryPilotTargets['20261010-001'].url),mode:'native-probe',candidate:{}}),/payload/);
+});
 function candidate(){const history_id='20261010-001',t=countryPilotTargets[history_id];return {history_id,...t,evidence:{reviewed:true,access:'public',subject_url:t.url,url:'https://operator.example/legal',quote:'Synthetic test only: operator address Poland',observed_at:new Date(now()).toISOString(),operator_name:'Synthetic operator',supported_value:t.country,kind:'operator-address'}}}
 function fixture(){const c=candidate(),p=countryPilotPayload(source,c,{now:now()}),cfg={...structuredClone(config),execution_policy:{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]}},vault={state:{rows:[{url:c.url,source_id:source}],monitor:{formalReports:{}}}};let enabled=false,registered=false,sends=0,registrations=0,saves=0;const bridge={identity:async()=>({config:cfg,enabled,original:p.target}),capabilities:async()=>({enabled,execution_policy:cfg.execution_policy}),inspect:async item=>({state:registered?'registered':'not-registered',payload_hash:registered?'hash':null,has_nonce:false,record_id:null}),register:async()=>{registrations++;assert.equal(enabled,true);registered=true;return {ready:true,state:'registered',history_id:c.history_id}},send:async()=>{sends++;return true},status:async()=>({state:'verified',record_id:c.record_id,history_id:c.history_id})};return {vault,c,p,cfg,bridge,now,checkpoint:async()=>{saves++},enable(){cfg.execution_policy.country_pilot_event_ids=[p.event_id];enabled=true},counts:()=>({sends,registrations,saves})};}
 test('pilot strictly bounds four identities and never includes protected UK or arbitrary fields',()=>{

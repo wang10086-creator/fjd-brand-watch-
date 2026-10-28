@@ -25,7 +25,7 @@
 
 ## 配置与生产门槛
 
-configure 要求完整实测 schema 和8个不同绑定 history_id/url/source_id/manual_preview/screenshot_url/note_text/country_region/entity_name；URL type15，其余核心 type1。额外新建字段由实测 fieldID 白名单限定，不含人工列或核心列。
+configure 要求完整实测 schema 和8个不同绑定 history_id/url/source_id/manual_preview/screenshot_url/note_text/country_region/entity_name；URL type15，简要展示附件 type17，其余核心 type1。额外新建字段由实测 fieldID 白名单限定，不含人工列或核心列。
 创建生产器还要求真实映射：监控分类、来源平台、页面标题、产品名称/型号、网址当前状态、监测级别、处理状态、首次发现日期、首次检索时间。日期源于真实 firstSeen；缺失则等待，不伪造为执行日。截图缺证据则不写。
 
 enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、无活跃旧受控窗口或待执行renumber、完整编号baselineConfirmed，以及管理员确认 native_mapping_verified 和 single_writer_confirmed。只有能证明从未许可的 registered 旧任务，才可按 event+payload_hash 审计退役；已许可/未知任务必须先回读解决。

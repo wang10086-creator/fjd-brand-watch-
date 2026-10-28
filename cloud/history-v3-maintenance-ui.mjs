@@ -9,7 +9,7 @@ export function configuration(input,{mode,event_not_before,pilotEvents=[]}){
  if(!exact(input.bindings,keys)||new Set(Object.values(input.bindings)).size!==keys.length)throw Error('需要八个不同的字段绑定');
  for(const [key,id] of Object.entries(input.bindings)){
   const field=input.schema.find(f=>f.field_id===id),name={manual_preview:'简要展示',screenshot_url:'关联线索',note_text:'备注说明'}[key];
-  if(!field||field.type!==(key==='url'?15:1)||name&&field.field_name!==name)throw Error('字段名称或实际类型与合同不符');
+  if(!field||field.type!==(key==='url'?15:key==='manual_preview'?17:1)||name&&field.field_name!==name)throw Error('字段名称或实际类型与合同不符');
  }
  if(!Array.isArray(input.create_field_ids)||new Set(input.create_field_ids).size!==input.create_field_ids.length||input.create_field_ids.some(id=>Object.values(input.bindings).includes(id)||!input.schema.some(f=>f.field_id===id)))throw Error('新增字段白名单包含禁止或未知字段');
  if(!['country-pilot','events'].includes(mode)||!/^\d{4}-\d{2}-\d{2}$/.test(event_not_before)||!Number.isFinite(Date.parse(event_not_before))||new Date(event_not_before).toISOString().slice(0,10)!==event_not_before||event_not_before<'2026-10-28')throw Error('正式事件归属日不能早于2026-10-28');

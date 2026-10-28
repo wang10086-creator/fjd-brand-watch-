@@ -1,6 +1,7 @@
 import {validateSingleHistoryCommand} from './history-country-pilot.mjs';
 import {historyV3} from './history-v3.mjs';
 import {historyV3Dispatch} from './history-v3-dispatch.mjs';
+import {historyNativeProbe} from './history-native-probe.mjs';
 import {historyVaultStream} from './history-vault-stream.mjs';
 import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
@@ -106,6 +107,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  const history=historyTasks({store,now});
  const historyNext=historyV3({store,now}),dispatchHistoryNext=historyV3Dispatch({service:historyNext,getPassword:()=>store.read().config?.password});
  const publicHistoryNext=()=>{const c=historyNext.capabilities();return {...c,execution_policy:{mode:c.execution_policy.mode,event_not_before:c.execution_policy.event_not_before}};};
+ const nativeProbe=historyNativeProbe({store,now});
  const commandRecovery=historyCommandRecovery({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
  const workflow=workflowTasks({store,now,index:async()=>{
@@ -254,6 +256,12 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,16*1024*1024);
     respond(200,await dispatchHistoryNext({path,method:req.method,input,token:(req.headers.authorization||'').replace(/^Bearer /,'')}));return;
    }
+   if(['/history/native-probe/register','/history/native-probe/status','/history/native-probe/capture'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'native-probe-request-rejected');
+    limit('native-probe:'+req.socket.remoteAddress,20,60000);const input=await body(req,262144);
+    if(path.endsWith('/register')){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-native-probe')}catch{throw issue(401,'invalid-native-probe-envelope')}respond(200,await nativeProbe.register(ticket));return}
+    respond(200,await nativeProbe[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
+   }
    if(['/history/register','/history/preflight','/history/receipt','/history/status','/history/inspect'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,262144);
@@ -316,6 +324,10 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     limit('login:'+ip,40,900000);const v=await body(req);if(!validUser(v.username)||typeof v.password!=='string'||v.password.length>256)throw issue(401,'账号或密码不正确');limit('login-user:'+v.username,10,900000);const user=store.read().users[v.username];const match=await passwordMatches(v.password,user||dummy);if(!user||user.disabled||!match)throw issue(401,'账号或密码不正确');limiter.delete('login-user:'+v.username);respond(200,await session(v.username));return;
    }
    const user=auth(req);limit('api:'+user.name,180,60000);
+   if(path==='/maintenance/history-native-probe'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可读取原生结构验收');
+    if(req.method!=='GET')throw issue(405,'仅支持只读验收报告');respond(200,nativeProbe.report());return;
+   }
    if(path==='/maintenance/history-sync/backup'){
     if(user.role!=='admin')throw issue(403,'仅管理员可导出历史维护审计快照');
     if(req.method!=='GET')throw issue(405,'仅支持只读导出');

@@ -63,6 +63,9 @@ if(typeof window!=='undefined'){
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();
  bindHistoryV3Maintenance({root:document,request:sharedRequest,send});
  const historyMessage=$('#history-sync-status');
+ $('#history-native-send').onclick=()=>perform(async()=>{const source_id=await previewSourceId($('#history-native-target').value);await send('history-sync',{source_id,mode:'native-probe'});$('#history-native-result').textContent='已提交一次只读结构验收命令，请读取报告；尚未确认记录传递。'});
+ $('#history-native-report').onclick=()=>perform(async()=>{const result=await sharedRequest('/maintenance/history-native-probe');$('#history-native-result').textContent=JSON.stringify(result,null,2)});
+
  $('#history-backup-download').onclick=()=>downloadHistoryBackup({request:sharedRequest,button:$('#history-backup-download'),message:$('#history-backup-status')});
 
  $('#history-sync-form').onsubmit=async e=>{e.preventDefault();try{const form=new FormData(e.target),file=form.get('baseline'),data={enabled:form.has('enabled'),workflow_id:'wkfQwGPTGxlwgiUq',table_id:'tbl76uhMEgt3fmQK'};if(file?.size){if(file.size>900000)throw Error('基线文件过大，请先核对');const baseline=JSON.parse(await file.text());if(!Array.isArray(baseline))throw Error('基线必须为完整记录数组');data.baseline=baseline;data.expectedCount=baseline.length;}const result=await sharedRequest('/maintenance/history-sync',{method:'POST',data});historyMessage.textContent=result.enabled?'接线已启用；真实入表与回读仍需验收':'接线未启用；编号与历史记录保留'}catch(error){historyMessage.textContent=error.message}};

@@ -1,3 +1,4 @@
+import {probeTarget} from './history-native-probe.mjs';
 import {actualUrl} from './history-protocol.mjs';
 import {validateMetadataEvidence} from './history-metadata-contract.mjs';
 import {eventId,protocol,validateV3} from './history-v3.mjs';
@@ -26,6 +27,7 @@ export function validateSingleHistoryCommand(data,options){
   if(!exact(data,['source_id','mode','candidate']))throw Error('invalid-single-history-payload');
   return countryPilotPayload(data.source_id,data.candidate,options);
  }
- if(!exact(data,['source_id','mode'])||!['status','send','register-country'].includes(data.mode))throw Error('invalid-single-history-payload');
+ if(!exact(data,['source_id','mode'])||!['status','send','register-country','native-probe'].includes(data.mode))throw Error('invalid-single-history-payload');
+ if(data.mode==='native-probe')probeTarget(data.source_id);
  return null;
 }

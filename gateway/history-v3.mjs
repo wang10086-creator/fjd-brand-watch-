@@ -43,7 +43,7 @@ export function validateBindings(config){
  if(new Set(config.schema.map(f=>f.field_id)).size!==config.schema.length)fail('duplicate-field-schema');
  for(const [key,id] of Object.entries(config.bindings)){
   const f=config.schema.find(f=>f.field_id===id);
-  if(!/^fld\w+$/.test(id)||!f||f.type!==(key==='url'?15:1))fail('unsupported-field-binding');
+  if(!/^fld\w+$/.test(id)||!f||f.type!==(key==='url'?15:key==='manual_preview'?17:1))fail('unsupported-field-binding');
   const name={manual_preview:'简要展示',screenshot_url:'关联线索',note_text:'备注说明'}[key];if(name&&f.field_name!==name)fail('field-purpose-mismatch');
  }
  if(config.create_field_ids.some(id=>!config.schema.some(f=>f.field_id===id)||Object.values(config.bindings).includes(id)))fail('unsafe-create-allowlist');
@@ -148,7 +148,8 @@ export function historyV3({store,now=Date.now}){
     if(hits.length!==1)fail('v3-readback-nonunique');const r=hits[0];
     if(t.plan.action==='update'){if(r.record_id!==t.plan.record_id||hash(r)!==t.plan.after_hash)fail('v3-protected-fields-changed');}
     else{
-     if(Object.entries(t.plan.patch).some(([id,value])=>hash(r.fields[id])!==hash(value))||r.fields[b.manual_preview]!==''&&r.fields[b.manual_preview]!==null)fail('v3-created-readback-mismatch');
+     const manual=r.fields[b.manual_preview];
+     if(Object.entries(t.plan.patch).some(([id,value])=>hash(r.fields[id])!==hash(value))||manual!==null&&!(Array.isArray(manual)&&manual.length===0))fail('v3-created-readback-mismatch');
      if(rows.filter(x=>x.fields[b.history_id]===t.history_id).length!==1||t.before_records.some(x=>x.record_id===r.record_id))fail('v3-new-row-required');
      if(t.plan.original_record_id){const old=rows.filter(x=>x.record_id===t.plan.original_record_id);if(old.length!==1||hash(old[0])!==t.plan.original_hash)fail('v3-original-record-changed');}
     }

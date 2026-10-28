@@ -1,0 +1,34 @@
+name: 发布已确认飞书日报链接
+on:
+  workflow_dispatch:
+    inputs:
+      receipt:
+        description: 已获授权的归档执行方在同一记录成功回读后提交的最小JSON回执
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: fjd-archive-link-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 校验回执并只更新公开映射
+        uses: actions/github-script@v7
+        env:
+          ARCHIVE_RECEIPT: ${{ inputs.receipt }}
+        with:
+          script: |
+            const {publishArchiveReceipt}=await import(`${process.env.GITHUB_WORKSPACE}/cloud/feishu-archive-map.mjs`);
+            const result=await publishArchiveReceipt({github,...context.repo,receipt:JSON.parse(process.env.ARCHIVE_RECEIPT)});
+            core.info(JSON.stringify(result));

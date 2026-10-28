@@ -9,7 +9,7 @@ test('maintenance accepts only actual field configuration and bounded event poli
  assert.throws(()=>configuration(x,{...policy,event_not_before:'2026-10-27'}));assert.throws(()=>configuration(x,{...policy,event_not_before:'2026-02-31'}));
  assert.throws(()=>configuration(x,{...policy,pilotEvents:[...policy.pilotEvents,...policy.pilotEvents]}));
  assert.throws(()=>configuration({...x,create_field_ids:[x.bindings.manual_preview]},policy));
- x.schema.find(f=>f.field_id===x.bindings.manual_preview).type=17;assert.throws(()=>configuration(x,policy));
+ x.schema.find(f=>f.field_id===x.bindings.manual_preview).type=1;assert.throws(()=>configuration(x,policy));
 });
 function ui(request){const nodes=new Map(),root={querySelector(id){if(!nodes.has(id))nodes.set(id,{});return nodes.get(id)}};class FormData{constructor(target){return target.form}};bindHistoryV3Maintenance({root,request,FormData});return {nodes,root,event(id,values={}){const currentTarget=root.querySelector('#'+id),button={};return {currentTarget,preventDefault(){},target:{form:new Map(Object.entries(values)),querySelector(){return button}}}}};}
 test('initialization neither creates DOM nodes nor requests or changes production',()=>{let count=0;const f=ui(()=>count++);assert.equal(count,0);assert.equal(typeof f.nodes.get('#history-v3-read').onclick,'function')});

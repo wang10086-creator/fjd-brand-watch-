@@ -5,9 +5,9 @@ import {snapshotPayload} from '../cloud/formal-reports.mjs';
 import {canonical} from '../model.js';
 export const token='a'.repeat(43),url='https://shop.example/item',source='lead-'+digest('source');
 export const bindings={history_id:'fldId',url:'fldUrl',source_id:'fldSource',manual_preview:'fldManual',screenshot_url:'fldRelated',note_text:'fldNotes',country_region:'fldCountry',entity_name:'fldEntity'};
-export const schema=Object.entries(bindings).map(([k,field_id])=>({field_id,field_name:({manual_preview:'简要展示',screenshot_url:'关联线索',note_text:'备注说明'})[k]||k,type:k==='url'?15:1}));
+export const schema=Object.entries(bindings).map(([k,field_id])=>({field_id,field_name:({manual_preview:'简要展示',screenshot_url:'关联线索',note_text:'备注说明'})[k]||k,type:k==='url'?15:k==='manual_preview'?17:1}));
 export const config={table_id:'tbl76uhMEgt3fmQK',bindings,schema,create_field_ids:[],execution_policy:{mode:'events',event_not_before:'2026-10-28',country_pilot_event_ids:[]}};
-export const old={record_id:'recOriginal',fields:{fldId:'20261027-001',fldUrl:{link:url,text:url},fldSource:source,fldManual:'人工截图与文字保留',fldRelated:'',fldNotes:'人工备注保留',fldCountry:'待核实',fldEntity:'待核实'}};
+export const old={record_id:'recOriginal',fields:{fldId:'20261027-001',fldUrl:{link:url,text:url},fldSource:source,fldManual:[{file_token:'synthetic-original-attachment',name:'manual.png',size:1234,type:'image/png'}],fldRelated:'',fldNotes:'人工备注保留',fldCountry:'待核实',fldEntity:'待核实'}};
 export const context={table_id:config.table_id,workflow_id:'wkfQwGPTGxlwgiUq'};
 export function payload(kind='metadata',observation='change-1'){
  const original=kind==='change'?{record_id:old.record_id,history_id:old.fields.fldId}:null;
@@ -24,6 +24,6 @@ export function fixture(kind='metadata'){
 export async function ready(f){await f.api.configure(config);await f.api.enable({native_mapping_verified:true,single_writer_confirmed:true});}
 export async function permit(f,p){return f.api.preflight({...context,event_id:p.event_id,lookup_complete:true,records:structuredClone(f.snapshot.records)},token);}
 export function nativeWrite(f,pre){
- let record=f.snapshot.records.find(r=>r.record_id===pre.record_id);if(pre.action==='create'){record={record_id:'recCreated'+f.snapshot.records.length,fields:Object.fromEntries(schema.map(x=>[x.field_id,x.type===15?null:'']))};f.snapshot.records.push(record);}Object.assign(record.fields,structuredClone(pre.write_fields));return record;
+ let record=f.snapshot.records.find(r=>r.record_id===pre.record_id);if(pre.action==='create'){record={record_id:'recCreated'+f.snapshot.records.length,fields:Object.fromEntries(schema.map(x=>[x.field_id,x.type===15?null:x.type===17?[]:'']))};f.snapshot.records.push(record);}Object.assign(record.fields,structuredClone(pre.write_fields));return record;
 }
 export function receipt(f,p,pre,record){return f.api.receipt({...context,event_id:p.event_id,lookup_complete:true,records:structuredClone(f.snapshot.records),write_nonce:pre.write_nonce,operation_record_id:record.record_id},token);}

@@ -1864,3 +1864,66 @@ failure refreshes. Local socket tests may require CI because this work runtime
 rejects Unix socket listen with EPERM; never suppress those assertions.
 Production backup and dashboard restoration remain unverified until deployed
 and observed separately. This patch does not change history gates or notifications.
+# Read-only Feishu native transport acceptance (2026-10-28)
+
+## Integration with the pending v3 release (2026-10-28)
+
+Merged preparation main `9e8ab8a` into the pending v3 branch. Both maintenance
+panels and both gateway protocols remain available. The gateway and cloud runner
+share the strict single-history command validator; native-probe is accepted only
+for the same four fixed source keys with no extra fields. Without this integration,
+the v3 validator would reject the newly deployed read probe before dispatch.
+Regression covers all four allowed keys, an out-of-scope key and extra payload.
+The Docker-contents startup smoke test continues to pass with both modules.
+
+Local integration regression: Node 681/703 passed, with 22 Unix socket tests
+blocked by host EPERM. Python 98/100 passed after installing CI dependencies;
+two real-browser rendering tests failed in the local runtime. Full remote CI is
+required. No production mapping, history write, notification or deployment was
+performed by this integration. Feishu transport acceptance remains outstanding.
+
+PR #7 requires complete typed native records; selecting all 20 fields in the
+Feishu lookup does not prove the HTTP serialization preserves those values.
+Before retiring the accepted legacy path, this separate preparation adds an
+admin-only `history-sync/native-probe` command for the four approved country
+targets. It reuses the existing cloud job, encrypted checkpoints and history
+webhook. It never queues or replays a business history event.
+
+Flow: admin selection -> encrypted command -> cloud checkpoint -> sealed probe
+registration -> durable dispatch intent -> existing Feishu native lookup ->
+`/history/native-probe/capture` -> private admin report. Registration/capture
+require paused legacy sending, a confirmed baseline and no unresolved history
+tasks or maintenance window. The callback always returns `allowed:false` and
+cannot mutate business tasks, identities, rows or notification configuration.
+Each source has one probe; ambiguous transmission is status-only thereafter.
+Probe tokens expire after 30 minutes and are omitted from admin reports.
+
+The report preserves the raw bounded sample, count, shape and hash but explicitly
+does **not** certify a complete native record snapshot. Production mapping must
+be backed up, then temporarily point only preflight reads at this deny-write
+callback while senders are paused. A fresh native table export remains required;
+gateway audit snapshots do not include the Feishu rows. Do not promote PR #7 or
+enable writes until real typed values, empty values, link/attachment/relationship
+fields, counts and full record identity have been compared. Restore the saved
+mapping if the native transport cannot preserve them.
+
+Regression covers callback authentication, exact target scope, pause/in-flight
+gates, preserving business state, token redaction, nested values, immutable
+captures, checkpoint-before-send, no ambiguous resend, webhook origin validation
+and the real gateway routes. Full local socket tests require a runtime permitting
+Unix sockets; CI is the authoritative full suite when the local host returns
+`EPERM` on `listen`.
+
+### Attachment field compatibility before the v3 cutover
+
+The live history and monitoring tables now use attachment fields for 简要展示.
+The native history-to-monitoring workflow separately copies the manually supplied
+attachment. History v3 still never writes this field. Its configuration UI and
+server now require type 17 for manual_preview, preserve complete attachment data
+in the full-row hash, and accept only null or an empty attachment array on a new
+row. Nonempty or text-shaped new-row values fail receipt validation and pause.
+Regression uses native attachment fixtures and checks changed attachment tokens,
+wrong schema types, and empty/nonempty new-row receipts. No production row or
+workflow fixture is committed. Local Node 683/705 pass; 22 socket tests hit host
+EPERM. Python 98/100 pass; two rendering tests remain local-runtime failures.
+Full remote CI is required before any release claim.
