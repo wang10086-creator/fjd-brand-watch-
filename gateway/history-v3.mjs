@@ -5,9 +5,30 @@ import {actualUrl,validReportDay,digest} from './history-protocol.mjs';
 import {hash,planBatch,protocol as metadataProtocol} from './history-metadata-contract.mjs';
 import {noteEvent} from './history-notes-contract.mjs';
 export const protocol='fjd-history-v3';
+export const workflowJsonTransport='feishu-workflow-json-v1';
 const table='tbl76uhMEgt3fmQK';
 const fail=m=>{throw Object.assign(Error(m),{status:/token/.test(m)?401:409})};
 const exact=(o,keys)=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).length===keys.length&&keys.every(k=>Object.hasOwn(o,k));
+// The native workflow serializes a single exact-ID lookup into one formula to
+// stay below its per-node formula-reference limit. This tested transport is
+// deliberately restricted to the country pilot, not initial/change creation.
+export function decodeWorkflowRecords(input,config,payload){
+ const receipt=Object.hasOwn(input,'write_nonce');
+ const keys=['transport','event_id','table_id','workflow_id','lookup_count','records_json',...(receipt?['write_nonce','operation_record_id']:[])];
+ if(!exact(input,keys)||input.transport!==workflowJsonTransport||input.lookup_count!==1||typeof input.records_json!=='string'||Buffer.byteLength(input.records_json)>131072)fail('invalid-workflow-json-envelope');
+ if(executionPolicy(config).mode!=='country-pilot'||payload.kind!=='metadata'||Object.keys(payload.proposals).length!==1||!Object.hasOwn(payload.proposals,'country_region'))fail('workflow-json-country-pilot-only');
+ let rows;try{rows=JSON.parse(input.records_json)}catch{fail('invalid-workflow-record-json')}
+ if(!Array.isArray(rows)||rows.length!==1||rows[0]?.record_id!==payload.target.record_id||!exact(rows[0],['record_id','fields'])||!rows[0].fields||Array.isArray(rows[0].fields)||typeof rows[0].fields!=='object')fail('workflow-json-exact-record-required');
+ const fields=rows[0].fields;
+ if(Object.keys(fields).length!==config.schema.length||config.schema.some(f=>!Object.hasOwn(fields,f.field_id)))fail('workflow-json-full-fields-required');
+ for(const f of config.schema){const value=fields[f.field_id];
+  const valid=[1,3,20].includes(f.type)?typeof value==='string':f.type===5?(value===null||Number.isSafeInteger(value)&&value>=0):f.type===15?(exact(value,['link','text'])&&typeof value.link==='string'&&typeof value.text==='string'):[17,18].includes(f.type)?Array.isArray(value)&&value.length===0:false;
+  // Nonempty attachments/relations are not converted to an invented empty
+  // value. The workflow emits a sentinel and this boundary refuses the write.
+  if(!valid)fail('workflow-json-unverified-cell-shape');
+ }
+ return rows;
+}
 export function executionPolicy(config){
  const p=config?.execution_policy||{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]};
  if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode==='events'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
@@ -101,7 +122,7 @@ export function historyV3({store,now=Date.now}){
  const auth=(s,id,token)=>{const t=s.historyV3?.tasks?.[id];if(!t||hash(token||'')!==t.token_hash)fail('invalid-v3-task-token');if(now()>t.read_until)fail('v3-read-window-expired');return t;};
  const live=s=>{if(s.historySettings?.enabled!==false)fail('legacy-history-must-remain-paused');if(Object.values(s.historyTasks||{}).some(t=>!['verified','conflict','failed'].includes(t.state)))fail('legacy-tasks-unresolved');if(s.historyValidation&&!s.historyValidation.consumed&&s.historyValidation.expiresAt>now())fail('legacy-validation-active');if(s.historyRenumber?.state==='prepared')fail('legacy-renumber-prepared');};
  const context=i=>{if(i.table_id!==table||i.workflow_id!==workflow)fail('v3-workflow-mismatch');};
- const snapshot=(i,c)=>{if(i.lookup_complete!==true||!Array.isArray(i.records)||i.records.length>1000)fail('v3-complete-lookup-required');return {table_id:table,complete:true,captured_at:new Date(now()).toISOString(),schema:c.schema,records:i.records};};
+ const snapshot=(i,c,p)=>{if(Object.hasOwn(i,'transport')||Object.hasOwn(i,'records_json'))return {table_id:table,complete:true,captured_at:new Date(now()).toISOString(),schema:c.schema,records:decodeWorkflowRecords(i,c,p)};if(i.lookup_complete!==true||!Array.isArray(i.records)||i.records.length>1000)fail('v3-complete-lookup-required');return {table_id:table,complete:true,captured_at:new Date(now()).toISOString(),schema:c.schema,records:i.records};};
  const original=(s,p)=>{const r=s.historyIdentities?.[actualUrl(p.url)];if(r?.source_id&&r.source_id!==p.source_id)fail('v3-original-source-conflict');return r?.record_id?{record_id:r.record_id,history_id:r.history_id}:null;};
  return {
   capabilities(){const v=store.read().historyV3;return {protocol,enabled:v?.enabled===true,configured:!!v?.config,table_id:table,workflow_id:workflow,manual_preview_writable:false,execution_policy:executionPolicy(v?.config),safety:'single-writer-preflight-readback-not-cas'};},
@@ -135,16 +156,16 @@ export function historyV3({store,now=Date.now}){
     if(t.state!=='registered'){result={allowed:false,action:'reconcile-only',...this.status(input.event_id,token)};return;}
     live(s);if(!v.enabled)fail('v3-paused');if(!policyAllows(executionPolicy(v.config),t.payload))fail('v3-event-outside-execution-policy');if(now()>t.write_until)fail('v3-write-window-expired');
     if(Object.values(v.tasks).some(x=>x!==t&&['permitted','unknown'].includes(x.state)))fail('v3-write-in-flight');if((v.next_write_at||0)>now())fail('v3-rate-limited');
-    const snap=snapshot(input,v.config),plan=prepareV3(t.payload,snap,v.config,{history_id:t.history_id,knownLineage:Object.values(v.lineage).filter(x=>x.original_record_id===t.payload.original?.record_id)});
+    const snap=snapshot(input,v.config,t.payload),plan=prepareV3(t.payload,snap,v.config,{history_id:t.history_id,knownLineage:Object.values(v.lineage).filter(x=>x.original_record_id===t.payload.original?.record_id)});
     if(plan.action==='no-change'){t.state='verified';t.record_id=plan.record_id;t.receipt_hash=plan.after_hash;t.verified_at=now();result={allowed:false,action:'no-change',record_id:t.record_id};return;}
-    const write_nonce=randomBytes(24).toString('base64url');t.state='permitted';t.nonce=write_nonce;t.plan=plan;t.config=structuredClone(v.config);t.permit_until=now()+60000;t.before_records=structuredClone(input.records);v.next_write_at=now()+1000;
+    const write_nonce=randomBytes(24).toString('base64url');t.state='permitted';t.nonce=write_nonce;t.plan=plan;t.config=structuredClone(v.config);t.permit_until=now()+60000;t.before_records=structuredClone(snap.records);v.next_write_at=now()+1000;
     result={allowed:true,protocol,action:plan.action,event_kind:t.payload.kind,record_id:plan.record_id,history_id:t.history_id,write_nonce,permit_expires_at:new Date(t.permit_until).toISOString(),write_fields:plan.patch,original_record_id:t.payload.original?.record_id||'',original_history_id:t.payload.original?.history_id||'',...Object.fromEntries(Object.entries(v.config.bindings).filter(([key])=>key!=='manual_preview').map(([key,id])=>[key,Object.hasOwn(plan.patch,id)?plan.patch[id]:null]))};
    });return result;
   },
   async receipt(input,token){
    context(input);let result;try{await store.mutate(s=>{
     const t=auth(s,input.event_id,token);if(!['permitted','unknown','verified'].includes(t.state)||input.write_nonce!==t.nonce||!/^rec\w+$/.test(input.operation_record_id||''))fail('v3-receipt-binding');
-    const rows=records(snapshot(input,t.config),t.config),hits=rows.filter(r=>r.record_id===input.operation_record_id),b=t.config.bindings;
+    const rows=records(snapshot(input,t.config,t.payload),t.config),hits=rows.filter(r=>r.record_id===input.operation_record_id),b=t.config.bindings;
     if(hits.length!==1)fail('v3-readback-nonunique');const r=hits[0];
     if(t.plan.action==='update'){if(r.record_id!==t.plan.record_id||hash(r)!==t.plan.after_hash)fail('v3-protected-fields-changed');}
     else{

@@ -88,3 +88,22 @@ enable 必须满足旧发送开关false、无旧 registered/permitted/unknown、
 接入后仍须核实API与工作流值形状、显式空值、附件与关联字段、URL、完整分页
 和精确record_id绑定，未经实测不得将API响应直接认定为v3完整行合同。
 本分支同时整合最新main的Notion暂停策略，验收或切换不恢复Notion交互。
+
+
+## 方案纠正：继续现有工作流（2026-10-28，优先于前文应用接入建议）
+
+用户明确要求继续既有工作流。应用凭据和企业应用权限不再列为上线前置条件。
+历史新行的简要展示保持空附件、由人工填写；旧行不写该字段，不发送清空值。
+已通过原生工作流只读捕获完整20字段：URL link/text、日期时间戳、实际备注、
+空附件与空关联均保留类型。为避开单节点公式数量限制，将记录序列化合并为
+一个公式，并通过JSON字符串records_json传递，接收端进行严格解码。
+
+新增transport=feishu-workflow-json-v1仅用于country-pilot的单条国家补全。
+请求包含event_id/table_id/workflow_id/lookup_count/records_json；回执另含
+write_nonce和operation_record_id。不传lookup_complete或另一个records。
+查找节点必须按target_record_id精确查询；真实数量必须为1。字段必须完整，
+非空附件/关联暂时拒绝写入，不能冒充空数组。该限制不影响人工附件保存，
+也不授权初始/变化事件模式。新行附件留空规则由原生节点不映射该列实现。
+
+尚未完成：适配后全量CI、生产节点切换、四条国家逐条写后回读。只读成功
+不能标记上线完成。调试结束恢复原预检配置，历史自动发送保持暂停。

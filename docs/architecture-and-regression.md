@@ -1956,3 +1956,33 @@ read diagnostic targets the monitoring table and is not history acceptance.
 A successful API read alone must not be labeled complete native workflow
 transport: explicit empty values, typed attachments/relationships/URLs, stable
 identity, complete lookup and post-write comparison still require validation.
+
+
+### Existing-workflow JSON transport, 2026-10-28
+
+The owner explicitly retained the existing native workflow and clarified that
+new history rows leave manual attachment preview empty for later human input.
+No application credentials or new app permissions are a release prerequisite.
+The existing create/update nodes omit that field; no empty patch is sent to
+existing rows. The independent transfer workflow still copies existing manual
+attachments to the monitoring ledger.
+
+A real read-only probe returned HTTP 200 after proper JSON escaping. A full
+20-field draft exceeded Feishu's per-node referenced-formula limit. Combining
+record serialization into one formula succeeded: the capture contains exact
+record ID, all 20 field IDs, URL link/text, numeric timestamp, actual remarks,
+and measured empty attachment/relation arrays. This is native transport evidence,
+not a successful write/readback or a complete multi-record/event-mode acceptance.
+
+Added a bounded records_json decoder for the country pilot only. It requires
+one actual lookup result, the exact target record, complete configured fields,
+and verified cell shapes; nonempty attachment/relation values are explicitly
+unsupported and block writes rather than being replaced with empty arrays.
+Encoded input cannot inject lookup_complete or alternate records. Existing raw
+native-record contracts remain unchanged. Full-row hashes still catch changed
+notes, URL text, dates and attachments after a write. The workflow must use an
+exact-record-ID lookup before enabling this transport. New/change event mode is
+not enabled by this adapter. No production business write has occurred yet.
+
+Targeted regression: 21/21 passed (including 5 transport integration tests).
+Full regression and remote CI for this addition remain pending.
