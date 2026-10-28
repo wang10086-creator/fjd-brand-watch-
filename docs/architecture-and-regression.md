@@ -2027,3 +2027,30 @@ are omitted from creation and never synthesized. Identity resolution prioritizes
 current formal new leads so a historical backlog cannot starve daily entries.
 Native mapping and live initial acceptance remain required before enabling this
 policy; passing unit tests or saving configuration does not constitute rollout.
+
+### Retire a v3 task before permission (2026-10-28)
+
+A stopped native run can leave a v3 task registered after preflight rejects its
+transport. Such tasks correctly block policy reconfiguration, but the legacy
+retirement and permitted-update reconciliation operations cannot end them.
+The administrator maintenance route now exposes retire-unpermitted, with a
+fixed portal form. It never calls Feishu or grants a retry. The authenticated
+administrator name is supplied by the server, not the request body.
+
+Within the same store mutation used by preflight, retirement requires both
+channels paused, no conflicting legacy activity, an exact event and payload
+hash, operator confirmation of a stopped native run, an expired registration
+write window, and no permit/plan/record/receipt artifacts (even null ones).
+It preserves the task, identities and reserved numbers, records the operator,
+run, hash, time and expired window, and uses terminal failed with the explicit
+reason operator-retired-before-permit. This is an operator cancellation, not
+a claim of failed native writing. Identical repeated evidence is idempotent;
+conflicting evidence is refused. Late preflight, receipt and registration do
+not revive the event. Other unresolved tasks still prevent configure.
+
+No production event is hardcoded. Existing date transports and native mapping
+are unchanged. Tests cover guards, atomic rejection, audit preservation,
+idempotency, late requests, other-task isolation and real HTTP administrator
+permissions, including spoofed actor rejection. The portal form is exercised
+locally at desktop and mobile widths with mocked maintenance responses; this
+is not production/native-write acceptance.

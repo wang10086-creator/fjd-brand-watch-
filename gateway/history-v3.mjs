@@ -131,10 +131,31 @@ export function historyV3({store,now=Date.now}){
  const original=(s,p)=>{const r=s.historyIdentities?.[actualUrl(p.url)];if(r?.source_id&&r.source_id!==p.source_id)fail('v3-original-source-conflict');return r?.record_id?{record_id:r.record_id,history_id:r.history_id}:null;};
  return {
   capabilities(){const v=store.read().historyV3;return {protocol,enabled:v?.enabled===true,configured:!!v?.config,table_id:table,workflow_id:workflow,manual_preview_writable:false,execution_policy:executionPolicy(v?.config),safety:'single-writer-preflight-readback-not-cas'};},
-  diagnostics(){const v=store.read().historyV3;return {...this.capabilities(),tasks:Object.entries(v?.tasks||{}).map(([event_id,t])=>({event_id,kind:t.payload.kind,state:t.state,history_id:t.history_id,record_id:t.record_id||null,payload_hash:t.payload_hash,error:t.error||null})),config:v?.config||null};},
+  diagnostics(){const v=store.read().historyV3;return {...this.capabilities(),tasks:Object.entries(v?.tasks||{}).map(([event_id,t])=>({event_id,kind:t.payload.kind,state:t.state,history_id:t.history_id,record_id:t.record_id||null,payload_hash:t.payload_hash,error:t.error||null,...(t.retirement?{retirement:structuredClone(t.retirement)}:{})})),config:v?.config||null};},
   inspect(p){if(!/^history-v3:[a-f0-9]{64}$/.test(p.event_id||'')||!/^lead-[a-f0-9]{64}$/.test(p.source_id||'')||!/^[a-f0-9]{64}$/.test(p.token_hash||''))fail('invalid-v3-inspection');const t=store.read().historyV3?.tasks?.[p.event_id];if(!t)return {event_id:p.event_id,source_id:p.source_id,state:'not-registered',payload_hash:null};if(t.payload.source_id!==p.source_id||t.token_hash!==p.token_hash)fail('v3-inspection-mismatch');return {event_id:p.event_id,source_id:p.source_id,state:t.state,payload_hash:t.payload_hash,has_nonce:!!t.nonce,record_id:t.record_id||null};},
   resolveIdentity(p){if(!/^lead-[a-f0-9]{64}$/.test(p.source_id||''))fail('invalid-v3-source');actualUrl(p.url);const s=store.read();return {original:original(s,p),config:s.historyV3?.config||null,enabled:s.historyV3?.enabled===true};},
   async configure(config){validateBindings(config);await store.mutate(s=>{live(s);if(s.historyV3?.enabled)fail('pause-before-reconfigure');if(Object.values(s.historyV3?.tasks||{}).some(t=>!['verified','failed'].includes(t.state)))fail('v3-tasks-in-flight');s.historyV3||={tasks:{},lineage:{},enabled:false};s.historyV3.config=structuredClone(config);s.historyV3.enabled=false;});return this.capabilities();},
+  // Administrator retirement is not a native failure or a retry grant. Keep
+  // task identity and reservations; serialize against preflight in the store.
+  async retireUnpermitted(input,{actor}={}){
+   if(!exact(input,['event_id','expected_payload_hash','workflow_stopped','failed_run_id'])||input.workflow_stopped!==true||!/^history-v3:[a-f0-9]{64}$/.test(input.event_id||'')||!/^[a-f0-9]{64}$/.test(input.expected_payload_hash||'')||!/^\d{10,30}$/.test(input.failed_run_id||'')||typeof actor!=='string'||!actor.trim()||actor.length>200)fail('v3-retirement-evidence-required');
+   let result;await store.mutate(s=>{
+    live(s);const v=s.historyV3,t=v?.tasks?.[input.event_id];
+    if(v?.enabled!==false||!t||t.payload_hash!==input.expected_payload_hash)fail('v3-retirement-paused-task-required');
+    // Reject even null/empty permit artifacts rather than interpreting them as
+    // evidence that no permit was issued.
+    if(['nonce','plan','record_id','receipt_hash','permit_until','before_records','config','verified_at','reconciliation'].some(k=>Object.hasOwn(t,k)))fail('v3-retirement-permit-artifact');
+    if(!Number.isSafeInteger(t.write_until)||now()<=t.write_until)fail('v3-retirement-window-active');
+    if(t.state==='failed'&&t.error==='operator-retired-before-permit'&&t.retirement){
+     if(t.retirement.failed_run_id!==input.failed_run_id||t.retirement.payload_hash!==input.expected_payload_hash)fail('v3-retirement-evidence-conflict');
+     result={retired:true,duplicate:true,event_id:input.event_id,state:t.state,reason:t.error,retry_allowed:false};return;
+    }
+    if(t.state!=='registered'||Object.hasOwn(t,'retirement'))fail('v3-retirement-registered-required');
+    t.state='failed';t.error='operator-retired-before-permit';
+    t.retirement={at:now(),actor,failed_run_id:input.failed_run_id,payload_hash:input.expected_payload_hash,workflow_stopped:true,write_until:t.write_until,reason:t.error};
+    result={retired:true,duplicate:false,event_id:input.event_id,state:t.state,reason:t.error,retry_allowed:false};
+   });return result;
+  },
   async pause(){await store.mutate(s=>{if(s.historyV3)s.historyV3.enabled=false;});return this.capabilities();},
   // Operator-only reconciliation of a stopped native run. This never issues a
   // new permit or retries a write. A fresh full export must still equal the

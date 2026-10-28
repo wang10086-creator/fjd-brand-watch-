@@ -30,3 +30,10 @@ test('reconciliation UI requires stopped workflow and exact evidence, and never 
  await f.nodes.get('#history-v3-reconcile').onsubmit(f.event('history-v3-reconcile',{evidence:file}));assert.equal(calls.length,0);
  await f.nodes.get('#history-v3-reconcile').onsubmit(f.event('history-v3-reconcile',{evidence:file,workflow_stopped:'on'}));assert.equal(calls.length,3);assert.equal(calls[1].options.data.action,'reconcile-unwritten');assert.equal(calls[1].options.data.workflow_stopped,true);assert.ok(!calls.some(c=>c.options?.data.action==='enable'));
 });
+test('retirement UI requires explicit evidence and paused state, posts only fixed action, then reads back',async()=>{
+ const calls=[],f=ui(async(path,options)=>{calls.push({path,options});return options?{retired:true}:{v3:{enabled:false}}}),values={event_id:'history-v3:'+'a'.repeat(64),expected_payload_hash:'b'.repeat(64),failed_run_id:'7701661930901916692'};
+ await f.nodes.get('#history-v3-retire').onsubmit(f.event('history-v3-retire',values));assert.equal(calls.length,0);
+ await f.nodes.get('#history-v3-retire').onsubmit(f.event('history-v3-retire',{...values,workflow_stopped:'on'}));assert.equal(calls.length,3);assert.deepEqual(calls[1].options.data,{...context,...values,workflow_stopped:true,action:'retire-unpermitted'});assert.match(f.nodes.get('#history-v3-result').textContent,/管理员已结束/);
+ const blocked=ui(async()=>({v3:{enabled:true}}));await blocked.nodes.get('#history-v3-retire').onsubmit(blocked.event('history-v3-retire',{...values,workflow_stopped:'on'}));assert.match(blocked.nodes.get('#history-v3-result').textContent,/先暂停/);
+ const failed=ui(async(path,options)=>{if(options)throw Error('v3-retirement-window-active');return {v3:{enabled:false}}});await failed.nodes.get('#history-v3-retire').onsubmit(failed.event('history-v3-retire',{...values,workflow_stopped:'on'}));assert.equal(failed.nodes.get('#history-v3-result').textContent,'v3-retirement-window-active');
+});

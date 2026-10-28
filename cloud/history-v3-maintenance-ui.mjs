@@ -22,6 +22,15 @@ export function bindHistoryV3Maintenance({root,request,send,FormData=globalThis.
  const read=async()=>{const result=await request('/maintenance/history-sync');if(!result.v3)throw Error('生产网关尚未部署新规则；未进行配置或启用');const v=result.v3;message.textContent=JSON.stringify({configured:v.configured,enabled:v.enabled,execution_policy:v.execution_policy,tasks:v.tasks,notice:'保存配置不等于原生映射或真实写入通过'},null,2);return v};
  const post=data=>request('/maintenance/history-sync',{method:'POST',data:{...context,...data}});
  const command=async(data)=>{if(typeof send!=='function')throw Error('单条命令入口不可用');await send('history-sync',data);message.textContent='已提交受控命令；请读取云端执行结果。受理不等于注册或飞书写入成功。'};
+ el('history-v3-retire').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
+  const form=new FormData(e.target);
+  if(!form.has('workflow_stopped'))throw Error('必须确认该原生运行已终止且无在途写入');
+  const evidence={event_id:String(form.get('event_id')||'').trim(),expected_payload_hash:String(form.get('expected_payload_hash')||'').trim(),failed_run_id:String(form.get('failed_run_id')||'').trim(),workflow_stopped:true};
+  if(!/^history-v3:[a-f0-9]{64}$/.test(evidence.event_id)||!/^[a-f0-9]{64}$/.test(evidence.expected_payload_hash)||!/^\d{10,30}$/.test(evidence.failed_run_id))throw Error('需要精确事件标识、载荷哈希和已终止运行编号');
+  const current=await read();if(current.enabled)throw Error('先暂停新规则');
+  const result=await post({...evidence,action:'retire-unpermitted'});await read();
+  message.textContent+='\n'+(result.retired===true?'管理员已结束未获许可任务；保留原记录、身份和审计，不允许重发。原因：operator-retired-before-permit':'结束结果未确认，请读取状态，不要重发');
+ })};
  el('history-v3-reconcile').onsubmit=e=>{e.preventDefault();return run(e.target.querySelector('button'),async()=>{
   const form=new FormData(e.target),file=form.get('evidence');if(!form.has('workflow_stopped')||!file?.size||file.size>200000)throw Error('需要已终止运行及新鲜完整原记录导出证据');
   const evidence=JSON.parse(await file.text());if(!exact(evidence,['event_id','expected_payload_hash','snapshot','failed_run_id']))throw Error('核销证据不能包含操作、凭据或其他字段');
