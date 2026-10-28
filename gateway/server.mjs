@@ -1,4 +1,7 @@
-import {historyNativeProbe,probeTarget} from './history-native-probe.mjs';
+import {validateSingleHistoryCommand} from './history-country-pilot.mjs';
+import {historyV3} from './history-v3.mjs';
+import {historyV3Dispatch} from './history-v3-dispatch.mjs';
+import {historyNativeProbe} from './history-native-probe.mjs';
 import {historyVaultStream} from './history-vault-stream.mjs';
 import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
@@ -102,6 +105,8 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const history=historyTasks({store,now});
+ const historyNext=historyV3({store,now}),dispatchHistoryNext=historyV3Dispatch({service:historyNext,getPassword:()=>store.read().config?.password});
+ const publicHistoryNext=()=>{const c=historyNext.capabilities();return {...c,execution_policy:{mode:c.execution_policy.mode,event_not_before:c.execution_policy.event_not_before}};};
  const nativeProbe=historyNativeProbe({store,now});
  const commandRecovery=historyCommandRecovery({store,now});
  const shares=screenshotShare(store,{spec:screenshotShareSpec,now});
@@ -205,8 +210,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  async function execute(user,input){
   const {operation,data={},requestId}=input;
   if(!['review','migrate','sync','scan','site-retry','check','history-sync'].includes(operation)||!data||typeof data!=='object'||Array.isArray(data)||!/^[a-f0-9-]{36}$/.test(requestId||''))throw issue(400,'不允许的同步操作');
-  if(operation==='history-sync'&&(user.role!=='admin'||Object.keys(data).some(k=>!['source_id','mode'].includes(k))||!/^lead-[a-f0-9]{64}$/.test(data.source_id||'')||!['status','send','native-probe'].includes(data.mode)))throw issue(403,'仅管理员可核对或受控发送单条历史任务');
-  if(operation==='history-sync'&&data.mode==='native-probe')probeTarget(data.source_id);
+  if(operation==='history-sync'){if(user.role!=='admin')throw issue(403,'仅管理员可核对或受控发送单条历史任务');try{validateSingleHistoryCommand(data,{now:now()})}catch{throw issue(400,'单条历史任务不符合受限协议；未提交')}}
   if(operation==='review'&&(!Array.isArray(data.events)||Object.keys(data).some(k=>!['events','retryEventIds'].includes(k))))throw issue(400,'处理事件格式不正确');
   if(operation==='migrate'&&((user.role!=='public'&&!data.state?.config)||!Array.isArray(data.state?.rows)||!data.state?.monitor))throw issue(400,'台账结构不完整');
   if(operation==='sync'&&Object.keys(data).some(k=>!['config','selectedBrandIds','customAliases','imageUpdates','priorityUpdates'].includes(k)))throw issue(400,'同步内容不支持');
@@ -245,18 +249,25 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   if(allowedOrigin(origin))Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'Content-Type,Authorization,Content-Encoding','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});
   const respond=(status,value)=>{res.writeHead(status,headers);res.end(JSON.stringify(value))};
   try{
+   if(path==='/history/capabilities'&&req.method==='GET'){respond(200,{...history.capabilities(),enabled:false,writesRetired:true,v3:publicHistoryNext()});return}
+   if(path==='/history-v3/capabilities'&&req.method==='GET'){respond(200,publicHistoryNext());return}
+   if(['/history-v3/capabilities','/history-v3/register','/history-v3/identity','/history-v3/inspect','/history-v3/preflight','/history-v3/receipt','/history-v3/status'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
+    limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,16*1024*1024);
+    respond(200,await dispatchHistoryNext({path,method:req.method,input,token:(req.headers.authorization||'').replace(/^Bearer /,'')}));return;
+   }
    if(['/history/native-probe/register','/history/native-probe/status','/history/native-probe/capture'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'native-probe-request-rejected');
     limit('native-probe:'+req.socket.remoteAddress,20,60000);const input=await body(req,262144);
     if(path.endsWith('/register')){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-native-probe')}catch{throw issue(401,'invalid-native-probe-envelope')}respond(200,await nativeProbe.register(ticket));return}
     respond(200,await nativeProbe[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
    }
-   if(path==='/history/capabilities'&&req.method==='GET'){respond(200,history.capabilities());return}
    if(['/history/register','/history/preflight','/history/receipt','/history/status','/history/inspect'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,262144);
-    if(path==='/history/register'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-task')}catch{throw issue(401,'invalid-history-envelope')}respond(200,await history.register(ticket));return}
+    if(path==='/history/register'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-task')}catch{throw issue(401,'invalid-history-envelope')}respond(200,{ready:false,reason:"legacy-history-writes-retired-use-v3"});return}
     if(path==='/history/inspect'){let ticket;try{ticket=await unseal(input,store.read().config?.password,'history-inspect')}catch{throw issue(401,'invalid-history-envelope')}respond(200,history.inspect(ticket));return}
+    if(path==='/history/preflight'){const token=(req.headers.authorization||'').replace(/^Bearer /,'');await history.status(input,token);respond(200,{allowed:false,action:'reconcile-only',reason:'legacy-history-writes-retired-use-v3'});return;}
     respond(200,await history[path.split('/').at(-1)](input,(req.headers.authorization||'').replace(/^Bearer /,'')));return;
    }
    if(path==='/workflow/capabilities'&&req.method==='GET'){respond(200,workflow.capabilities());return}
@@ -333,15 +344,16 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    }
    if(path==='/maintenance/history-sync'){
     if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
-    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),historyCommands:commandRecovery.list(user)});return}
+    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),legacyWritesRetired:true,v3:historyNext.diagnostics(),historyCommands:commandRecovery.list(user)});return}
     if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req,1024*1024);
     if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
-    if(input.operation&&!['renumber','validation','upgrade-registered','recover-command'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
-    if(input.operation==='recover-command'){
-     const claimed=await commandRecovery.claim(user,input);
-     if(claimed.duplicate){const r=store.read().requests[claimed.key];respond(200,{requestId:claimed.requestId,status:r.status,queued:r.status==='queued',duplicate:true,recovery:true});return}
-     respond(200,await dispatchCommand({key:claimed.key,operation:claimed.operation,business:claimed.data,requestId:claimed.requestId,recovery:true}));return;
+    if(input.operation&&!['renumber','validation','upgrade-registered','recover-command','v3'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
+    if(input.operation==='v3'){
+     const actions={configure:()=>historyNext.configure(input.config),enable:()=>historyNext.enable(input),pause:()=>historyNext.pause(),'retire-legacy-unsent':()=>historyNext.retireLegacyUnsent(input),register:()=>historyNext.register(input.registration),status:()=>historyNext.diagnostics()};
+     if(!actions[input.action])throw issue(400,'invalid-v3-maintenance-action');respond(200,await actions[input.action]());return;
     }
+    if(input.enabled===true||input.operation==='validation'&&input.action==='grant')throw issue(409,'legacy-history-writes-retired-use-v3');
+    if(input.operation==='recover-command')throw issue(409,'legacy-history-recovery-retired-use-v3-status');
     respond(200,input.operation==='renumber'?await history.renumber(input):input.operation==='validation'?await history.validation(input):input.operation==='upgrade-registered'?await history.upgradeRegistered(input):await history.configure(input));return;
    }
    if(path==='/maintenance/workflow-bridge'){

@@ -1,3 +1,4 @@
+import {queueHistoryV3,deliverHistoryV3,summaryHistoryV3,nativeHistoryV3Bridge} from './history-v3-sync.mjs';
 import {canonical} from '../model.js';
 import {randomBytes} from 'node:crypto';
 import {baseFields} from './base-fields.mjs';
@@ -5,6 +6,7 @@ import {seal} from './crypto.js';
 import {digest,actualUrl,validatePayload,historyTable,historyWorkflow,allocationDay,withReportDay} from '../gateway/history-protocol.mjs';
 import {firstFormalReportIndex} from './history-report-day.mjs';
 export function queueHistory(vault,{now=Date.now(),sourceId=null}={}){
+ if(vault.integrationPolicy?.historyNative){vault.historySync||={version:1,items:{},sources:{},conflicts:{}};return queueHistoryV3(vault,{sourceId});}
  const q=vault.historySync||={version:1,items:{},sources:{},conflicts:{}};
  q.waitingReports||={};let reports;try{reports=firstFormalReportIndex(vault.state)}catch{q.lastError='history-formal-report-unverified';return q}
  const sourceOf=row=>row.source_id||'lead-'+digest(canonical(row.url)),existing=[],fresh=[];
@@ -46,8 +48,9 @@ export function queueHistory(vault,{now=Date.now(),sourceId=null}={}){
  }
  return q;
 }
-export function historySummary(vault){const q=vault.historySync,counts={};for(const v of Object.values(q?.items||{}))counts[v.state]=(counts[v.state]||0)+1;return {mode:'history-native',...counts,waitingReportDay:Object.keys(q?.waitingReports||{}).length,conflicts:Object.keys(q?.conflicts||{}).length,lastError:q?.lastError||'',...(q?.singleCheck?{single:{mode:q.singleCheck.mode,state:q.singleCheck.state,reason:q.singleCheck.reason||'',at:q.singleCheck.at}}:{}),verifiedMeans:'native-workflow-record-readback'};}
+export function historySummary(vault){if(vault.historyV3)return summaryHistoryV3(vault);const q=vault.historySync,counts={};for(const v of Object.values(q?.items||{}))counts[v.state]=(counts[v.state]||0)+1;return {mode:'history-native',...counts,waitingReportDay:Object.keys(q?.waitingReports||{}).length,conflicts:Object.keys(q?.conflicts||{}).length,lastError:q?.lastError||'',...(q?.singleCheck?{single:{mode:q.singleCheck.mode,state:q.singleCheck.state,reason:q.singleCheck.reason||'',at:q.singleCheck.at}}:{}),verifiedMeans:'native-workflow-record-readback'};}
 export async function deliverHistory(vault,{checkpoint,webhook,bridge,now=Date.now,limit=5,deadline=now()+45000,eventId=null,sourceId=null,controlled=false}={}){
+ if(bridge?.protocol==='fjd-history-v3')return deliverHistoryV3(vault,{checkpoint,webhook,bridge,now,limit,deadline});
  queueHistory(vault,{now:now(),sourceId});const q=vault.historySync;await checkpoint();
  // Never reuse the old monitoring-ledger Webhook for history imports.
  let target;try{const u=new URL(webhook);if(u.protocol!=='https:'||u.hostname!=='fjdynamics.feishu.cn'||!/^\/base\/workflow\/webhook\/event\/[\w-]+$/.test(u.pathname)||u.username||u.password||u.search||u.hash||u.port)throw Error();target=u.href}catch{q.lastError='history-webhook-not-configured';await checkpoint();return}
@@ -68,8 +71,6 @@ export async function deliverHistory(vault,{checkpoint,webhook,bridge,now=Date.n
 }
 export function historyBridge({origin,password,fetcher=fetch}){
  async function call(path,body,token){const r=await fetcher(origin+path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(10000)});if(!r.ok)throw Object.assign(Error('history-bridge-unavailable'),{status:r.status});return r.json()}
- return {inspect:async item=>call('/history/inspect',await seal({event_id:item.payload.event_id,source_id:item.payload.source_id,token_hash:digest(item.token)},password,'history-inspect')),register:async(item,{controlled=false}={})=>call('/history/register',await seal({payload:item.payload,token:item.token,controlled},password,'history-task')),status:item=>call('/history/status',{event_id:item.payload.event_id},item.token),send:async(target,item)=>{
- const p={...item.payload,sync_protocol:'fjd-history-v1',sync_task_token:item.token,preflight_url:origin+'/history/preflight',receipt_url:origin+'/history/receipt',workflow_id:historyWorkflow,table_id:historyTable};
- const r=await fetcher(target,{method:'POST',headers:{'Content-Type':'application/json','Client-Token':item.payload.event_id},body:JSON.stringify(p),redirect:'error',signal:AbortSignal.timeout(10000)});return r.ok&&(await r.json()).code===0;
- }};
+ const legacy={inspect:async item=>call('/history/inspect',await seal({event_id:item.payload.event_id,source_id:item.payload.source_id,token_hash:digest(item.token)},password,'history-inspect')),status:item=>call('/history/status',{event_id:item.payload.event_id},item.token)};
+ const next=nativeHistoryV3Bridge({origin,password,fetcher});return {...next,inspect:item=>item.payload.protocol==='fjd-history-v3'?next.inspect(item):legacy.inspect(item),status:item=>item.payload.protocol==='fjd-history-v3'?next.status(item):legacy.status(item),register:item=>item.payload.protocol==='fjd-history-v3'?next.register(item):Promise.resolve({ready:false,reason:'legacy-history-writes-retired'}),send:(target,item)=>next.send(target,item)};
 }

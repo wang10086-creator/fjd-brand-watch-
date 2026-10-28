@@ -1,0 +1,55 @@
+{
+  "synthetic": true,
+  "independent_scenarios": true,
+  "plans": [
+    {
+      "protocol": "fjd-history-notes-v1",
+      "mode": "dry-run",
+      "operation_id": "de7c2caa29ada256ed2953536f6e44c186b35260194ac78620ca964ff8892c3e",
+      "note_event_id": "7cb9393fb3107917ed587fa9676a030abfb08bb193686a9b213dce03c1071fc2",
+      "record_id": "recNew",
+      "history_id": "synthetic-new-002",
+      "field_id": "fldNewNotesSynthetic",
+      "old_value": "",
+      "new_value": "页面销售导航设备，使用FJD品牌；需核实经营者及品牌授权情况。",
+      "before_hash": "e7f3420d405a36d8c0b8bd45cd982503922c1fc61e8d32cd50a62aab590ab692",
+      "after_hash": "15b868441301b66bc5066d1acea3100288173a1018c91bf7984805421232e49e",
+      "snapshot_hash": "ed790b7a52a374c03e929ad4e6f789d405aa1e088108b104f0b2660fc4a4cbca",
+      "status": "proposed",
+      "evidence": {
+        "url": "https://shop.example/about",
+        "subject_url": "https://shop.example/item",
+        "quote": "Synthetic example only: new FJD navigation equipment listing.",
+        "observed_at": "2026-10-27T00:00:00Z",
+        "reviewed": true
+      },
+      "original": null
+    },
+    {
+      "protocol": "fjd-history-notes-v1",
+      "mode": "dry-run",
+      "operation_id": "610331c6f97e7fa858f7b2bb7d34e036e7e5156b8498ee90b1a1157883b7f497",
+      "note_event_id": "25af598755f506961567fab1e43b237b76c3635759ba08327354ba0a6042bcf2",
+      "record_id": "recNew",
+      "history_id": "synthetic-new-002",
+      "field_id": "fldNewNotesSynthetic",
+      "old_value": "",
+      "new_value": "关联原线索 synthetic-old-001；本次变化：新增FJD导航设备销售描述。",
+      "before_hash": "e7f3420d405a36d8c0b8bd45cd982503922c1fc61e8d32cd50a62aab590ab692",
+      "after_hash": "3facc6166771241e971ba191c917ab4dffe5a860992db00769800e8c286b32e6",
+      "snapshot_hash": "ed790b7a52a374c03e929ad4e6f789d405aa1e088108b104f0b2660fc4a4cbca",
+      "status": "proposed",
+      "evidence": {
+        "url": "https://shop.example/about",
+        "subject_url": "https://shop.example/item",
+        "quote": "Synthetic example only: new FJD navigation equipment listing.",
+        "observed_at": "2026-10-27T00:00:00Z",
+        "reviewed": true
+      },
+      "original": {
+        "record_id": "recOriginal",
+        "history_id": "synthetic-old-001"
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import {bindHistoryV3Maintenance} from './history-v3-maintenance-ui.mjs';
 import {downloadHistoryBackup} from './history-maintenance-ui.mjs';
 import {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedIsPublic,sharedPublicAccess,sharedLogin,sharedSetup,sharedLogout,sharedRequest,canReadCloud,canWriteCloud,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus,verifyBrowserSync,cloudCredentials,requireCloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,prepareReviewTransfer,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261023-url-r1';
 import {loadState,persist,flush} from '../storage.js?v=20261020-review';
@@ -60,6 +61,7 @@ if(typeof window!=='undefined'){
  $('#shared-logout').onclick=()=>sharedAction(()=>sharedLogout());
  $('#shared-sync').onclick=()=>sharedAction(async()=>{const state=await loadState();await syncArchive(state,{force:true});persist(state);const r=await flush();if(!r.fullOK)throw Error('本机同步回执未保存，请保留当前页面');const status=reviewSyncStatus(state);if(status.pending)throw Error(status.message)});
  $('#shared-account-form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);sharedAction(async()=>{await sharedRequest('/accounts',{method:'POST',data:{username:f.get('username'),password:f.get('password'),role:f.get('role'),disabled:f.has('disabled')}});e.target.reset();const result=await sharedRequest('/accounts');$('#shared-users').textContent=result.users.map(u=>u.name+' · '+u.role+(u.disabled?' · 已停用':'')).join('；')})};sharedUI();
+ bindHistoryV3Maintenance({root:document,request:sharedRequest,send});
  const historyMessage=$('#history-sync-status');
  $('#history-native-send').onclick=()=>perform(async()=>{const source_id=await previewSourceId($('#history-native-target').value);await send('history-sync',{source_id,mode:'native-probe'});$('#history-native-result').textContent='已提交一次只读结构验收命令，请读取报告；尚未确认记录传递。'});
  $('#history-native-report').onclick=()=>perform(async()=>{const result=await sharedRequest('/maintenance/history-native-probe');$('#history-native-result').textContent=JSON.stringify(result,null,2)});

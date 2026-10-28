@@ -1750,6 +1750,97 @@ The first verified trace remains immutable for an exported date. Failures are
 isolated from Notion, group receipts, history tasks, business writes and the existing
 website snapshot. See docs/daily-text-publication.md for exact files/URL modes and
 the still-pending publication approval.
+## 2026-10-27 — isolated historical metadata dry-run
+
+Added tools/metadata-backfill only: local complete snapshot + reviewed evidence →
+5-record JSON plan. No imports or changes to runtime, WF2/enrich, numbering,
+Railway, notifications or publishing. Existing protected fields remain protected.
+Country/entity exact blanks/placeholders can be proposed; preview only accepts
+reviewed matching webpage screenshots with visible addresses, per the user's
+clarification. No text summary or related-link column changes are included. All other native values
+are fingerprinted for concurrent-change and readback checks. Conditional atomic
+writes remain a prerequisite for a future separately authorized adapter; no
+write adapter exists. See docs/history-metadata-backfill.md for input contract,
+evidence requirements, pause/resume and remaining production acceptance scope.
+Validation: 6 focused tests, full npm suite 636/636 and existing project Python
+venv cloud suite 98/98 passed. Synthetic CLI continuation produced no duplicate
+proposals. No real Base snapshot/connector available in this environment; actual
+249-row inventory, source verification and production readback remain unverified.
+Follow-up screenshot semantics: user explicitly requires an address-bearing
+screenshot of the original webpage in preview_image_url. Added reviewed visual
+match/visible-address evidence gates and negative cases for product/logo/no-address
+or mismatched-page images. Related-link column untouched. Focused 7/7 and full
+Node 637/637 pass after this revision; sample plan regenerated with three fields.
+
+## 2026-10-27 — independent history notes cutover planning
+
+User authorized renaming the history table's related-link text column to notes,
+retaining its field ID and all historic content. Added offline history-notes
+contract only; legacy strict 18/22-field payloads and receipts are unchanged.
+Notes append without deleting old links, initial summaries cite facts, and change
+notes require the original ID and a distinct preallocated new row/ID. No allocator,
+production route, workflow edit or column rename is implemented here. Production
+history writes must stay paused across a separately coordinated cutover; the old
+snapshot_url mapping cannot safely continue after rename. See history-notes-cutover.md
+for affected paths, field-ID uncertainty and the unrelated ledger fldEFLQwAo warning.
+Notes validation: 4 new focused cases; full Node 641/641 and Python cloud 98/98
+passed. Two independent synthetic append plans preserve historic mirror content.
+Actual history field ID/workflow binding, in-flight task reconciliation, runtime
+routing and change-row allocation remain prerequisites, not verified deliveries.
+Owner handoff clarification: branch HEAD is 955a4f2e0884c9f8da65c892e4a385a7248d062e,
+not PR6. Read-only origin/main fetch resolved to
+496b02f01529b7f65f35bbde251ee312e043945b; ancestry check confirms PR6 is not in
+HEAD. No merge/rebase performed. The 641/98 results apply only to the older base
+plus local changes. See history-notes-owner-handoff.md for the unimplemented
+runtime migration and owner-specific file/contract/test acceptance checklist.
+
+## Latest user override — manual preview, related screenshot, separate notes
+
+Supersedes the earlier rename/automatic-preview proposal above. Never rename
+related links to notes. Preview is human-only across ALL automatic paths; related
+links retain their column and receive only verified address-bearing webpage
+screenshots; notes are a separate newly added text column next to preview.
+Offline metadata contract bumped to v2, with screenshot_url explicitly bound to
+the related-link field and preview_image_url/snapshot_url rejected as candidates.
+Notes prototype now rejects the related-link column. Old production 18/22-field
+contracts remain unchanged; their automatic preview writes require owner cutoff
+and version migration before resuming. See updated owner handoff for full scope.
+Latest validation: metadata 8 + notes 4 focused cases, full Node 642/642 and
+Python 98/98 pass on 955a4f2 plus local changes (not PR6 integrated). Parent reports
+blank notes column already created to the right of preview: 20 columns, 249
+original records unchanged. Its actual field ID is still unknown; do not recreate
+or guess. Workflow mapping/manual-preview production protection remains pending.
+
+## Executable opt-in history v3 compatibility module (local only)
+
+Added standalone v3 service/dispatcher, shared evidence validators packaged under
+gateway, with stable tools re-export entrypoints. New event registration atomically
+reserves unique IDs in the existing store, retains first-row identity and separate
+change lineage, enforces manual-preview omission, handles unknown results by
+lookup/readback only, and limits batches to 5 at 1-second spacing. Legacy 18/22
+contracts and server remain unchanged. No adapter, HTTP mount, producer or native
+mapping is installed. Atomic snapshot writes + durable operation lookup are
+required to enable; ordinary Feishu find-then-update is not claimed sufficient.
+See history-v3-release-window.md for a single-writer rollout and remaining gates.
+V3 validation: 13 focused cases (25 across this task), full Node 655/655,
+Python cloud 98/98, isolated gateway-image import and diff checks passed.
+Five synthetic dry-run records: 2 proposed, 1 unchanged, 2 blocked. Real first
+batch unavailable without actual field IDs, native export and reviewed sources.
+Private real-sample follow-up: parent supplied verified field identities and five
+actual rows (has_more=true). These data stay only in mode-0600 files outside the
+repository. Public-address source review yields four country-only candidates and
+one protected skip; no entity/preview/screenshot/note mutation. Incomplete snapshot
+still fails the write-capable planner. Gateway locking/idempotency and pre-write
+reads are local safeguards, NOT proof of Feishu CAS or cross-system transactions.
+No new persistent credential or enterprise grant; stop extending abstractions.
+
+## 2026-10-27：history v3原生单writer接入（本地，未发布）
+
+后续授权允许当前任务接管原owner历史生产入口。已rebase至PR6 496b02f，保留日报和通知代码。gateway/server挂载v3注册/身份/许可/回读，cloud/history-sync及history-only路由新生产器；旧18/22回执语义保留，但旧注册/许可/恢复窗口禁写。此前“未挂载server/需原子适配器”的阶段描述已由此更新取代：采用现有原生writer、串行持久幂等与写前查找/写后核对，明确不承诺Feishu CAS。简要展示所有新自动patch不含该列，关联线索只接审核截图，独立备注用于新行摘要或原号+变化。真实变化从正式报告取证、另号另行，同事件只许可一次。
+
+完整合同与切换门槛见history-v3-release-window.md及history-notes-owner-handoff.md。尚需完整现场schema、排空旧队列和原生节点配置验收；不能用离线contract或模拟native测试替代真实回读。首批5条私有dry-run为4国家候选+1保护跳过，has_more样本未冒充全表快照。没有生产写入、push、部署、新凭据或权限。
+
+收口安全修正：原v3生成器会扫描全部冻结报告，原先仅文档要求复核范围，存在误建历史变化的风险。已增加默认country-pilot策略、最多4个精确国家候选event_id白名单以及2026-10-28正式报告硬下界；pilot在注册/分号前拒绝所有新建事件，云端队列和网关preflight共同执行，旧缓存不能绕过。事件模式不自动启用，须既有管理员另行显式配置。没有新增角色、凭据或权限。
 
 ## 2026-10-28 maintenance preparation before history v3
 
@@ -1774,6 +1865,22 @@ rejects Unix socket listen with EPERM; never suppress those assertions.
 Production backup and dashboard restoration remain unverified until deployed
 and observed separately. This patch does not change history gates or notifications.
 # Read-only Feishu native transport acceptance (2026-10-28)
+
+## Integration with the pending v3 release (2026-10-28)
+
+Merged preparation main `9e8ab8a` into the pending v3 branch. Both maintenance
+panels and both gateway protocols remain available. The gateway and cloud runner
+share the strict single-history command validator; native-probe is accepted only
+for the same four fixed source keys with no extra fields. Without this integration,
+the v3 validator would reject the newly deployed read probe before dispatch.
+Regression covers all four allowed keys, an out-of-scope key and extra payload.
+The Docker-contents startup smoke test continues to pass with both modules.
+
+Local integration regression: Node 681/703 passed, with 22 Unix socket tests
+blocked by host EPERM. Python 98/100 passed after installing CI dependencies;
+two real-browser rendering tests failed in the local runtime. Full remote CI is
+required. No production mapping, history write, notification or deployment was
+performed by this integration. Feishu transport acceptance remains outstanding.
 
 PR #7 requires complete typed native records; selecting all 20 fields in the
 Feishu lookup does not prove the HTTP serialization preserves those values.
@@ -1807,6 +1914,75 @@ and the real gateway routes. Full local socket tests require a runtime permittin
 Unix sockets; CI is the authoritative full suite when the local host returns
 `EPERM` on `listen`.
 
+### Attachment field compatibility before the v3 cutover
+
+The live history and monitoring tables now use attachment fields for 简要展示.
+The native history-to-monitoring workflow separately copies the manually supplied
+attachment. History v3 still never writes this field. Its configuration UI and
+server now require type 17 for manual_preview, preserve complete attachment data
+in the full-row hash, and accept only null or an empty attachment array on a new
+row. Nonempty or text-shaped new-row values fail receipt validation and pause.
+Regression uses native attachment fixtures and checks changed attachment tokens,
+wrong schema types, and empty/nonempty new-row receipts. No production row or
+workflow fixture is committed. Local Node 683/705 pass; 22 socket tests hit host
+EPERM. Python 98/100 pass; two rendering tests remain local-runtime failures.
+Full remote CI is required before any release claim.
 ## 2026-10-28 暂停 Notion 路径
 生产 runner 强制 FJD_NOTION_PAUSED 并剥离子进程的 NOTION_TOKEN；三个现有工作流停止注入该令牌，截图 Notion 归档同时保持关闭。旧 Notion 页面、回执与仓库凭据不删除。正式快照经加密持久化 ACK 后产生独立 publicationReceipts（saved，encrypted-ledger），用于继续原冻结/群简报/公开文字输出流程；不伪造 Notion 或飞书 archived 回执。飞书云文档仍由现有归档执行方完成，完成回执发布映射独立验收。旧已发布报告不修改；未确认保存不得发送。
 回退必须经业务确认后同时恢复 runner 策略与工作流令牌注入；不能仅改页面提示自动恢复 Notion 写入。
+
+
+### PR #7 acceptance checkpoint after the Notion pause
+
+Integrated current main (including PR #15 and the refreshed public snapshot)
+without restoring Notion tokens, writes, or trace links. The sole merge conflict
+was in this append-only architecture log; both decisions are retained. This is
+branch preparation, not a deployment or a history-send enablement.
+
+Live acceptance established that the two manual-preview columns are attachment
+fields and the history import create/update nodes no longer map that manual
+field. The separate transfer workflow copies the source attachment. A one-shot
+native raw-JSON probe returned HTTP 400 before any write permit; full typed-row
+transport remains unverified. The temporary JavaScript-node draft was discarded.
+
+The cloud status observed on 2026-10-28 reports attachmentConfigured=false.
+This means the runner has no complete selected application credential pair; it
+does not prove which Secrets exist or whether a configured application has Base
+permissions. The next API-read option must reuse baseAppCredentials precedence,
+request only field/record reads for the authorized history table, and keep the
+native workflow as the sole writer. Credentials belong in the existing GitHub
+Secrets slots, never in source, logs, reports, or chat. The existing single-image
+read diagnostic targets the monitoring table and is not history acceptance.
+A successful API read alone must not be labeled complete native workflow
+transport: explicit empty values, typed attachments/relationships/URLs, stable
+identity, complete lookup and post-write comparison still require validation.
+
+
+### Existing-workflow JSON transport, 2026-10-28
+
+The owner explicitly retained the existing native workflow and clarified that
+new history rows leave manual attachment preview empty for later human input.
+No application credentials or new app permissions are a release prerequisite.
+The existing create/update nodes omit that field; no empty patch is sent to
+existing rows. The independent transfer workflow still copies existing manual
+attachments to the monitoring ledger.
+
+A real read-only probe returned HTTP 200 after proper JSON escaping. A full
+20-field draft exceeded Feishu's per-node referenced-formula limit. Combining
+record serialization into one formula succeeded: the capture contains exact
+record ID, all 20 field IDs, URL link/text, numeric timestamp, actual remarks,
+and measured empty attachment/relation arrays. This is native transport evidence,
+not a successful write/readback or a complete multi-record/event-mode acceptance.
+
+Added a bounded records_json decoder for the country pilot only. It requires
+one actual lookup result, the exact target record, complete configured fields,
+and verified cell shapes; nonempty attachment/relation values are explicitly
+unsupported and block writes rather than being replaced with empty arrays.
+Encoded input cannot inject lookup_complete or alternate records. Existing raw
+native-record contracts remain unchanged. Full-row hashes still catch changed
+notes, URL text, dates and attachments after a write. The workflow must use an
+exact-record-ID lookup before enabling this transport. New/change event mode is
+not enabled by this adapter. No production business write has occurred yet.
+
+Targeted regression: 21/21 passed (including 5 transport integration tests).
+Full regression and remote CI for this addition remain pending.

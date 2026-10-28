@@ -1,0 +1,158 @@
+{
+  "synthetic": true,
+  "not_production_inventory": true,
+  "plan": {
+    "protocol": "fjd-metadata-backfill-v2",
+    "mode": "dry-run",
+    "field_bindings": {
+      "screenshot_url": {
+        "field_id": "fldRelatedSynthetic",
+        "field_name": "关联线索",
+        "type": 1
+      }
+    },
+    "enabled_fields": [
+      "country_region",
+      "entity_name",
+      "screenshot_url"
+    ],
+    "table_id": "tbl76uhMEgt3fmQK",
+    "snapshot_hash": "27408e6adeddc8176d9678359896c53af7b45a37b6b113f8d639b14728b02b7c",
+    "candidate_hash": "6f02768f78878fae60e53dce120031ef612e94fe7f07aa77e3cbee957d8358fb",
+    "snapshot_record_count": 5,
+    "cursor": 0,
+    "next_cursor": 5,
+    "paused": false,
+    "done": true,
+    "items": [
+      {
+        "record_id": "recSynthetic1",
+        "status": "proposed",
+        "changes": [
+          {
+            "field": "country_region",
+            "old_value": "待核实",
+            "new_value": "德国",
+            "evidence": {
+              "reviewed": true,
+              "access": "public",
+              "subject_url": "https://shop1.example/item",
+              "url": "https://shop.example/legal",
+              "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+              "observed_at": "2026-10-27T00:00:00Z",
+              "operator_name": "Example Store Ltd",
+              "supported_value": "德国",
+              "kind": "operator-registration"
+            }
+          },
+          {
+            "field": "entity_name",
+            "old_value": "待核实（尚未识别经营主体）",
+            "new_value": "Example Store Ltd",
+            "evidence": {
+              "reviewed": true,
+              "access": "public",
+              "subject_url": "https://shop1.example/item",
+              "url": "https://shop.example/legal",
+              "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+              "observed_at": "2026-10-27T00:00:00Z",
+              "operator_name": "Example Store Ltd",
+              "supported_value": "Example Store Ltd",
+              "kind": "seller-profile",
+              "role": "actual-seller",
+              "claims_authorization": false
+            }
+          },
+          {
+            "field": "screenshot_url",
+            "old_value": "",
+            "new_value": "https://shop.example/item.jpg",
+            "evidence": {
+              "reviewed": true,
+              "access": "public",
+              "subject_url": "https://shop1.example/item",
+              "url": "https://shop.example/legal",
+              "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+              "observed_at": "2026-10-27T00:00:00Z",
+              "operator_name": "Example Store Ltd",
+              "supported_value": "https://shop.example/item.jpg",
+              "kind": "address-bearing-webpage-screenshot",
+              "original_page_url": "https://shop1.example/item",
+              "address_visible": true,
+              "page_match_reviewed": true,
+              "capture_type": "webpage",
+              "media_url": "https://shop.example/item.jpg"
+            }
+          }
+        ],
+        "skipped": [],
+        "before_hash": "3b8d591b79380488aba4b900a43b0e4afe637fe1f29c73990fadec432bae7528",
+        "after_hash": "15fe961e5e7aae0a9f7526d85e847e89bd6616d0c54a0037eafae864358a1120",
+        "operation_id": "b304dbb4786b2aee612183b72e91a495b4c5779a21b9e3fdd1dbc3c574847a21"
+      },
+      {
+        "record_id": "recSynthetic2",
+        "status": "no-change",
+        "changes": [],
+        "skipped": [],
+        "before_hash": "3b279a2eeee6cc4fd419d77def366ac924bcab10a073d352833d2f1a88017d80",
+        "after_hash": "3b279a2eeee6cc4fd419d77def366ac924bcab10a073d352833d2f1a88017d80",
+        "operation_id": "c929c6b060962afefc9835c9accf65c75f1945a751edb1705e86098ae42dba57"
+      },
+      {
+        "record_id": "recSynthetic3",
+        "status": "blocked",
+        "error": "insufficient-reviewed-evidence"
+      },
+      {
+        "record_id": "recSynthetic4",
+        "status": "proposed",
+        "changes": [
+          {
+            "field": "country_region",
+            "old_value": "待核实",
+            "new_value": "德国",
+            "evidence": {
+              "reviewed": true,
+              "access": "public",
+              "subject_url": "https://shop4.example/item",
+              "url": "https://shop.example/legal",
+              "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+              "observed_at": "2026-10-27T00:00:00Z",
+              "operator_name": "Example Store Ltd",
+              "supported_value": "德国",
+              "kind": "operator-registration"
+            }
+          },
+          {
+            "field": "entity_name",
+            "old_value": "待核实（尚未识别经营主体）",
+            "new_value": "Example Store Ltd",
+            "evidence": {
+              "reviewed": true,
+              "access": "public",
+              "subject_url": "https://shop4.example/item",
+              "url": "https://shop.example/legal",
+              "quote": "Example Store Ltd; registered address: Germany (synthetic test)",
+              "observed_at": "2026-10-27T00:00:00Z",
+              "operator_name": "Example Store Ltd",
+              "supported_value": "Example Store Ltd",
+              "kind": "seller-profile",
+              "role": "actual-seller",
+              "claims_authorization": false
+            }
+          }
+        ],
+        "skipped": [],
+        "before_hash": "8ce773d2022dd1eba4e1bd8025b90168e42c9e7da14ea2415ea79121e0ea2b73",
+        "after_hash": "a61b35e641a09d45f51a92b7f208a200f221e2d4e0db27c7ee3169873e4b537a",
+        "operation_id": "b133a620a41a366b359e9a8287bc98a1a661380f653b5eb95c26bc05677057ec"
+      },
+      {
+        "record_id": "recSynthetic5",
+        "status": "blocked",
+        "error": "field-not-allowlisted"
+      }
+    ]
+  }
+}
