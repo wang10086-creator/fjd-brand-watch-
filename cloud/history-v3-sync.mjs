@@ -1,3 +1,4 @@
+import {recoverReceipt} from './history-receipt-recovery.mjs';
 import {validateSingleHistoryCommand,countryPilotTargets} from '../gateway/history-country-pilot.mjs';
 import {hash} from '../gateway/history-metadata-contract.mjs';
 import {randomBytes} from 'node:crypto';
@@ -60,7 +61,7 @@ export function queueHistoryV3(vault,{sourceId=null}={}){
  }
  return q;
 }
-export function summaryHistoryV3(vault){const q=state(vault),counts={};for(const i of Object.values(q.items))counts[i.state]=(counts[i.state]||0)+1;return {mode:'history-native-v3',...counts,waitingEvidence:Object.keys(q.waiting).length,lastError:q.lastError||'',single:q.singleCheck||null,verifiedMeans:'native-workflow-record-readback-not-cas'};}
+export function summaryHistoryV3(vault){const q=state(vault),counts={};for(const i of Object.values(q.items))counts[i.state]=(counts[i.state]||0)+1;return {mode:'history-native-v3',...counts,waitingEvidence:Object.keys(q.waiting).length,lastError:q.lastError||'',single:q.singleCheck||null,recovery:q.recoveryCheck||null,verifiedMeans:'native-workflow-record-readback-not-cas'};}
 export async function deliverHistoryV3(vault,{bridge,checkpoint,webhook,now=Date.now,limit=5,deadline=now()+45000,eventId=null,sourceId=null,controlled=false}={}){
  const q=state(vault);if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('v3-batch-limit');
  const caps=await bridge.capabilities();if(!caps.enabled){q.lastError='history-v3-paused';await checkpoint();return summaryHistoryV3(vault);}
@@ -88,7 +89,14 @@ export async function deliverHistoryV3(vault,{bridge,checkpoint,webhook,now=Date
 }
 export function nativeHistoryV3Bridge({origin,password,fetcher=fetch}){
  async function call(path,body,token){const r=await fetcher(origin+path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Object.assign(Error('history-v3-bridge-unavailable'),{status:r.status});return r.json();}
- return {protocol,capabilities:async()=>call('/history-v3/capabilities',await seal({},password,'history-v3-capabilities')),identity:async p=>call('/history-v3/identity',await seal(p,password,'history-v3-identity')),inspect:async item=>call('/history-v3/inspect',await seal({event_id:item.payload.event_id,source_id:item.payload.source_id,token_hash:hash(item.token)},password,'history-v3-inspect')),register:async item=>call('/history-v3/register',await seal({payload:item.payload,token:item.token,formal_report:item.formal_report},password,'history-v3-task')),status:item=>call('/history-v3/status',{event_id:item.payload.event_id},item.token),send:async(target,item)=>{
+ const validateRecoveryWebhook=target=>{const u=new URL(target);if(u.protocol!=='https:'||u.hostname!=='fjdynamics.feishu.cn'||!/^\/base\/workflow\/webhook\/event\/[\w-]+$/.test(u.pathname)||u.search||u.hash||u.username||u.password||u.port)throw Error('single-recovery-webhook-invalid');return u.href;};
+ return {protocol,validateRecoveryWebhook,
+ recoveryClaim:(event_id,recovery_id,token)=>call('/history-v3/recovery-claim',{event_id,recovery_id},token),
+ recoveryOutcome:(event_id,recovery_id,token,outcome)=>call('/history-v3/recovery-outcome',{event_id,recovery_id,outcome},token),
+ sendRecovery:async(target,item,g)=>{
+  const request={sync_protocol:protocol,recovery_mode:'receipt-only-v1',event_id:g.event_id,source_id:g.source_id,url:g.url,history_id:g.history_id,target_record_id:g.target_record_id,expected_payload_hash:g.expected_payload_hash,failed_run_id:g.failed_run_id,recovery_id:g.recovery_id,recovery_expires_at:g.expires_at,sync_task_token:item.token,write_nonce:g.write_nonce,receipt_url:origin+'/history-v3/receipt',workflow_id:historyWorkflow,table_id:historyTable};
+  const r=await fetcher(validateRecoveryWebhook(target),{method:'POST',headers:{'Content-Type':'application/json','Client-Token':g.recovery_id},body:JSON.stringify(request),redirect:'error',signal:AbortSignal.timeout(10000)});return r.ok&&(await r.json()).code===0;
+ },capabilities:async()=>call('/history-v3/capabilities',await seal({},password,'history-v3-capabilities')),identity:async p=>call('/history-v3/identity',await seal(p,password,'history-v3-identity')),inspect:async item=>call('/history-v3/inspect',await seal({event_id:item.payload.event_id,source_id:item.payload.source_id,token_hash:hash(item.token)},password,'history-v3-inspect')),register:async item=>call('/history-v3/register',await seal({payload:item.payload,token:item.token,formal_report:item.formal_report},password,'history-v3-task')),status:item=>call('/history-v3/status',{event_id:item.payload.event_id},item.token),send:async(target,item)=>{
   if(item.payload.protocol!==protocol)throw Error('legacy-history-send-retired');const u=new URL(target);if(u.protocol!=='https:'||u.hostname!=='fjdynamics.feishu.cn'||!/^\/base\/workflow\/webhook\/event\/[\w-]+$/.test(u.pathname)||u.search||u.hash||u.username||u.password||u.port)throw Error('invalid-history-webhook');
   const p=item.payload;const request={sync_protocol:protocol,event_id:p.event_id,event_kind:p.kind,source_id:p.source_id,url:p.url,history_id:item.history_id,original_record_id:p.original?.record_id||'',original_history_id:p.original?.history_id||'',target_record_id:p.target?.record_id||'',sync_task_token:item.token,preflight_url:origin+'/history-v3/preflight',receipt_url:origin+'/history-v3/receipt',workflow_id:historyWorkflow,table_id:historyTable};
   const r=await fetcher(u.href,{method:'POST',headers:{'Content-Type':'application/json','Client-Token':p.event_id},body:JSON.stringify(request),redirect:'error',signal:AbortSignal.timeout(10000)});return r.ok&&(await r.json()).code===0;
@@ -97,6 +105,7 @@ export function nativeHistoryV3Bridge({origin,password,fetcher=fetch}){
 
 export async function singleHistoryV3Task(vault,input,{bridge,checkpoint,webhook,now=Date.now}={}){
  const prepared=validateSingleHistoryCommand(input,{now:now()}),{source_id,mode}=input,q=state(vault);
+ if(mode==='recover-receipt')return recoverReceipt(vault,input,{bridge,webhook,now});
  const rows=(vault.state.rows||[]).filter(r=>(r.source_id||'lead-'+digest(canonical(r.url)))===source_id);if(rows.length!==1)throw Error('single-v3-unique-source-required');const row=rows[0];
  if(mode==='prepare-country'){
   if(actualUrl(row.url)!==actualUrl(prepared.url))throw Error('single-country-source-url-mismatch');

@@ -1,3 +1,4 @@
+import {receiptRecovery} from './history-receipt-recovery.mjs';
 import {validateSingleHistoryCommand} from './history-country-pilot.mjs';
 import {historyV3} from './history-v3.mjs';
 import {historyV3Dispatch} from './history-v3-dispatch.mjs';
@@ -105,6 +106,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
  const store=await openStore(directory),limiter=new Map(),dummy=await passwordHash(randomBytes(24).toString('hex'));let dashboardCache=null,dashboardRead=null,publicCache=null,publicRead=null,setupInProgress=false;
  await store.mutate(s=>{for(const v of Object.values(s.requests)){if(v.status==='preparing')v.status='failed';else if(v.status==='sending')v.status='uncertain'}});
  const history=historyTasks({store,now});
+ const recovery=receiptRecovery({store,now});
  const historyNext=historyV3({store,now}),dispatchHistoryNext=historyV3Dispatch({service:historyNext,getPassword:()=>store.read().config?.password});
  const publicHistoryNext=()=>{const c=historyNext.capabilities();return {...c,execution_policy:{mode:c.execution_policy.mode,event_not_before:c.execution_policy.event_not_before}};};
  const nativeProbe=historyNativeProbe({store,now});
@@ -251,6 +253,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
   try{
    if(path==='/history/capabilities'&&req.method==='GET'){respond(200,{...history.capabilities(),enabled:false,writesRetired:true,v3:publicHistoryNext()});return}
    if(path==='/history-v3/capabilities'&&req.method==='GET'){respond(200,publicHistoryNext());return}
+   if(['/history-v3/recovery-claim','/history-v3/recovery-outcome'].includes(path)){
+    if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
+    limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,4096),token=(req.headers.authorization||'').replace(/^Bearer /,'');
+    respond(200,await recovery[path.endsWith('claim')?'claim':'outcome'](input,token));return;
+   }
    if(['/history-v3/capabilities','/history-v3/register','/history-v3/identity','/history-v3/inspect','/history-v3/preflight','/history-v3/receipt','/history-v3/status'].includes(path)){
     if(req.method!=='POST'||origin&&!allowedOrigin(origin))throw issue(403,'history-request-rejected');
     limit('history:'+req.socket.remoteAddress,120,60000);const input=await body(req,16*1024*1024);
@@ -344,12 +351,12 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    }
    if(path==='/maintenance/history-sync'){
     if(user.role!=='admin')throw issue(403,'仅管理员可核对历史表接线和编号基线');
-    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),legacyWritesRetired:true,v3:historyNext.diagnostics(),historyCommands:commandRecovery.list(user)});return}
+    if(req.method==='GET'){respond(200,{...history.capabilities(),...history.diagnostics(),legacyWritesRetired:true,v3:{...historyNext.diagnostics(),receipt_recovery:recovery.status()},historyCommands:commandRecovery.list(user)});return}
     if(req.method!=='POST')throw issue(405,'不支持的操作');const input=await body(req,1024*1024);
     if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
     if(input.operation&&!['renumber','validation','upgrade-registered','recover-command','v3'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
     if(input.operation==='v3'){
-     const actions={configure:()=>historyNext.configure(input.config),enable:()=>historyNext.enable(input),pause:()=>historyNext.pause(),'reconcile-unwritten':()=>historyNext.reconcileUnwritten(input),'retire-unpermitted':()=>historyNext.retireUnpermitted({event_id:input.event_id,expected_payload_hash:input.expected_payload_hash,workflow_stopped:input.workflow_stopped,failed_run_id:input.failed_run_id},{actor:user.name}),'retire-legacy-unsent':()=>historyNext.retireLegacyUnsent(input),register:()=>historyNext.register(input.registration),status:()=>historyNext.diagnostics()};
+     const actions={'authorize-receipt-recovery':()=>recovery.authorize(input,{actor:user.name}),configure:()=>historyNext.configure(input.config),enable:()=>historyNext.enable(input),pause:()=>historyNext.pause(),'reconcile-unwritten':()=>historyNext.reconcileUnwritten(input),'retire-unpermitted':()=>historyNext.retireUnpermitted({event_id:input.event_id,expected_payload_hash:input.expected_payload_hash,workflow_stopped:input.workflow_stopped,failed_run_id:input.failed_run_id},{actor:user.name}),'retire-legacy-unsent':()=>historyNext.retireLegacyUnsent(input),register:()=>historyNext.register(input.registration),status:()=>historyNext.diagnostics()};
      if(!actions[input.action])throw issue(400,'invalid-v3-maintenance-action');respond(200,await actions[input.action]());return;
     }
     if(input.enabled===true||input.operation==='validation'&&input.action==='grant')throw issue(409,'legacy-history-writes-retired-use-v3');

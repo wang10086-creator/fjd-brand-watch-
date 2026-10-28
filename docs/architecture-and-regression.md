@@ -2096,3 +2096,25 @@ and digest functions; no queue, registration, checkpoint or delivery is invoked.
 No gateway request or Railway deployment is part of this diagnostic. Failures emit
 one fixed code. Tests cover output projection, immutability, duplicate/conflicting
 identities, invalid formal proof and GET-only transport.
+
+### Fixed receipt-only recovery for the already-created 20261028-001 row
+The administrator authorizes only the constant event/source/payload hash/record/run
+in history-recovery-contract.js, while both gateway channels remain paused.
+Native UI evidence must establish that the existing Webhook belongs to the original
+workflow and its published recovery branch performs only lookup and receipt, with
+normal creation explicitly excluding recovery input. workflow_id in JSON is a
+binding assertion, not cryptographic proof of the remote workflow's identity.
+The command contains only source_id, recover-receipt mode and recovery_id. Actions
+requires automatic history delivery disabled, loads the existing encrypted task,
+checks its original payload hash, and uses its existing token to claim once. The
+gateway persists dispatching atomically before releasing the original nonce; a
+lost response cannot be claimed again. The existing webhook secret is the sole
+destination, never a command parameter. Transport failure becomes unknown without
+retry. Authorization/status/results never expose tokens or nonce. No preflight,
+create/update, queue registration, plan replacement or direct verified assignment
+occurs. The original receipt validator alone confirms the full actual native row;
+recovery additionally pins its record ID. Existing task/identity audit is retained.
+The grant lasts at most 20 minutes and never beyond the original seven-day read
+window. No renewal/retry UI is provided after a claim or expiry. Tests cover fixed
+scope, pauses, expiry, concurrency, credentials, uncertain send, and transport
+shape; existing receipt regression verifies full fields and manual protections.

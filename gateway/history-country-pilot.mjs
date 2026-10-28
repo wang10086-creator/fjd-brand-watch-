@@ -1,3 +1,4 @@
+import {recoveryTarget,validRecoveryId} from './history-receipt-recovery.mjs';
 import {probeTarget} from './history-native-probe.mjs';
 import {actualUrl} from './history-protocol.mjs';
 import {validateMetadataEvidence} from './history-metadata-contract.mjs';
@@ -23,6 +24,7 @@ export function countryPilotPayload(source_id,candidate,{now=Date.now()}={}){
 }
 export function validateSingleHistoryCommand(data,options){
  if(!data||typeof data!=='object'||Array.isArray(data)||!/^lead-[a-f0-9]{64}$/.test(data.source_id||''))throw Error('invalid-single-history-request');
+ if(data.mode==='recover-receipt'){if(!exact(data,['source_id','mode','recovery_id'])||data.source_id!==recoveryTarget.source_id||!validRecoveryId(data.recovery_id))throw Error('invalid-single-recovery-command');return null;}
  if(data.mode==='prepare-country'){
   if(!exact(data,['source_id','mode','candidate']))throw Error('invalid-single-history-payload');
   return countryPilotPayload(data.source_id,data.candidate,options);

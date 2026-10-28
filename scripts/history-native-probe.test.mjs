@@ -21,7 +21,7 @@ test('fixed source keys match the application and gateway starts with only Docke
  const directory=await mkdtemp(join(tmpdir(),'gateway-image-'));
  try{
   await cp(new URL('../gateway',import.meta.url),join(directory,'gateway'),{recursive:true});
-  await mkdir(join(directory,'cloud'));await cp(new URL('../cloud/crypto.js',import.meta.url),join(directory,'cloud/crypto.js'));
+  await cp(new URL('../history-recovery-contract.js',import.meta.url),join(directory,'history-recovery-contract.js'));await mkdir(join(directory,'cloud'));await cp(new URL('../cloud/crypto.js',import.meta.url),join(directory,'cloud/crypto.js'));
   await cp(new URL('../package.json',import.meta.url),join(directory,'package.json'));
   await symlink(new URL('../node_modules',import.meta.url).pathname,join(directory,'node_modules'),'dir');
   await promisify(execFile)(process.execPath,['--input-type=module','-e',"await import('./gateway/server.mjs')"],{cwd:directory});
