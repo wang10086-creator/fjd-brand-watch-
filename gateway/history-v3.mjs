@@ -33,6 +33,29 @@ export function decodeWorkflowRecords(input,config,payload){
  }
  return rows;
 }
+// Presentation alias only: the original millisecond patch remains authoritative.
+export function nativeInitialDate(config,payload,plan){
+ if(executionPolicy(config).mode!=='daily-initial'||payload.kind!=='initial'||plan.action!=='create')return {};
+ const fields=config.schema.filter(f=>f.field_name==='首次发现日期');
+ if(fields.length!==1||fields[0].type!==5||!Object.hasOwn(plan.patch,fields[0].field_id))fail('v3-native-date-field-required');
+ const value=plan.patch[fields[0].field_id],shifted=value+8*3600000;
+ if(!Number.isSafeInteger(value)||value<0||!Number.isSafeInteger(shifted)||shifted%86400000!==0||shifted>253402214400000)fail('v3-native-date-midnight-required');
+ const text=new Date(shifted).toISOString().slice(0,10).replaceAll('-','/');
+ return {native_first_discovered_date:text};
+}
+// The native fixed create node maps exactly these fields; this flag grants no
+// permission and never removes optional fields from the authoritative patch.
+export function nativeCreateShapeSupported(config,payload,plan){
+ if(executionPolicy(config).mode!=='daily-initial'||payload.kind!=='initial'||plan.action!=='create')return false;
+ const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
+ const fields=names.map(name=>config.schema.filter(f=>f.field_name===name));
+ if(fields.some(matches=>matches.length!==1))return false;
+ const ids=fields.map(matches=>matches[0].field_id),allowed=config.create_field_ids;
+ if(new Set(ids).size!==9||allowed.length!==9||new Set(allowed).size!==9||ids.some(id=>!allowed.includes(id)))return false;
+ const keys=[...['history_id','url','source_id','note_text'].map(key=>config.bindings[key]),...ids];
+ if(new Set(keys).size!==13||!exact(plan.patch,keys))return false;
+ try{return typeof nativeInitialDate(config,payload,plan).native_first_discovered_date==='string'}catch{return false;}
+}
 export function executionPolicy(config){
  const p=config?.execution_policy||{mode:'country-pilot',event_not_before:'2026-10-28',country_pilot_event_ids:[]};
  if(!exact(p,['mode','event_not_before','country_pilot_event_ids'])||!['country-pilot','daily-initial','events'].includes(p.mode)||!validReportDay(p.event_not_before)||p.event_not_before<'2026-10-28'||!Array.isArray(p.country_pilot_event_ids)||p.country_pilot_event_ids.length>4||new Set(p.country_pilot_event_ids).size!==p.country_pilot_event_ids.length||p.country_pilot_event_ids.some(id=>!/^history-v3:[a-f0-9]{64}$/.test(id))||p.mode!=='country-pilot'&&p.country_pilot_event_ids.length)fail('invalid-v3-execution-policy');
@@ -131,10 +154,31 @@ export function historyV3({store,now=Date.now}){
  const original=(s,p)=>{const r=s.historyIdentities?.[actualUrl(p.url)];if(r?.source_id&&r.source_id!==p.source_id)fail('v3-original-source-conflict');return r?.record_id?{record_id:r.record_id,history_id:r.history_id}:null;};
  return {
   capabilities(){const v=store.read().historyV3;return {protocol,enabled:v?.enabled===true,configured:!!v?.config,table_id:table,workflow_id:workflow,manual_preview_writable:false,execution_policy:executionPolicy(v?.config),safety:'single-writer-preflight-readback-not-cas'};},
-  diagnostics(){const v=store.read().historyV3;return {...this.capabilities(),tasks:Object.entries(v?.tasks||{}).map(([event_id,t])=>({event_id,kind:t.payload.kind,state:t.state,history_id:t.history_id,record_id:t.record_id||null,payload_hash:t.payload_hash,error:t.error||null})),config:v?.config||null};},
+  diagnostics(){const v=store.read().historyV3;return {...this.capabilities(),tasks:Object.entries(v?.tasks||{}).map(([event_id,t])=>({event_id,kind:t.payload.kind,state:t.state,history_id:t.history_id,record_id:t.record_id||null,payload_hash:t.payload_hash,error:t.error||null,...(t.retirement?{retirement:structuredClone(t.retirement)}:{})})),config:v?.config||null};},
   inspect(p){if(!/^history-v3:[a-f0-9]{64}$/.test(p.event_id||'')||!/^lead-[a-f0-9]{64}$/.test(p.source_id||'')||!/^[a-f0-9]{64}$/.test(p.token_hash||''))fail('invalid-v3-inspection');const t=store.read().historyV3?.tasks?.[p.event_id];if(!t)return {event_id:p.event_id,source_id:p.source_id,state:'not-registered',payload_hash:null};if(t.payload.source_id!==p.source_id||t.token_hash!==p.token_hash)fail('v3-inspection-mismatch');return {event_id:p.event_id,source_id:p.source_id,state:t.state,payload_hash:t.payload_hash,has_nonce:!!t.nonce,record_id:t.record_id||null};},
   resolveIdentity(p){if(!/^lead-[a-f0-9]{64}$/.test(p.source_id||''))fail('invalid-v3-source');actualUrl(p.url);const s=store.read();return {original:original(s,p),config:s.historyV3?.config||null,enabled:s.historyV3?.enabled===true};},
   async configure(config){validateBindings(config);await store.mutate(s=>{live(s);if(s.historyV3?.enabled)fail('pause-before-reconfigure');if(Object.values(s.historyV3?.tasks||{}).some(t=>!['verified','failed'].includes(t.state)))fail('v3-tasks-in-flight');s.historyV3||={tasks:{},lineage:{},enabled:false};s.historyV3.config=structuredClone(config);s.historyV3.enabled=false;});return this.capabilities();},
+  // Administrator retirement is not a native failure or a retry grant. Keep
+  // task identity and reservations; serialize against preflight in the store.
+  async retireUnpermitted(input,{actor}={}){
+   if(!exact(input,['event_id','expected_payload_hash','workflow_stopped','failed_run_id'])||input.workflow_stopped!==true||!/^history-v3:[a-f0-9]{64}$/.test(input.event_id||'')||!/^[a-f0-9]{64}$/.test(input.expected_payload_hash||'')||!/^\d{10,30}$/.test(input.failed_run_id||'')||typeof actor!=='string'||!actor.trim()||actor.length>200)fail('v3-retirement-evidence-required');
+   let result;await store.mutate(s=>{
+    live(s);const v=s.historyV3,t=v?.tasks?.[input.event_id];
+    if(v?.enabled!==false||!t||t.payload_hash!==input.expected_payload_hash)fail('v3-retirement-paused-task-required');
+    // Reject even null/empty permit artifacts rather than interpreting them as
+    // evidence that no permit was issued.
+    if(['nonce','plan','record_id','receipt_hash','permit_until','before_records','config','verified_at','reconciliation'].some(k=>Object.hasOwn(t,k)))fail('v3-retirement-permit-artifact');
+    if(!Number.isSafeInteger(t.write_until)||now()<=t.write_until)fail('v3-retirement-window-active');
+    if(t.state==='failed'&&t.error==='operator-retired-before-permit'&&t.retirement){
+     if(t.retirement.failed_run_id!==input.failed_run_id||t.retirement.payload_hash!==input.expected_payload_hash)fail('v3-retirement-evidence-conflict');
+     result={retired:true,duplicate:true,event_id:input.event_id,state:t.state,reason:t.error,retry_allowed:false};return;
+    }
+    if(t.state!=='registered'||Object.hasOwn(t,'retirement'))fail('v3-retirement-registered-required');
+    t.state='failed';t.error='operator-retired-before-permit';
+    t.retirement={at:now(),actor,failed_run_id:input.failed_run_id,payload_hash:input.expected_payload_hash,workflow_stopped:true,write_until:t.write_until,reason:t.error};
+    result={retired:true,duplicate:false,event_id:input.event_id,state:t.state,reason:t.error,retry_allowed:false};
+   });return result;
+  },
   async pause(){await store.mutate(s=>{if(s.historyV3)s.historyV3.enabled=false;});return this.capabilities();},
   // Operator-only reconciliation of a stopped native run. This never issues a
   // new permit or retries a write. A fresh full export must still equal the
@@ -180,8 +224,10 @@ export function historyV3({store,now=Date.now}){
     if(Object.values(v.tasks).some(x=>x!==t&&['permitted','unknown'].includes(x.state)))fail('v3-write-in-flight');if((v.next_write_at||0)>now())fail('v3-rate-limited');
     const snap=snapshot(input,v.config,t.payload),plan=prepareV3(t.payload,snap,v.config,{history_id:t.history_id,knownLineage:Object.values(v.lineage).filter(x=>x.original_record_id===t.payload.original?.record_id)});
     if(plan.action==='no-change'){t.state='verified';t.record_id=plan.record_id;t.receipt_hash=plan.after_hash;t.verified_at=now();result={allowed:false,action:'no-change',record_id:t.record_id};return;}
+    const nativeDate=nativeInitialDate(v.config,t.payload,plan),native_create_shape_supported=nativeCreateShapeSupported(v.config,t.payload,plan);
+    if(input.transport===workflowJsonTransport&&executionPolicy(v.config).mode==='daily-initial'&&t.payload.kind==='initial'&&plan.action==='create'&&!native_create_shape_supported)fail('v3-native-create-shape-unsupported');
     const write_nonce=randomBytes(24).toString('base64url');t.state='permitted';t.nonce=write_nonce;t.plan=plan;t.config=structuredClone(v.config);t.permit_until=now()+60000;t.before_records=structuredClone(snap.records);v.next_write_at=now()+1000;
-    result={allowed:true,protocol,action:plan.action,event_kind:t.payload.kind,record_id:plan.record_id,history_id:t.history_id,write_nonce,permit_expires_at:new Date(t.permit_until).toISOString(),write_fields:plan.patch,original_record_id:t.payload.original?.record_id||'',original_history_id:t.payload.original?.history_id||'',...Object.fromEntries(Object.entries(v.config.bindings).filter(([key])=>key!=='manual_preview').map(([key,id])=>[key,Object.hasOwn(plan.patch,id)?plan.patch[id]:null]))};
+    result={allowed:true,...nativeDate,native_create_shape_supported,protocol,action:plan.action,event_kind:t.payload.kind,record_id:plan.record_id,history_id:t.history_id,write_nonce,permit_expires_at:new Date(t.permit_until).toISOString(),write_fields:plan.patch,original_record_id:t.payload.original?.record_id||'',original_history_id:t.payload.original?.history_id||'',...Object.fromEntries(Object.entries(v.config.bindings).filter(([key])=>key!=='manual_preview').map(([key,id])=>[key,Object.hasOwn(plan.patch,id)?plan.patch[id]:null]))};
    });return result;
   },
   async receipt(input,token){

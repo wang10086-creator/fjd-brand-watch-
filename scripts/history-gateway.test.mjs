@@ -1,8 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {request} from 'node:http';
 import {createGateway} from '../gateway/server.mjs';import {openStore,hash} from '../gateway/store.mjs';import {seal} from '../cloud/crypto.js';
+import {eventId} from '../gateway/history-v3.mjs';
 import {fixture,payload,config,old,token,context,url,source} from './history-v3-fixtures.mjs';
 test('real HTTP v3 mount uses existing admin/encryption, retires legacy writes and preserves receipts/status',async()=>{
- const directory=await mkdtemp(join(tmpdir(),'history-gateway-')),at=Date.parse('2026-10-27T02:00:00Z'),password='fixture-password-123456';const saved=await openStore(directory);await saved.mutate(s=>{s.config={password,token:'fake'};s.users.admin={role:'admin'};s.users.member={role:'member'};s.sessions[hash('session')]={name:'admin',expiresAt:at+600000};s.sessions[hash('member')]={name:'member',expiresAt:at+600000};});
+ const directory=await mkdtemp(join(tmpdir(),'history-gateway-')),password='fixture-password-123456';let at=Date.parse('2026-10-27T02:00:00Z');const saved=await openStore(directory);await saved.mutate(s=>{s.config={password,token:'fake'};s.users.admin={role:'admin'};s.users.member={role:'member'};s.sessions[hash('session')]={name:'admin',expiresAt:at+600000};s.sessions[hash('member')]={name:'member',expiresAt:at+600000};});
  const g=await createGateway({directory,now:()=>at,fetcher:async()=>{throw Error('No external calls permitted');}});await new Promise(r=>g.server.listen(0,'127.0.0.1',r));
  const call=(path,data,auth)=>new Promise((resolve,reject)=>{const req=request({host:'127.0.0.1',port:g.server.address().port,path,method:data?'POST':'GET',headers:{'Content-Type':'application/json',...(auth?{Authorization:'Bearer '+auth}:{}),...(path.startsWith('/maintenance')?{Origin:'https://wang10086-creator.github.io'}:{})}},res=>{let b='';res.on('data',v=>b+=v);res.on('end',()=>resolve({status:res.statusCode,data:JSON.parse(b)}));});req.on('error',reject);req.end(data?JSON.stringify(data):undefined);});
  try{
@@ -17,6 +18,18 @@ test('real HTTP v3 mount uses existing admin/encryption, retires legacy writes a
   Object.assign(snap.records[0].fields,pre.data.write_fields);const rec=await call('/history-v3/receipt',{...context,event_id:p.event_id,lookup_complete:true,records:snap.records,operation_record_id:old.record_id,write_nonce:pre.data.write_nonce},token);assert.equal(rec.data.verified,true);
   assert.equal((await call('/history-v3/status',{event_id:p.event_id},token)).data.state,'verified');assert.equal((await openStore(directory)).read().historyV3.tasks[p.event_id].state,'verified');
   assert.equal((await call('/history/register',await seal({payload:{},token},password,'history-task'))).data.ready,false);
+  const pending=payload().p;delete pending.proposals.screenshot_url;pending.event_id=eventId(pending);
+  await call('/history-v3/register',await seal({payload:pending,token},password,'history-v3-task'));
+  await call('/maintenance/history-sync',{...context,operation:'v3',action:'pause'},'session');
+  at+=1200001;await g.store.mutate(s=>{for(const session of Object.values(s.sessions))session.expiresAt=at+600000});
+  const pendingTask=g.store.read().historyV3.tasks[pending.event_id];
+  const retirement={...context,operation:'v3',action:'retire-unpermitted',event_id:pending.event_id,expected_payload_hash:pendingTask.payload_hash,workflow_stopped:true,failed_run_id:'7701661930901916692',actor:'spoofed'};
+  assert.equal((await call('/maintenance/history-sync',retirement)).status,401);
+  assert.equal((await call('/maintenance/history-sync',retirement,'member')).status,403);
+  assert.equal((await call('/maintenance/history-sync',retirement,'session')).data.retired,true);
+  assert.equal(g.store.read().historyV3.tasks[pending.event_id].retirement.actor,'admin');
+  assert.equal((await call('/maintenance/history-sync',retirement,'session')).data.duplicate,true);
+  assert.equal((await call('/history-v3/preflight',{...context,event_id:pending.event_id,lookup_complete:true,records:snap.records},token)).data.allowed,false);
   await g.store.mutate(s=>{s.historyTasks={legacy:{payload:{event_id:'legacy',url,history_id:'20261027-001'},tokenHash:hash(token),state:'registered',readUntil:at+60000}};});
   const blocked=await call('/history/preflight',{...context,event_id:'legacy'},token);assert.equal(blocked.data.allowed,false);assert.equal((await call('/history/status',{event_id:'legacy'},token)).data.state,'registered');assert.equal((await call('/history/capabilities')).data.writesRetired,true);
  }finally{await new Promise(r=>g.server.close(r));await rm(directory,{recursive:true,force:true});}

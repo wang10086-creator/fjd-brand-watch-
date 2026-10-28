@@ -2027,3 +2027,62 @@ are omitted from creation and never synthesized. Identity resolution prioritizes
 current formal new leads so a historical backlog cannot starve daily entries.
 Native mapping and live initial acceptance remain required before enabling this
 policy; passing unit tests or saving configuration does not constitute rollout.
+
+### Retire a v3 task before permission (2026-10-28)
+
+A stopped native run can leave a v3 task registered after preflight rejects its
+transport. Such tasks correctly block policy reconfiguration, but the legacy
+retirement and permitted-update reconciliation operations cannot end them.
+The administrator maintenance route now exposes retire-unpermitted, with a
+fixed portal form. It never calls Feishu or grants a retry. The authenticated
+administrator name is supplied by the server, not the request body.
+
+Within the same store mutation used by preflight, retirement requires both
+channels paused, no conflicting legacy activity, an exact event and payload
+hash, operator confirmation of a stopped native run, an expired registration
+write window, and no permit/plan/record/receipt artifacts (even null ones).
+It preserves the task, identities and reserved numbers, records the operator,
+run, hash, time and expired window, and uses terminal failed with the explicit
+reason operator-retired-before-permit. This is an operator cancellation, not
+a claim of failed native writing. Identical repeated evidence is idempotent;
+conflicting evidence is refused. Late preflight, receipt and registration do
+not revive the event. Other unresolved tasks still prevent configure.
+
+No production event is hardcoded. Existing date transports and native mapping
+are unchanged. Tests cover guards, atomic rejection, audit preservation,
+idempotency, late requests, other-task isolation and real HTTP administrator
+permissions, including spoofed actor rejection. The portal form is exercised
+locally at desktop and mobile widths with mocked maintenance responses; this
+is not production/native-write acceptance.
+
+The same rollout adds native_first_discovered_date to daily-initial create
+permits only. The alias is derived from the actual plan.patch field selected by
+the unique schema name 首次发现日期 (type 5), never the current date or reserved
+number. Missing/ambiguous schema, missing patch value, nonnumeric, negative or unsafe
+milliseconds, non-UTC+8-midnight values, or dates beyond year 9999 reject before
+issuing a nonce. The fixed UTC+8 date is rendered YYYY/MM/DD for the native
+TODATE(text) input. The existing numeric write_fields, plan hashes, payload and
+event identity remain authoritative and unchanged; other modes/kinds/actions
+receive no alias. This adds no transport or receipt coercion. Node 7 must return
+its actual native date timestamp; node 8 still compares exact milliseconds.
+Regressions include UTC day crossing, leap day, year end, invalid ranges/types,
+non-midnight values, excluded actions, transactional rejection and readback drift.
+
+Permits also expose native_create_shape_supported, a read-only compatibility
+flag for the fixed native node. It is true only for daily-initial initial/create,
+a valid native date, exactly the nine named create-field IDs in the configured
+allowlist, and a patch containing exactly those IDs plus history_id/url/source_id/
+note_text bindings. Extra screenshot/country/entity keys are unsupported even
+when empty; missing keys and other combinations are false. The patch is never
+filtered. Node 5 must require allowed=true, action=create, event_kind=initial,
+native_create_shape_supported=true and a nonempty native date before node 6.
+For workflowJsonTransport + daily-initial + initial/create only, an unsupported
+shape rejects atomically before nonce/plan/permit state is persisted. The task
+stays registered, does not lock later permits, and can use the expired-window
+unpermitted retirement path. Other transports and country/metadata behavior
+remain unchanged. No automatic resend is introduced.
+
+The existing administrator status display now includes the current config
+projected to table_id/schema/bindings/create_field_ids for manual file reuse.
+It uses the same response, adds no request or endpoint, and omits credentials
+and policy from the upload configuration.

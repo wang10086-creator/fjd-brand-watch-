@@ -349,7 +349,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     if(input.workflow_id!=='wkfQwGPTGxlwgiUq'||input.table_id!=='tbl76uhMEgt3fmQK')throw issue(400,'history-workflow-mismatch');
     if(input.operation&&!['renumber','validation','upgrade-registered','recover-command','v3'].includes(input.operation))throw issue(400,'不支持的历史表维护操作');
     if(input.operation==='v3'){
-     const actions={configure:()=>historyNext.configure(input.config),enable:()=>historyNext.enable(input),pause:()=>historyNext.pause(),'reconcile-unwritten':()=>historyNext.reconcileUnwritten(input),'retire-legacy-unsent':()=>historyNext.retireLegacyUnsent(input),register:()=>historyNext.register(input.registration),status:()=>historyNext.diagnostics()};
+     const actions={configure:()=>historyNext.configure(input.config),enable:()=>historyNext.enable(input),pause:()=>historyNext.pause(),'reconcile-unwritten':()=>historyNext.reconcileUnwritten(input),'retire-unpermitted':()=>historyNext.retireUnpermitted({event_id:input.event_id,expected_payload_hash:input.expected_payload_hash,workflow_stopped:input.workflow_stopped,failed_run_id:input.failed_run_id},{actor:user.name}),'retire-legacy-unsent':()=>historyNext.retireLegacyUnsent(input),register:()=>historyNext.register(input.registration),status:()=>historyNext.diagnostics()};
      if(!actions[input.action])throw issue(400,'invalid-v3-maintenance-action');respond(200,await actions[input.action]());return;
     }
     if(input.enabled===true||input.operation==='validation'&&input.action==='grant')throw issue(409,'legacy-history-writes-retired-use-v3');
