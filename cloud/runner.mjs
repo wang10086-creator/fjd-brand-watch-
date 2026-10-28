@@ -1,3 +1,4 @@
+import {nativeProbeBridge,runNativeProbe} from './history-native-probe.mjs';
 import {publishLightReports} from './publish-light-reports.mjs';
 import {queueHistory,deliverHistory,historySummary,historyBridge} from './history-sync.mjs';
 import {singleHistoryTask} from './history-only.mjs';
@@ -45,6 +46,7 @@ const brandCatalog=JSON.parse(await readFile(new URL('../brand-catalog.json',imp
 const env={...process.env},password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEISHU_APP_SECRET;
 const workflowBridge=createWorkflowBridge({password});
 const historyTransport=historyBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
+const probeTransport=nativeProbeBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
 let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve();
 const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
@@ -173,10 +175,10 @@ async function main(){
   if(Object.keys(payload).some(k=>!['source_id','mode'].includes(k)))throw Error('invalid-single-history-payload');
   vault.runtime={phase:'running',operation:op,stage:'history-only',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const save=()=>checkpoint({imagesOnly:true,progressOnly:true,historyOnly:true,verify:true});
-  try{await singleHistoryTask(vault,payload,{bridge:historyTransport,checkpoint:save,webhook:env.FEISHU_HISTORY_WEBHOOK});}
+  try{if(payload.mode==='native-probe')await runNativeProbe(vault,payload,{bridge:probeTransport,checkpoint:save,webhook:env.FEISHU_HISTORY_WEBHOOK});else await singleHistoryTask(vault,payload,{bridge:historyTransport,checkpoint:save,webhook:env.FEISHU_HISTORY_WEBHOOK});}
   catch(error){
    if(saveBlocked)throw error;
-   const reason=/^(single-history-|invalid-single-history-)/.test(error.message||'')?error.message:'history-task-unconfirmed';
+   const reason=/^(single-history-|invalid-single-history-|native-probe-|invalid-native-probe-)/.test(error.message||'')?error.message:'history-task-unconfirmed';
    if(vault.historySync)vault.historySync.singleCheck={mode:payload.mode,state:'blocked',reason,at:Date.now()};
    vault.runtime={...vault.runtime,phase:'partial',lastError:reason,endedAt:new Date().toISOString()};await save();console.error('受控历史核验暂停：'+reason);process.exitCode=1;return;
   }
