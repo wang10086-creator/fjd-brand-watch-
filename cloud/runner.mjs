@@ -1,3 +1,4 @@
+import {resolveOperation} from './operation.mjs';
 import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {nativeProbeBridge,runNativeProbe} from './history-native-probe.mjs';
 import {publishLightReports} from './publish-light-reports.mjs';
@@ -59,10 +60,11 @@ async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(
 function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{history:historySummary(vault),sourceHealth:['primary','rss','web'].map(source=>{const h=vault.state.searchProviders?.health?.[source]||{};return {source,lastSuccessAt:h.global?.lastSuccessAt||null,consecutive:h.global?.consecutive||0,errorKind:h.global?.kind||null,cooldownUntil:vault.state.searchProviders?.[source+'Until']||0,scopeCooling:Object.values(h.domains||{}).filter(d=>d.until>Date.now()).length}}),coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,urlChecks:vault.state.urlCheckSummary||null,baseUpdates:baseStatusSummary(vault,env.FEISHU_BASE_STATUS_WEBHOOK),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{paused:true,provider:'feishu',removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:false,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},base:{...baseReviewStatus(vault,env.FEISHU_BASE_REVIEW_WEBHOOK||false),nativeWorkflow:{protocol:'fjd-workflow-v1',enabled:workflowBridge.state()},attachmentConfigured:!!(baseAppCredentials(env).appId&&baseAppCredentials(env).appSecret),previewMode:env.FEISHU_BASE_PREVIEW_MODE==='url'?'url':null,receipts:baseReviewReceipts(vault)},bot:{enabled:config.feishuNotifications!==false,kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function baseDeliveryOptions(){return {workflowBridge,baseApi:feishuBaseApi(baseAppCredentials(env)),evidenceLoader:evidenceStore(vault,{password,read:file,write:put}).load,previewMode:'url',displayPolicy:'single-image-link',deferUpload:false}}
 function dashboard(){return {version:2,baseReviewReceipts:baseReviewReceipts(vault),state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
-async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,historyOnly=false}={}){
+async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,historyOnly=false,pageEvidence=false}={}){
  if(saveBlocked)throw saveBlocked;
  try{
  if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
+ if(imagesOnly&&pageEvidence)updateCycleDraft(vault.state);
  if(vault.integrationPolicy?.historyNative&&!historyOnly)queueHistory(vault);
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
@@ -74,7 +76,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  if(!progressOnly){const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
  entries.push(...publicStorageEntries(publicSnapshot),{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')});}
  const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
- if(!imagesOnly)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
+ if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
  return verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
  }catch(e){saveBlocked=e;vault.runtime={...vault.runtime,phase:'failed',persistence:'unconfirmed',lastError:'保存未确认，停止后续查询；下次从远端确认版本恢复'};try{await put('status.json',{...(lastConfirmedStatus||{version:3,configured:true}),updatedAt:new Date().toISOString(),runtime:vault.runtime})}catch{}throw e;}
 
@@ -118,7 +120,7 @@ async function delivery(operation,{onlyDay=null}={}){
  });
  await processDone;await checkpointChain;vault.delivery=JSON.parse(await readFile(path,'utf8'));delete vault.delivery.events;
 }
-function operation(){if(env.FJD_OPERATION==='base-evidence')return 'base-evidence';if(env.GITHUB_EVENT_NAME==='schedule')return 'auto';return env.FJD_OPERATION||'scan'}
+function operation(){return resolveOperation(env)}
 function acknowledgeWorkflow(payload){if(/^[a-f0-9]{64}$/.test(payload.workflowFenceId||'')){vault.workflowAcknowledged||={};vault.workflowAcknowledged[payload.workflowFenceId]=new Date().toISOString()}}
 async function main(){
  env.FJD_PAYLOAD=await workflowPayload(env);
@@ -213,7 +215,7 @@ async function main(){
   if(localMinute>=550&&localMinute<585){console.log('日报截止与发布保护时段，网址队列稍后续查');return}
   vault.runtime={phase:'running',operation:op,stage:'url-check',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const summary=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),limit:8,deadline:Date.now()+40000,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});refreshPriorities(vault.state,brandCatalog);enqueueBaseStatus(vault);
-  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await checkpoint({imagesOnly:true});
+  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await checkpoint({imagesOnly:true,pageEvidence:summary.pageChanges>0});
   try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint:()=>checkpoint({imagesOnly:true})})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，网址核查和原业务记录保留'}
   await checkpoint({imagesOnly:true});await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
   console.log('网址核查批次：'+JSON.stringify(summary));return;
