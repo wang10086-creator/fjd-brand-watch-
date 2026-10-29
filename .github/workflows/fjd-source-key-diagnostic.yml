@@ -18,8 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Read two fixed formal sources without mutations
+      - name: Read fixed October 29 queue without mutations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
-        run: node cloud/source-key-diagnostic.mjs
+        run: node cloud/oct29-queue-diagnostic.mjs

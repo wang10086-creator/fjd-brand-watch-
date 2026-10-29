@@ -2130,3 +2130,13 @@ change transport remains offline.
 
 ## 2026-10-29 配置与运行中心模式
 日报/线索导航置灰，直接旧hash回到配置页。启动不下载 leads/public-scan/完整公开快照；自动刷新及读取最新结果只取 status.json，轮询改为120秒。保留本机历史及配置、显式保存/同步能力；云端定时任务和飞书入表不变。状态读取不得降级为全量snapshot请求。
+
+
+## Fixed October 29 queue diagnostic (branch only)
+
+The existing manual read-only diagnostic workflow selects a fixed immutable vault
+commit and three formal URLs. Only validated identity/state/timestamp fields and
+preceding nonterminal task metadata are printed. Token, nonce, body, manual notes
+and arbitrary errors are excluded. No gateway, write, register, send or scan is
+called. This diagnostic branch is not merged or deployed. Saved timestamps cannot
+prove historical checkpoint durations or current gateway state.
