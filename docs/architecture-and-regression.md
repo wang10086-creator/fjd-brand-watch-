@@ -2127,3 +2127,6 @@ contains only upstream evidence classification, live report/site filtering,
 lightweight draft confirmation and explicit images operation resolution. Gateway,
 initial delivery configuration and sealed historical data are unchanged. Native
 change transport remains offline.
+
+## 2026-10-29 配置与运行中心模式
+日报/线索导航置灰，直接旧hash回到配置页。启动不下载 leads/public-scan/完整公开快照；自动刷新及读取最新结果只取 status.json，轮询改为120秒。保留本机历史及配置、显式保存/同步能力；云端定时任务和飞书入表不变。状态读取不得降级为全量snapshot请求。
