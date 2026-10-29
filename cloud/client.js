@@ -67,7 +67,18 @@ export async function runCloud(state,{site=null,watch=false}={}){
  const previous=state.cloudService;state.cloudService={...previous,phase:'submitting',currentSite:site,queuedAt:new Date().toISOString()};
  try{const payload=sharedIsPublic()?await makePayload({...(site?{site}:{}),...(watch?{watchOnly:true}:{})}):!canReadCloud()&&!state.cloudTaskDirty?JSON.stringify({publicRequest:{...(site?{site}:{}),...(watch?{watchOnly:true}:{})}}):await makePayload({config:state.config,selectedBrandIds:state.selectedBrandIds,customAliases:state.customAliases,...(site?{site}:{}),...(watch?{watchOnly:true}:{})});await dispatch(site?'site-retry':'scan',payload);state.cloudService={...state.cloudService,phase:'queued'};}catch(e){state.cloudService=previous;throw e}
 }
-export async function refreshRuntime(state){
+export async function refreshRuntime(state,{statusOnly=false}={}){
+ if(statusOnly){
+  const info=await publicCloudFile('status.json');
+  if(!info?.runtime)throw Error('云端运行状态尚未读取');
+  if((Date.parse(info.updatedAt)||0)>=(Date.parse(state.cloudStatusAt)||0)){
+   state.automation=info.automation||state.automation;state.cloudStatusAt=info.updatedAt;
+   const old=state.cloudService||{};
+   if(!old.queuedAt||Date.parse(info.runtime.startedAt)>=Date.parse(old.queuedAt))state.cloudService={...old,...info.runtime};
+  }
+  state.publicFeedLoading=false;state.cloudStatusError='';return {feed:false,status:true};
+ }
+
  const [statusResult,feedResult]=await Promise.allSettled([publicCloudFile('status.json'),publicCloudFile('public-dashboard.json')]);
  const errors=[];let feed=feedResult.status==='fulfilled'?feedResult.value:null,info=statusResult.status==='fulfilled'?statusResult.value:null;
  if(!feed||!info){const fallback=await readLocalSnapshot();if(fallback){state.publicReadFallbackAt=fallback.feed.updatedAt||fallback.status.updatedAt||null;if(!feed)feed=fallback.feed;if(!info)info=fallback.status;}}else state.publicReadFallbackAt=null;
