@@ -35,9 +35,9 @@ test('single pilot status selects approved country even with stale initial event
  assert.equal(inspected.event_id,p.event_id);assert.equal(inspected.kind,'metadata');assert.deepEqual(Object.keys(inspected.proposals),['country_region']);
 });
 
-test('a reconciled failed dispatch stays terminal and is never sent again',async()=>{
+test('an incomplete failure response remains unresolved and is never sent again',async()=>{
  const p=await pipeline(),v=vault();queueHistoryV3(v);const item=Object.values(v.historyV3.items)[0];item.state='pending-confirmation';item.dispatchedAt=Date.now();p.bridge.status=async()=>({state:'failed',error:'native-run-stopped-without-write'});
- await singleHistoryV3Task(v,{source_id:source,mode:'status'},p);assert.equal(item.state,'failed');await deliverHistoryV3(v,p);assert.equal(p.sends(),0);assert.equal(item.state,'failed');
+ await singleHistoryV3Task(v,{source_id:source,mode:'status'},p);assert.equal(item.state,'pending-confirmation');await deliverHistoryV3(v,p);assert.equal(p.sends(),0);assert.equal(item.state,'pending-confirmation');
 });
 
 test('daily initial queues new formal leads only, not changed or reviewed metadata',()=>{

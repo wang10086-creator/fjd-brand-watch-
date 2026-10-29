@@ -2130,3 +2130,21 @@ change transport remains offline.
 
 ## 2026-10-29 配置与运行中心模式
 日报/线索导航置灰，直接旧hash回到配置页。启动不下载 leads/public-scan/完整公开快照；自动刷新及读取最新结果只取 status.json，轮询改为120秒。保留本机历史及配置、显式保存/同步能力；云端定时任务和飞书入表不变。状态读取不得降级为全量snapshot请求。
+
+## History v3 terminal reconciliation (October 29)
+
+Cloud readback previously mapped every non-verified gateway state to pending,
+including two audited unwritten failure transitions. Both automatic and single
+status handling now accept only exact event/history bindings: verified with a real
+record ID, or explicit record_id:null for operator-retired-before-permit and
+metadata native-run-stopped-without-write. Unknown failures, missing bindings,
+permit/unknown states and status timeouts remain fenced; none grants a retry.
+Single inspect must additionally bind payload/source and fetch authenticated status.
+
+Read-only terminal observations are checkpointed together, before any new register
+or send. Queue identities are durable before registration, sending markers before
+HTTP, and outcomes after HTTP. Persistence failure propagates and prevents further
+network mutations. Restart after ambiguous send only reads status, never replays.
+Daily-initial and metadata exclusions remain unchanged. No gateway changes or
+new writer/transport are included; use one existing controlled source at a time,
+query exact event first, then await native receipt before the next source.
