@@ -19,7 +19,7 @@ export function publicUrlCheck(value){
  if(!value)return undefined;
  const pick=(v,keys)=>Object.fromEntries(keys.split(' ').filter(k=>v?.[k]!==undefined).map(k=>[k,structuredClone(v[k])]));
  const record=r=>valid(r)?pick(r,'id url at status previousStatus httpStatus finalUrl redirects source environment reason errorKind evidence targetPresent snapshotKey beforeKey changedFields'):null;
- return {version:1,current:record(value.current),history:(value.history||[]).map(record).filter(Boolean),snapshots:Object.fromEntries(Object.entries(value.snapshots||{}).map(([key,s])=>[key,{...pick(s,'url title verification at'),...(typeof s.body==='string'?{body:s.body.slice(0,12000)}:{}),truncated:!!s.truncated||String(s.body||'').length>12000}])),task:pick(value.task||{},'phase requestedAt updatedAt nextAt attempts lastError')};
+ return {version:1,current:record(value.current),history:(value.history||[]).map(record).filter(Boolean),snapshots:Object.fromEntries(Object.entries(value.snapshots||{}).map(([key,s])=>[key,{...pick(s,'url title verification at'),...(typeof s.body==='string'?{body:s.body.slice(0,12000)}:{}),truncated:s.truncated!==false||String(s.body||'').length>12000}])),task:pick(value.task||{},'phase requestedAt updatedAt nextAt attempts lastError')};
 }
 const manualMap={visible:'normal',changed:'changed',removed:'removed',redirect:'redirect',redirected:'redirect',blocked:'unavailable'};
 export function manualUrlStatus(row){return manualMap[row?.pageState]||null}

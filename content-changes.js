@@ -1,3 +1,4 @@
+import {modernChangeDay,qualifiedObservationChanges} from './page-change-evidence.js';
 // Read-only comparisons over the existing monitor observation ledger. No grades or workflow writes.
 import {canonical} from './core.js?v=20261023-url-r1';
 const entities={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
@@ -22,7 +23,7 @@ const recordOf=(e,c)=>{
  const caution=originalBody?'对比仅限两次实际保存的正文内容，不等于侵权判断。':mixed?'两次采集来源不同，仅能确认保存记录的差异，不能据此确认原网页修改。':bothPage?'两次记录保存了原网页标题或摘要，未据此还原完整网页修改过程。':'索引标题与摘要可能随查询及搜索服务变化，不能直接证明原网页已修改。';
  return {id:c.id||e.id,observationId:e.id,key:e.key||canonical(after?.url),day:e.day,at:c.at||e.changedAt||e.at,before,after,fields,insufficient,partial,material:insufficient||partial||fields.length>0,legacy:!!c.legacy||!e.contentChanges?.length,sourceLabel,caution,queryChanged};
 };
-export function observationChanges(e){if(e?.kind!=='changed')return [];return Array.isArray(e.contentChanges)&&e.contentChanges.length?e.contentChanges.map(c=>recordOf(e,c)):[recordOf(e,{id:e.id,at:e.changedAt||e.at,before:e.before,snapshot:e.snapshot,legacy:true})]}
+export function observationChanges(e){if(e?.kind!=='changed')return [];if(modernChangeDay(e.day))return qualifiedObservationChanges(e).map(c=>recordOf(e,c));return Array.isArray(e.contentChanges)&&e.contentChanges.length?e.contentChanges.map(c=>recordOf(e,c)):[recordOf(e,{id:e.id,at:e.changedAt||e.at,before:e.before,snapshot:e.snapshot,legacy:true})]}
 export function leadChanges(m,url,{day=''}={}){const key=canonical(url);return (m?.observations||[]).filter(e=>canonical(e.key||e.snapshot?.url)===key&&(!day||e.day===day)).flatMap(observationChanges).sort((a,b)=>compareChangeTime(b,a))}
 // Rendering-only union. New discovery takes precedence if a legacy backup has
 // both classifications for one URL on one day. Report snapshots remain unchanged.

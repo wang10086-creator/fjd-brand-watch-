@@ -2118,3 +2118,12 @@ The grant lasts at most 20 minutes and never beyond the original seven-day read
 window. No renewal/retry UI is provided after a claim or expiry. Tests cover fixed
 scope, pauses, expiry, concurrency, credentials, uncertain send, and transport
 shape; existing receipt regression verifies full fields and manual protections.
+
+
+## 2026-10-29 original-page evidence and scheduled images
+
+See [page-evidence-release.md](page-evidence-release.md). The independent release
+contains only upstream evidence classification, live report/site filtering,
+lightweight draft confirmation and explicit images operation resolution. Gateway,
+initial delivery configuration and sealed historical data are unchanged. Native
+change transport remains offline.
