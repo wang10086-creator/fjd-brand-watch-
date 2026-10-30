@@ -43,7 +43,7 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
   const defer=(task,reason,attempted=false)=>{const attempts=(task.attempts||0)+Number(attempted),retryAt=attempted?clock()+Math.min(86400000,1200000*2**Math.min(attempts-1,6)):task.retryAt||0;pending.set(task.url,{...task,reason,attempts,retryAt});};
   const tasks=new Map();
   // Existing unvisited frontier precedes rediscovered roots; failed URLs back off independently.
-  for(const r of [...(previous.pending||[]),...results]){try{const url=productUrl(r.url);if(!tasks.has(url))tasks.set(url,{url,entry:r.entry||r.url,origins:r.origins||[r.entry||r.url],depth:r.depth||0,attempts:r.attempts||0,retryAt:r.retryAt||0,reason:r.reason});else tasks.get(url).origins=[...new Set([...tasks.get(url).origins,r.entry||r.url])];}catch{observations.push({type:'unconfirmed',reason:'unsafe-url',retained:false})}}
+  for(const r of [...(previous.pending||[]),...results]){try{const url=productUrl(r.url);if(!tasks.has(url))tasks.set(url,{...(r.httpStatus!==undefined?{httpStatus:r.httpStatus,finalUrl:r.finalUrl,checkedAt:r.checkedAt}:{}),url,entry:r.entry||r.url,origins:r.origins||[r.entry||r.url],depth:r.depth||0,attempts:r.attempts||0,retryAt:r.retryAt||0,reason:r.reason});else tasks.get(url).origins=[...new Set([...tasks.get(url).origins,r.entry||r.url])];}catch{observations.push({type:'unconfirmed',reason:'unsafe-url',retained:false})}}
   const visit=async task=>{
    const {url,entry,depth}=task;if(visited.has(url))return;visited.add(url);
    if(!inScope(url,plan.domain)){observations.push({url,entry,type:'unconfirmed',retained:false,reason:'candidate-outside-target'});return}
@@ -65,7 +65,7 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
     else defer(task,reason,true); // Incomplete image verification is not a final negative.
     return;
    }
-   if(page.type!=='list'){defer(task,page.reason||'page-type-unconfirmed',true);return}
+   if(page.type!=='list'){defer({...task,httpStatus:page.httpStatus??null,finalUrl:page.finalUrl,checkedAt:new Date(clock()).toISOString()},page.reason||'page-type-unconfirmed',true);return}
    observations.push({url,entry,type:'list',retained:false,reason:'discovery-only',httpStatus:page.httpStatus});
    const links=page.candidates.filter(x=>inScope(x.url,plan.domain)&&matchedAliases({title:x.text,content:''},plan).length);
    // Persist the complete relevant frontier, not only the first five. Never follow a detail's recommendations.
