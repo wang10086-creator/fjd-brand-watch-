@@ -29,7 +29,7 @@ test('search normalization keeps genuine per-result image URLs only',()=>{
 });
 test('cloud scan calls first image verifier before checkpoint exposes newly discovered row',async()=>{
  const state=await initialState();state.config={...state.config,regions:['CN'],platforms:['jd-cn']};state.selectedBrandIds=[];state.customAliases=['FJDynamics'];let checked=false;
- await scan(state,{budget:1,wait:async()=>{},fetcher:async(u,o)=>({ok:true,json:async()=>({results:[{url:'https://'+JSON.parse(o.body).include_domains[0]+'/first-image-test',title:'FJDynamics product'}]})}),imageVerifier:async rows=>{checked=true;for(const r of rows)r.imageEvidence={firstPass:{status:'completed'},complete:false}},checkpoint:async()=>{const row=state.rows.find(r=>r.url.endsWith('/first-image-test'));if(row)assert.equal(row.imageEvidence.firstPass.status,'completed')}});assert.ok(checked);
+ await scan(state,{marketProcessor:{expand:async results=>({results,discovery:{applied:false}})},budget:1,wait:async()=>{},fetcher:async(u,o)=>({ok:true,json:async()=>({results:[{url:'https://'+JSON.parse(o.body).include_domains[0]+'/first-image-test',title:'FJDynamics product'}]})}),imageVerifier:async rows=>{checked=true;for(const r of rows)r.imageEvidence={firstPass:{status:'completed'},complete:false}},checkpoint:async()=>{const row=state.rows.find(r=>r.url.endsWith('/first-image-test'));if(row)assert.equal(row.imageEvidence.firstPass.status,'completed')}});assert.ok(checked);
 });
 
 test('explicit target outranks legacy tier and deferred work clears stale completion/retry gate',async()=>{

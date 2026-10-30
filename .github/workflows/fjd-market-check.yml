@@ -1,0 +1,22 @@
+name: 电商详情只读样例验收
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python3 -m pip install --quiet lxml==6.0.2
+      - name: 三个既有公开入口，最多十二次直接请求，不运行业务任务
+        run: node scripts/market-live-check.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: marketplace-read-only-result
+          path: market-live-result.json
+          retention-days: 7

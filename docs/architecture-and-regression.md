@@ -2148,3 +2148,50 @@ network mutations. Restart after ambiguous send only reads status, never replays
 Daily-initial and metadata exclusions remain unchanged. No gateway changes or
 new writer/transport are included; use one existing controlled source at a time,
 query exact event first, then await native receipt before the next source.
+
+## 2026-10-30 电商主商品发现与续查
+
+仅 catalog.kind=market 的云端检索/单站补查/网址复查应用新规则。
+非电商与来源不明保持原路径；没有品牌图文证据的页面不入库。
+market-page.py 使用 lxml 抽取主商品，移除可识别的推荐/导航/广告/评价区域；
+商品标题、主图、SKU、描述/购买控件、与标题和 URL 一致的 Product 数据组合判定。
+URL 形状和 canonical 均不能独立确认详情。脚本空壳/访问限制/结构不明为待核实。
+图片证据复用 firstImagePass 和 imageMatches 的原有判定，必须关联当前主区域图片
+且参照图 brandIds 属于当前检索品牌，不把匹配分数冒充完全一致或侵权结论。
+当前快速图片比对未确认时保留候选，不作完整阴性结论。
+
+云端 scan 内只有一个顺序抓取器：每次 plan 最多访问5个候选页（含列表，因此比
+每入口5个详情更保守），每列表本次最多展开10个相关卡片，深度最多2；
+每检索批次最多24次 HTTP 请求（含 robots/跳转）、45秒实际展开时间，
+单页8秒，相同主机请求间隔至少750ms，重试0次；严格受扫描总截止时间约束。
+索引请求间等待不消耗45秒展开额度。复用 detectUrl 的 DNS/SSRF/robots/访问限制
+检查与同批缓存，不增加 Railway 抓取。现有图片核验仍受其独立时间预算约束。
+
+marketDiscovery 按 plan+关键词组合保存完整已提取的相关候选前沿、重试时间和
+近期已核验决策；超过10/5限制的候选保留，失败20分钟起退避，上限24小时。
+同批重复链接仅抓取一次；候选续查优先复用前沿，不重复请求搜索索引；每批最多2个优先续查位占用原有批次额度。
+6小时内复用主商品决策，保留原证据时间；任务总预算耗尽后由下一批续查。
+深度超限显式待核实，不擅自重置深度。当前不会执行列表分页/全站递归。
+请求数/原始索引数/保留详情数/待续查分别记账；待续查不标记组合完成或有效零结果。
+队列随现有加密台账 checkpoint 保存，浏览器迁移不能覆盖云端队列。运行历史仅保存展开统计摘要，不复制完整候选前沿与图片证据。
+
+只去除明确的 utm_*/gclid/fbclid/msclkid；保留商品、SKU、变体和卖家参数。
+存在明确 SKU 与结构化 seller URL 时可按平台/主机/卖家/SKU/参数合并；
+缺少这些证明时按保守 URL 去重，不根据标题合并。来源入口合并到 marketEvidence。
+旧记录的原 URL、ID、首次发现、人工字段不变，新的最终地址保存在证据中。
+
+网址复查使用 market-primary-v1 extractionScope，与旧整页快照分离。
+新范围首次只建立基线；saveUrlCheck 的 beforeKey 及 qualifyPageChange 均禁止
+跨范围比较；推荐区域轮换、搜索摘要变化、解析升级不能制造实质变化。
+历史快照/事件/封版校验值不重写。后续主商品真实差异沿用既有变化规则。
+
+验证入口：npm test；Python unittest discover；scripts/market-discovery.test.mjs
+覆盖解析、假HTTP、真实scan编排/保存、跨批续查、范围基线与人工数据保护。
+fjd-market-check.yml 仅手动读取3个既有公开页面，最多12请求/30秒，不导入runner、
+不读取凭据、不写台账/日报/通知。成功退出仅表示只读检查运行完成，页面受限仍
+须按结果 JSON 的 pending/observations 报告，不能冒充成功获取详情。
+
+回退：回退本次检索源码提交并保留 marketDiscovery/marketEvidence 扩展字段与所有
+业务数据；不得恢复整页/主商品跨范围比较，page-change-evidence 范围保护需保留。
+无新凭据、服务或自动定时任务。浏览器手动索引入口未迁移为原页爬虫；当前公开
+站点只开放配置/运行中心，新的云端详情校验不向 Railway 转发。
