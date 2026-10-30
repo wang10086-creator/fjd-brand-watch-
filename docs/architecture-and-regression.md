@@ -2237,6 +2237,10 @@ scope升级到v2，旧快照只能作为历史证据，不把解析器升级认�
 专项续查次序明确为：未实际访问入口→需修复重验的乐天入口→尚未访问的子商品→
 已到重试时间的失败地址，避免已有空队列状态被误当作已访问，或失败重试挤占新入口。
 
+专项任务的ubuntu-latest在本次执行中分配了24.04及26.04两种镜像；26.04两轮依赖准备
+明显延长。将该专项任务固定为已完成真实采集的ubuntu-24.04，避免环境漂移挤占15分钟
+作业上限。只调整专项运行环境，不改变其他工作流、采集预算、权限或保存协议。
+
 ## 2026-10-30 native source association compatibility
 
 The narrower replacement for unmerged PR #28 keeps fldeDsHGN7 as text and resolves
@@ -2252,3 +2256,4 @@ The same compatibility boundary now resolves monitoring select fldGAnWiwP by ID
 in its API schema/create path, retaining legacy unique text/select fallback for
 other caller schemas and refusing same-name relations. Existing update fields and
 processing-state triggers are unchanged.
+
