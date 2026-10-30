@@ -2247,3 +2247,8 @@ association is separate postprocessing, not gateway-verified business creation.
 See [history-source-native-relation.md](history-source-native-relation.md) for the
 untested native contract, downstream naming constraints and deployment boundary.
 No app credentials, new API, schema reader or processing-state trigger changes.
+
+The same compatibility boundary now resolves monitoring select fldGAnWiwP by ID
+in its API schema/create path, retaining legacy unique text/select fallback for
+other caller schemas and refusing same-name relations. Existing update fields and
+processing-state triggers are unchanged.

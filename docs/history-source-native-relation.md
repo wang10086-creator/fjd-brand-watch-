@@ -67,15 +67,27 @@ is a separate controlled UI operation, not a new history business event.
 
 ## Other tables and remaining UI checks
 
-Monitoring source is still a single-select, with unknown source field ID. Its API
-creation currently addresses 来源平台 by name; this branch deliberately preserves
-that behavior and does not guess an ID. Do not rename that existing select or give
-another monitoring column the same name yet. A new monitoring relation can use
-来源分类关联 temporarily. The owner of that native flow must map/read it with the
-same actual-ID rule without changing processing states or triggers. Once its real
-field IDs are confirmed, any necessary rename compatibility is a separate small
-reviewed mapping change. Suspected-infringement lookup must target the agreed
-monitoring relation/platform-label display, not duplicate primary 分类 text.
+Monitoring source is the verified single-select `fldGAnWiwP`. The API adapter
+now resolves that ID to its actual current field name and requires type 3; a new
+same-name relation cannot receive the compatibility string. The resolver is also
+used by schema validation. Creation keeps the old value; updates still change
+only the existing status/attachment fields, and verification does not add a new
+classification-success claim. Source readback is not presently part of this API's
+attachment verifier; native association must retain its own actual lookup check.
+
+`sourcePlatformFieldId` can configure another reviewed identity for callers; the
+fixed authorized API table is unchanged. Schemas without that identity retain
+optional unique legacy text/select name mapping, but never fallback to type 18.
+No unknown downstream IDs or new table access are introduced.
+
+The browser-confirmed preparation relation IDs are history `fld1TjVOFw` and
+monitoring `fldJUhMKGn`, both single-target to the source catalog. These empty
+columns have not been backfilled. UI has statically confirmed unique lookup count,
+assignment from its first record and linked fldsQNw6dU selection; no actual native
+execution is implied. The owning workflow must preserve processing-state triggers
+and verify that association updates do not trigger an unintended downstream create.
+Suspected-infringement lookup must target the agreed monitoring relation/platform
+label display, not duplicate primary 分类 text.
 
 Before enablement, the sole UI executor must confirm: exact new field IDs; category
 unique lookup; native relation assignment; empty/correct/conflicting branches;
