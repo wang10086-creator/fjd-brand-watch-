@@ -216,12 +216,12 @@ async function main(){
   await configure(vault.state);prepareHistoryCampaign(vault.state,day);
   vault.runtime={phase:'running',operation:op,stage:'market-history',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
   const deadline=Date.now()+6*60000;
-  await checkpoint({verify:true});
+  await checkpoint({progressOnly:true});
   for(let batch=0;batch<6&&Date.now()<deadline-15000;batch++){
    const c=cycleAt();if(!c.active||c.day!==day||vault.state.monitor.formalReports?.[day])break;
    const plans=historyPlansForCycle(vault.state,day).slice(0,6),due=dueActions(vault);
    if(!plans.length||!due.budget)break;
-   await scan(vault.state,{discoveryPlans:plans,budget:Math.min(6,due.budget),trigger:'schedule',maxDurationMs:Math.min(90000,deadline-Date.now()),checkpoint:options=>checkpoint({...options,verify:true}),siteUrl:config.siteUrl});
+   await scan(vault.state,{discoveryPlans:plans,budget:Math.min(6,due.budget),trigger:'schedule',maxDurationMs:Math.min(90000,deadline-Date.now()),checkpoint:options=>checkpoint({...options,progressOnly:true}),siteUrl:config.siteUrl});
    const summary=historyCampaignSummary(vault.state);await put('market-history/'+day+'.json',summary);
    console.log('历史入口实际核验 '+JSON.stringify({day,checked:summary.checked,targeted:summary.targeted,confirmedLists:summary.confirmedLists,newDetails:summary.newDetails.length,requests:summary.requests}));
   }

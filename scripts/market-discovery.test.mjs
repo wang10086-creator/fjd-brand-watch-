@@ -107,3 +107,9 @@ test('Product microdata on list cards is not the page primary product; single ca
  const multiple=await parseMarket('<main><h1>Search results</h1>'+cards.join('')+'</main>','https://jd.com/search');assert.equal(multiple.type,'list');assert.equal(multiple.candidates.length,2);
  const single=await parseMarket('<main><h1>Search results</h1>'+cards[0]+'</main>','https://jd.com/search');assert.notEqual(single.type,'detail');
 });
+test('observed JD duplicate slashes share numeric product identity, preserving variants and other platforms',async()=>{
+ assert.equal(productUrl('https://item.jd.com//100401716936.html?sku=red'),'https://item.jd.com/100401716936.html?sku=red');
+ assert.notEqual(productUrl('https://item.jd.com//100401716936.html?sku=red'),productUrl('https://item.jd.com/100401716936.html?sku=blue'));
+ assert.equal(productUrl('https://other.example//123.html'),'https://other.example//123.html');
+ const x=harness({'https://item.jd.com/100401716936.html':detail()});const r=await x.batch.expand([{url:'https://item.jd.com/100401716936.html'},{url:'https://item.jd.com//100401716936.html'}],plan);assert.equal(r.results.length,1);assert.equal(r.discovery.requests,2);
+});
