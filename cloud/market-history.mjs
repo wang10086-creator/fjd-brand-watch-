@@ -27,7 +27,8 @@ export function prepareHistoryCampaign(state,day,at=new Date().toISOString()){
 }
 export function historyPlansForCycle(state,day,now=Date.now()){
  const c=state.marketHistory;if(!c||c.day!==day||state.monitor.formalReports?.[day])return [];
- return c.plans.filter(p=>{const d=state.marketDiscovery?.[p.id+':0'];return !d||(p.platform==='rakuten'&&(d.version||1)<2)||d.pending?.some(t=>!(t.retryAt>now))}).sort((a,b)=>Number(!!state.marketDiscovery?.[a.id+':0'])-Number(!!state.marketDiscovery?.[b.id+':0'])).map(p=>({...p,aliases:state.config.aliases,termRules:state.config.termRules||[]}));
+ const priority=p=>{const d=state.marketDiscovery?.[p.id+':0'];if(!c.checks?.[p.id]&&!d?.resolved?.[productUrl(p.historicalEntry)])return 0;if(p.platform==='rakuten'&&(d?.version||1)<2)return 1;if(d?.pending?.some(t=>!(t.retryAt>now)&&!t.attempts))return 2;return 3};
+ return c.plans.filter(p=>{const d=state.marketDiscovery?.[p.id+':0'];return !d||(p.platform==='rakuten'&&(d.version||1)<2)||d.pending?.some(t=>!(t.retryAt>now))}).sort((a,b)=>priority(a)-priority(b)).map(p=>({...p,aliases:state.config.aliases,termRules:state.config.termRules||[]}));
 }
 export function recordHistoryDiscovery(state,plan,d,at){
  if(!plan.historicalEntry||!state.marketHistory)return;
