@@ -43,3 +43,14 @@ export function historyCampaignSummary(state){
  const newRows=state.rows.filter(r=>newKeys.has(canonical(r.url))&&r.marketEvidence?.origins?.some(url=>c.plans.some(p=>p.historicalEntry===url)));
  return {version:1,day:c.day,createdAt:c.createdAt,updatedAt:new Date().toISOString(),inventory:{totalLeads:c.inventory.totalLeads,ecommerceCatalogEntries:c.inventory.ecommerceCatalogEntries,counts:c.inventory.counts},targeted:c.plans.length,checked:entries.filter(e=>e.checked).length,unattempted:entries.filter(e=>c.plans.some(p=>p.historicalEntry===e.url)&&!e.checked).length,confirmedLists:entries.filter(e=>e.confirmedType==='list').length,newDetails:newRows.map(r=>({id:r.id,url:r.url,title:r.title,firstSeen:r.firstSeen,origins:r.marketEvidence.origins})),entries,requests:runs.flatMap(r=>r.items.filter(i=>i.plan?.historicalEntry)).reduce((n,i)=>n+(i.marketDiscovery?.requests||0),0)};
 }
+// Public factual provenance for first insertion only. Never infer it merely
+// from an ecommerce URL or a later rediscovery of an existing product.
+export function historicalMarketNote(state,row,event,day){
+ const campaign=state.marketHistory;
+ if(!campaign||!marketSource(row||{})||campaign.day!==day||event?.kind!=='new'||event.day!==day||row?.marketEvidence?.region!=='primary-product')return '';
+ if(!Array.isArray(campaign.plans)||!Array.isArray(campaign.inventory?.entries)||!Array.isArray(row.marketEvidence.origins))return '';
+ const key=canonical(row.url);if(!key||canonical(event.snapshot?.url)!==key||!Number.isFinite(Date.parse(event.at))||Date.parse(row.firstSeen)!==Date.parse(event.at))return '';
+ const origins=(row.marketEvidence.origins||[]).filter(url=>campaign.plans.some(p=>p.historicalEntry===url&&campaign.inventory.entries.some(e=>e.sourceId===p.historicalSourceId&&e.url===url)));
+ const witnessed=(state.monitor.runs||[]).some(r=>r.reportDay===day&&(r.delta||[]).some(d=>d.kind==='new'&&d.key===key)&&(r.items||[]).some(i=>origins.includes(i.plan?.historicalEntry)));
+ return witnessed?'（线索来源：基于电商平台类历史线索进一步核查获得，由历史列表入口展开并核验商品详情页后收录）':'';
+}

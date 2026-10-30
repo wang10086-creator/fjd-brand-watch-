@@ -62,3 +62,25 @@ test('renaming source display does not resend an already verified event',async()
  v.historyV3.sources[source].config=structuredClone(full);v.historyV3.sources[source].config.schema.find(f=>f.field_id==='fldeDsHGN7').field_name='来源平台（兼容文本）';
  await deliverHistoryV3(v,p);assert.equal(p.sends(),1);assert.equal(Object.values(v.historyV3.items)[0].state,'verified');
 });
+
+import {noteEvent} from '../gateway/history-notes-contract.mjs';
+function historicalProvenance(v){
+ const event=v.state.monitor.formalReports['2026-10-28'].report.cohort[0],root='https://item.rakuten.co.jp/shop/c/1/';
+ v.state.rows[0].platform='rakuten';v.state.rows[0].firstSeen=event.at;v.state.rows[0].marketEvidence={region:'primary-product',origins:[root]};
+ v.state.marketHistory={day:event.day,plans:[{historicalSourceId:'old-list',historicalEntry:root}],inventory:{entries:[{sourceId:'old-list',url:root}]}};
+ v.state.monitor.runs=[{reportDay:event.day,delta:[{kind:'new',key:event.key}],items:[{plan:{historicalEntry:root}}]}];return v;
+}
+test('historical ecommerce detail first insertion carries factual provenance in native notes without modifying reports or manual notes',async()=>{
+ const v=historicalProvenance(vault()),before=JSON.stringify(v.state.monitor.formalReports),p=await pipeline();const old={record_id:'recKept',fields:{...Object.fromEntries(full.schema.map(f=>[f.field_id,f.type===15?null:f.type===17?[]:''])),fldId:'20261027-009',fldUrl:{link:'https://other.example/item',text:'other'},fldSource:'lead-'+'b'.repeat(64),fldNotes:'人工已有备注',fldManual:[{file_token:'synthetic-attachment'}]}};p.f.snapshot.records.push(structuredClone(old));v.state.rows[0].note='Private human note';
+ await deliverHistoryV3(v,p);const item=Object.values(v.historyV3.items)[0];assert.match(noteEvent(item.payload.note).note_text,/基于电商平台类历史线索进一步核查获得/);assert.doesNotMatch(noteEvent(item.payload.note).note_text,/Private human/);
+ const newRow=p.f.snapshot.records.find(r=>r.record_id==='recCloudNew');assert.match(newRow.fields.fldNotes,/历史列表入口展开并核验商品详情页后收录/);assert.deepEqual(p.f.snapshot.records[0],old);assert.equal(JSON.stringify(v.state.monitor.formalReports),before);assert.equal(v.state.rows[0].note,'Private human note');
+ await deliverHistoryV3(v,p);assert.equal(p.sends(),1);assert.equal(item.state,'verified');assert.equal(p.f.snapshot.records.filter(r=>r.record_id==='recCloudNew').length,1);
+});
+test('source explanation requires same-day first-discovery run and verified origins, never just an ecommerce URL',()=>{
+ const mutations=[v=>v.state.rows[0].platform='dealer',v=>v.state.marketHistory.inventory={},v=>delete v.state.rows[0].marketEvidence,v=>v.state.marketHistory.day='2026-10-29',v=>v.state.monitor.runs[0].delta[0].kind='repeat',v=>v.state.rows[0].firstSeen='2026-10-20T00:00:00Z',v=>v.state.rows[0].marketEvidence.origins=['https://different.example/'],v=>v.state.marketHistory.inventory.entries=[]];
+ for(const mutate of mutations){const v=historicalProvenance(vault());mutate(v);const item=Object.values(queueHistoryV3(v).items)[0];assert.ok(item);assert.doesNotMatch(noteEvent(item.payload.note).note_text,/历史线索进一步/)}
+});
+test('provenance does not rewrite a queued/dispatched payload or an existing history row',()=>{
+ const v=vault();const item=Object.values(queueHistoryV3(v).items)[0];item.dispatchedAt=1;const before=JSON.stringify(item);historicalProvenance(v);queueHistoryV3(v);assert.equal(Object.keys(v.historyV3.items).length,1);assert.equal(JSON.stringify(item),before);
+ const existing=historicalProvenance(vault());existing.historyV3.sources[source].original={record_id:'recOriginal',history_id:'20261028-001'};assert.equal(Object.keys(queueHistoryV3(existing).items).length,0);
+});
