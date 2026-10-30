@@ -46,11 +46,12 @@ export function historyCampaignSummary(state){
 // Public factual provenance for first insertion only. Never infer it merely
 // from an ecommerce URL or a later rediscovery of an existing product.
 export function historicalMarketNote(state,row,event,day){
- const campaign=state.marketHistory;
- if(!campaign||!marketSource(row||{})||campaign.day!==day||event?.kind!=='new'||event.day!==day||row?.marketEvidence?.region!=='primary-product')return '';
- if(!Array.isArray(campaign.plans)||!Array.isArray(campaign.inventory?.entries)||!Array.isArray(row.marketEvidence.origins))return '';
+ if(!marketSource(row||{})||event?.kind!=='new'||event.day!==day||row?.marketEvidence?.region!=='primary-product'||!Array.isArray(row.marketEvidence.origins))return '';
  const key=canonical(row.url);if(!key||canonical(event.snapshot?.url)!==key||!Number.isFinite(Date.parse(event.at))||Date.parse(row.firstSeen)!==Date.parse(event.at))return '';
- const origins=(row.marketEvidence.origins||[]).filter(url=>campaign.plans.some(p=>p.historicalEntry===url&&campaign.inventory.entries.some(e=>e.sourceId===p.historicalSourceId&&e.url===url)));
- const witnessed=(state.monitor.runs||[]).some(r=>r.reportDay===day&&(r.delta||[]).some(d=>d.kind==='new'&&d.key===key)&&(r.items||[]).some(i=>origins.includes(i.plan?.historicalEntry)));
+ const campaign=state.marketHistory,origins=row.marketEvidence.origins;
+ const original=p=>p?.historicalSourceId&&origins.includes(p.historicalEntry)&&(
+  (state.rows||[]).some(r=>r.id===p.historicalSourceId&&r.id!==row.id&&canonical(r.url)===canonical(p.historicalEntry)&&Date.parse(r.firstSeen)<Date.parse(event.at))||
+  campaign?.day===day&&Array.isArray(campaign.inventory?.entries)&&Array.isArray(campaign.plans)&&campaign.plans.some(x=>x.historicalSourceId===p.historicalSourceId&&x.historicalEntry===p.historicalEntry)&&campaign.inventory.entries.some(e=>e.sourceId===p.historicalSourceId&&e.url===p.historicalEntry));
+ const witnessed=(state.monitor.runs||[]).some(r=>r.reportDay===day&&(r.delta||[]).some(d=>d.kind==='new'&&d.key===key)&&(r.items||[]).some(i=>original(i.plan)));
  return witnessed?'（线索来源：基于电商平台类历史线索进一步核查获得，由历史列表入口展开并核验商品详情页后收录）':'';
 }

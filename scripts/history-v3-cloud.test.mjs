@@ -68,7 +68,7 @@ function historicalProvenance(v){
  const event=v.state.monitor.formalReports['2026-10-28'].report.cohort[0],root='https://item.rakuten.co.jp/shop/c/1/';
  v.state.rows[0].platform='rakuten';v.state.rows[0].firstSeen=event.at;v.state.rows[0].marketEvidence={region:'primary-product',origins:[root]};
  v.state.marketHistory={day:event.day,plans:[{historicalSourceId:'old-list',historicalEntry:root}],inventory:{entries:[{sourceId:'old-list',url:root}]}};
- v.state.monitor.runs=[{reportDay:event.day,delta:[{kind:'new',key:event.key}],items:[{plan:{historicalEntry:root}}]}];return v;
+ v.state.monitor.runs=[{reportDay:event.day,delta:[{kind:'new',key:event.key}],items:[{plan:{historicalEntry:root,historicalSourceId:'old-list'}}]}];return v;
 }
 test('historical ecommerce detail first insertion carries factual provenance in native notes without modifying reports or manual notes',async()=>{
  const v=historicalProvenance(vault()),before=JSON.stringify(v.state.monitor.formalReports),p=await pipeline();const old={record_id:'recKept',fields:{...Object.fromEntries(full.schema.map(f=>[f.field_id,f.type===15?null:f.type===17?[]:''])),fldId:'20261027-009',fldUrl:{link:'https://other.example/item',text:'other'},fldSource:'lead-'+'b'.repeat(64),fldNotes:'人工已有备注',fldManual:[{file_token:'synthetic-attachment'}]}};p.f.snapshot.records.push(structuredClone(old));v.state.rows[0].note='Private human note';
@@ -83,4 +83,9 @@ test('source explanation requires same-day first-discovery run and verified orig
 test('provenance does not rewrite a queued/dispatched payload or an existing history row',()=>{
  const v=vault();const item=Object.values(queueHistoryV3(v).items)[0];item.dispatchedAt=1;const before=JSON.stringify(item);historicalProvenance(v);queueHistoryV3(v);assert.equal(Object.keys(v.historyV3.items).length,1);assert.equal(JSON.stringify(item),before);
  const existing=historicalProvenance(vault());existing.historyV3.sources[source].original={record_id:'recOriginal',history_id:'20261028-001'};assert.equal(Object.keys(queueHistoryV3(existing).items).length,0);
+});
+
+test('preserved original row and run keep provenance after the active campaign changes',()=>{
+ const v=historicalProvenance(vault()),root=v.state.marketHistory.plans[0].historicalEntry;v.state.rows.push({id:'old-list',url:root,firstSeen:'2026-10-19T00:00:00Z'});v.state.marketHistory={day:'2026-11-01',plans:[],inventory:{entries:[]}};
+ const item=Object.values(queueHistoryV3(v).items)[0];assert.match(noteEvent(item.payload.note).note_text,/基于电商平台类历史线索进一步核查获得/);
 });
