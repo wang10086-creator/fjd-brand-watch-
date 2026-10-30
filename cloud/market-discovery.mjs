@@ -37,7 +37,7 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
  return {async expand(results,plan,previous={}){
   if(!marketSource(plan))return {results,discovery:{applied:false,reason:'not-explicit-market-source'}};
   const started=clock(),before=budget.remaining;end=Math.min(deadline,started+Math.max(0,cfg.durationMs-elapsed));
-  const signature=JSON.stringify([plan.platform,plan.domain,plan.aliases,plan.termRules||[]]);
+  const signature=JSON.stringify([...(plan.platform==='rakuten'?['rakuten-v2']:[]),plan.platform,plan.domain,plan.aliases,plan.termRules||[]]);
   const kept=new Map(),identities=new Map(),pending=new Map(),observations=[],visited=new Set(),resolved={};let details=0;
   for(const [url,value] of Object.entries(previous.resolved||{}))if(previous.signature===signature&&value.expiresAt>started)resolved[url]=value;
   const defer=(task,reason,attempted=false)=>{const attempts=(task.attempts||0)+Number(attempted),retryAt=attempted?clock()+Math.min(86400000,1200000*2**Math.min(attempts-1,6)):task.retryAt||0;pending.set(task.url,{...task,reason,attempts,retryAt});};
@@ -61,7 +61,7 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
     }
     const retained=!!(matching.length||matches.length),reason=matching.length?'primary-product-text-match':matches.length?'primary-product-image-match':'primary-product-relevance-unconfirmed';
     observations.push({url,entry,finalUrl:page.finalUrl,type:'detail',retained,reason,httpStatus:page.httpStatus});
-    if(retained){const u=new URL(page.finalUrl);const identity=page.sku&&page.sellerUrl?JSON.stringify([plan.platform,u.hostname,page.sellerUrl,page.sku,u.search]):null;const outputUrl=identity&&identities.get(identity)||page.finalUrl;if(identity)identities.set(identity,outputUrl);const old=kept.get(outputUrl);kept.set(outputUrl,{...imageRow,url:outputUrl,title:page.title,content:page.content,imageUrls:page.imageUrls,marketEvidence:{parserVersion:1,at:page.at,sku:page.sku,sellerUrl:page.sellerUrl||'',identity,finalUrl:page.finalUrl,signals:page.signals,matchedAliases:matching,imageMatches:matches,region:'primary-product',excerpt:page.content.slice(0,1500),origins:[...new Set([...(old?.marketEvidence.origins||[]),...(task.origins||[entry])])],candidateUrl:url,redirects:page.redirects||[]}});resolved[url]={expiresAt:started+6*3600000,result:kept.get(outputUrl)};}
+    if(retained){const u=new URL(page.finalUrl);const identity=page.sku&&page.sellerUrl?JSON.stringify([plan.platform,u.hostname,page.sellerUrl,page.sku,u.search]):null;const outputUrl=identity&&identities.get(identity)||page.finalUrl;if(identity)identities.set(identity,outputUrl);const old=kept.get(outputUrl);kept.set(outputUrl,{...imageRow,url:outputUrl,title:page.title,content:page.content,imageUrls:page.imageUrls,marketEvidence:{parserVersion:page.parserVersion||1,at:page.at,sku:page.sku,sellerUrl:page.sellerUrl||'',identity,finalUrl:page.finalUrl,signals:page.signals,matchedAliases:matching,imageMatches:matches,region:'primary-product',excerpt:page.content.slice(0,1500),origins:[...new Set([...(old?.marketEvidence.origins||[]),...(task.origins||[entry])])],candidateUrl:url,redirects:page.redirects||[]}});resolved[url]={expiresAt:started+6*3600000,result:kept.get(outputUrl)};}
     else defer(task,reason,true); // Incomplete image verification is not a final negative.
     return;
    }
@@ -73,6 +73,6 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
    resolved[url]={expiresAt:started+6*3600000};
   };
   try{for(const task of tasks.values())await visit(task)}finally{elapsed+=Math.max(0,clock()-started)}
-  return {results:[...kept.values()],discovery:{applied:true,version:1,signature,requests:before-budget.remaining,batchRequests:cfg.requests-budget.remaining,elapsedMs:elapsed,pending:[...pending.values()],resolved,observations,complete:pending.size===0}};
+  return {results:[...kept.values()],discovery:{applied:true,version:2,signature,requests:before-budget.remaining,batchRequests:cfg.requests-budget.remaining,elapsedMs:elapsed,pending:[...pending.values()],resolved,observations,complete:pending.size===0}};
  },budget};
 }

@@ -29,3 +29,9 @@ test('budget-deferred roots remain unattempted; queued history runs in original 
 test('historical search host uses approved platform root so legitimate product subdomains can be followed',async()=>{
  const s=await fixture();s.rows=[{id:'rakuten-source',url:'https://search.rakuten.co.jp/search/mall/fjd',platform:'rakuten',title:'Search'}];const c=prepareHistoryCampaign(s,day,at);assert.equal(c.plans[0].domain,'rakuten.co.jp');
 });
+test('only old Rakuten adapter results reopen for corrected extraction; other completed history stays complete',async()=>{
+ const s=await fixture();s.rows.push({id:'rakuten-source',url:'https://item.rakuten.co.jp/shop/c/123/',platform:'rakuten',title:'Category'});const c=prepareHistoryCampaign(s,day,at);s.marketDiscovery=Object.fromEntries(c.plans.map(p=>[p.id+':0',{version:1,pending:[],resolved:{}}]));assert.deepEqual(historyPlansForCycle(s,day,Date.parse(at)).map(p=>p.platform),['rakuten']);const p=c.plans.find(p=>p.platform==='rakuten');s.marketDiscovery[p.id+':0'].version=2;assert.equal(historyPlansForCycle(s,day,Date.parse(at)).length,0);
+});
+test('budget-deferred untouched roots and unvisited children precede due failure retries',async()=>{
+ const s=await fixture();s.rows.push({id:'second',url:'https://www.jd.com/jiage/second.html',platform:'jd-cn'},{id:'third',url:'https://www.jd.com/jiage/third.html',platform:'jd-cn'});const c=prepareHistoryCampaign(s,day,at),[a,b,d]=c.plans;c.checks={[a.id]:{at},[b.id]:{at}};s.marketDiscovery={[a.id+':0']:{version:2,pending:[{attempts:1,retryAt:0}]},[b.id+':0']:{version:2,pending:[{attempts:0,retryAt:0}]},[d.id+':0']:{version:2,pending:[{attempts:0,retryAt:0}]}};assert.deepEqual(historyPlansForCycle(s,day,Date.parse(at)).map(p=>p.id),[d.id,b.id,a.id]);
+});

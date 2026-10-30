@@ -27,7 +27,7 @@ test('exhausted batch budget defers rather than manufacturing a negative',async(
 });
 
 import {marketRows} from '../cloud/market-discovery.mjs';
-import {detectUrl,saveUrlCheck} from '../cloud/url-check.mjs';
+import {detectUrl,saveUrlCheck,pageText} from '../cloud/url-check.mjs';
 import {initialState,scan,mergeState} from '../cloud/scan.mjs';
 import {initMonitor,recordPageObservation} from '../monitor.js';
 import {siteCoverage} from '../coverage.js';
@@ -112,4 +112,22 @@ test('observed JD duplicate slashes share numeric product identity, preserving v
  assert.notEqual(productUrl('https://item.jd.com//100401716936.html?sku=red'),productUrl('https://item.jd.com/100401716936.html?sku=blue'));
  assert.equal(productUrl('https://other.example//123.html'),'https://other.example//123.html');
  const x=harness({'https://item.jd.com/100401716936.html':detail()});const r=await x.batch.expand([{url:'https://item.jd.com/100401716936.html'},{url:'https://item.jd.com//100401716936.html'}],plan);assert.equal(r.results.length,1);assert.equal(r.discovery.requests,2);
+});
+// Reduced fixtures from the observed Rakuten risFil / pagebody templates.
+const rakutenDetail=(name='FJDynamics FR4000',sku='shop:100')=>`<div id="pagebody" itemscope itemtype="http://schema.org/Product"><meta itemprop="image" content="https://tshop.r10s.jp/shop/main.jpg"><table id="item-name-area"><tr><td><meta itemprop="name" content="${name}｜Shop"><meta itemprop="sku" content="${sku}"><meta itemprop="description" content="${name} robot mower"><b>${name}</b></td></tr></table><div itemprop="offers">Price 100</div><div class="recommendations">FJDynamics other product</div></div>`;
+test('Rakuten legacy table product links are extracted and independently verified, without category/navigation links',async()=>{
+ const listing='<div id="risFil"><table><tr>'+[100,101,102].map(id=>`<td><a href="https://item.rakuten.co.jp/shop/${id}/">FJDynamics FR4000</a></td>`).join('')+'<td><a href="/shop/c/123/">FJDynamics category</a></td><td><a href="https://www.rakuten.co.jp/">FJDynamics navigation</a></td></tr></table></div>';
+ const u='https://item.rakuten.co.jp/shop/c/1/',p=await parseMarket(listing,u);assert.equal(p.type,'list');assert.deepEqual(p.candidates.map(x=>x.url),[100,101,102].map(i=>`https://item.rakuten.co.jp/shop/${i}/`));
+ const x=harness({[u]:listing,...Object.fromEntries([100,101,102].map(i=>[`https://item.rakuten.co.jp/shop/${i}/`,rakutenDetail(i===102?'Unrelated mower':'FJDynamics FR4000',`shop:${i}`)]))});const r=await x.batch.expand([{url:u}],{platform:'rakuten',domain:'rakuten.co.jp',aliases:['FJDynamics']});assert.equal(r.results.length,2);assert.ok(r.results.every(x=>x.marketEvidence.parserVersion===2));assert.ok(r.discovery.observations.some(x=>x.reason==='primary-product-relevance-unconfirmed'));
+});
+test('Rakuten no-h1 primary requires visible name, exact URL-bound SKU and image; recommendation cannot supply relevance',async()=>{
+ const url='https://item.rakuten.co.jp/shop/100/';const p=await parseMarket(rakutenDetail(),url);assert.equal(p.type,'detail');assert.equal(p.sku,'shop:100');assert.doesNotMatch(p.content,/other product/);
+ assert.notEqual((await parseMarket(rakutenDetail('FJDynamics FR4000','shop:999'),url)).type,'detail');assert.notEqual((await parseMarket(rakutenDetail().replace('<b>FJDynamics FR4000</b>','<b>Different item</b>'),url)).type,'detail');assert.notEqual((await parseMarket(rakutenDetail().replace('itemprop="image"','itemprop="other"'),url)).type,'detail');
+});
+test('Rakuten EUC-JP decoding preserves original text; unknown charsets fall back and other sources retain their decoder',()=>{
+ const bytes=Buffer.concat([Buffer.from('<meta charset="EUC-JP">FJDynamics '),Buffer.from('c6fccbdc','hex')]),url='https://item.rakuten.co.jp/shop/100/';assert.match(pageText(bytes,{},url),/FJDynamics 日本/);assert.match(pageText(Buffer.from('日本'),{'content-type':'text/html;charset=bad-charset'},url),/日本/);assert.equal(pageText(bytes,{},'https://dealer.example/'),bytes.toString('utf8'));
+});
+test('Rakuten parser update resets completed discovery cache and establishes a new page-change baseline',async()=>{
+ const u='https://item.rakuten.co.jp/shop/100/',plan={platform:'rakuten',domain:'rakuten.co.jp',aliases:['FJDynamics']},x=harness({[u]:rakutenDetail()});const old={version:1,signature:JSON.stringify([plan.platform,plan.domain,plan.aliases,[]]),resolved:{[u]:{expiresAt:x.setup.clock()+999999}}};const r=await x.batch.expand([{url:u}],plan,old);assert.equal(r.results.length,1);
+ const row={url:u,platform:'rakuten',title:'FJDynamics FR4000',keywords:['FJDynamics']};const result=await detectUrl(row,{...harness({[u]:rakutenDetail()}).setup,aliases:['FJDynamics'],baselineSnapshot:{verification:'page-fetched',extractionScope:'market-primary-v1',title:row.title,body:'Old parser content',url:u}});assert.equal(result.snapshot.extractionScope,'market-primary-v2');assert.equal(result.baselineSnapshot,undefined);assert.notEqual(result.status,'changed');
 });
