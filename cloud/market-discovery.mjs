@@ -6,7 +6,7 @@ import {detectUrl,publicRequest,checkedUrl} from './url-check.mjs';
 // Additional direct-page requests, not search-index queries. One sequential worker.
 export const MARKET_BUDGET=Object.freeze({candidates:10,details:5,depth:2,requests:24,durationMs:45000,pageMs:8000});
 export function marketSource(plan){return platforms.find(p=>p.id===plan.platform)?.kind==='market'}
-export function productUrl(value){const u=checkedUrl(value);for(const k of [...u.searchParams.keys()])if(/^(utm_.+|gclid|fbclid|msclkid)$/i.test(k))u.searchParams.delete(k);return u.href;}
+export function productUrl(value){const u=checkedUrl(value);if(u.hostname==='item.jd.com'&&/^\/{2,}\d+\.html$/.test(u.pathname))u.pathname=u.pathname.replace(/^\/+/, '/');for(const k of [...u.searchParams.keys()])if(/^(utm_.+|gclid|fbclid|msclkid)$/i.test(k))u.searchParams.delete(k);return u.href;}
 const inScope=(url,domain)=>{try{const host=new URL(productUrl(url)).hostname;return !!domain&&(host===domain||host.endsWith('.'+domain))}catch{return false}};
 export function parseMarket(html,url,{timeoutMs=5000}={}){return new Promise((resolve,reject)=>{const child=spawn('python3',[new URL('./market-page.py',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});let out='';const timer=setTimeout(()=>child.kill(),Math.max(1,Math.min(5000,timeoutMs)));child.stdout.on('data',b=>{out+=b;if(out.length>2000000)child.kill()});child.stderr.resume();child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('close',code=>{clearTimeout(timer);try{if(code!==0)throw Error('market-parser-failed');resolve(JSON.parse(out))}catch(e){reject(e)}});child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({html,url}));});}
 let catalog;
