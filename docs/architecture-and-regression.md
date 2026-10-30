@@ -2236,6 +2236,24 @@ scope升级到v2，旧快照只能作为历史证据，不把解析器升级认�
 乱码、SKU/可见名称冲突、无图、推荐区误命中及旧缓存/快照兼容。
 专项续查次序明确为：未实际访问入口→需修复重验的乐天入口→尚未访问的子商品→
 已到重试时间的失败地址，避免已有空队列状态被误当作已访问，或失败重试挤占新入口。
+
 专项任务的ubuntu-latest在本次执行中分配了24.04及26.04两种镜像；26.04两轮依赖准备
 明显延长。将该专项任务固定为已完成真实采集的ubuntu-24.04，避免环境漂移挤占15分钟
 作业上限。只调整专项运行环境，不改变其他工作流、采集预算、权限或保存协议。
+
+## 2026-10-30 native source association compatibility
+
+The narrower replacement for unmerged PR #28 keeps fldeDsHGN7 as text and resolves
+only that known history field by ID/type in cloud creation and the native fixed
+13-field gate. A new same-name relation cannot capture old text payloads. Existing
+event hashes/verified tasks and original receipt checks remain unchanged. Native
+association is separate postprocessing, not gateway-verified business creation.
+See [history-source-native-relation.md](history-source-native-relation.md) for the
+untested native contract, downstream naming constraints and deployment boundary.
+No app credentials, new API, schema reader or processing-state trigger changes.
+
+The same compatibility boundary now resolves monitoring select fldGAnWiwP by ID
+in its API schema/create path, retaining legacy unique text/select fallback for
+other caller schemas and refusing same-name relations. Existing update fields and
+processing-state triggers are unchanged.
+
