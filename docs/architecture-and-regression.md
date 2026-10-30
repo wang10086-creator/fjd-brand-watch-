@@ -2236,3 +2236,14 @@ scope升级到v2，旧快照只能作为历史证据，不把解析器升级认�
 乱码、SKU/可见名称冲突、无图、推荐区误命中及旧缓存/快照兼容。
 专项续查次序明确为：未实际访问入口→需修复重验的乐天入口→尚未访问的子商品→
 已到重试时间的失败地址，避免已有空队列状态被误当作已访问，或失败重试挤占新入口。
+
+## 2026-10-30 native source association compatibility
+
+The narrower replacement for unmerged PR #28 keeps fldeDsHGN7 as text and resolves
+only that known history field by ID/type in cloud creation and the native fixed
+13-field gate. A new same-name relation cannot capture old text payloads. Existing
+event hashes/verified tasks and original receipt checks remain unchanged. Native
+association is separate postprocessing, not gateway-verified business creation.
+See [history-source-native-relation.md](history-source-native-relation.md) for the
+untested native contract, downstream naming constraints and deployment boundary.
+No app credentials, new API, schema reader or processing-state trigger changes.

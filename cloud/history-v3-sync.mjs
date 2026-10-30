@@ -17,7 +17,7 @@ function createFields(snapshot,row,config){
  if(!Number.isFinite(at))throw Error('actual-first-discovery-required');
  const day=new Date(at+8*3600000).toISOString().slice(0,10);
  const values={monitor_category:f.monitor_category,source_platform:f.source_platform,page_title:snapshot.title,product_model:f.product_model,url_status:f.page_status||'',priority:f.monitor_level,processing_status:'待IP对接人初核',first_discovered_date:Date.parse(day+'T00:00:00+08:00'),first_discovered_at:new Date(at).toISOString()};
- const result={};for(const [key,name]of Object.entries(names)){const field=config.schema.find(f=>f.field_name===name);if(!field||!config.create_field_ids.includes(field.field_id))throw Error('create-field-mapping-required');result[field.field_id]=values[key];}return result;
+ const result={};for(const [key,name]of Object.entries(names)){const matches=config.schema.filter(f=>key==='source_platform'?f.field_id==='fldeDsHGN7':f.field_name===name),field=matches[0];if(matches.length!==1||key==='source_platform'&&field.type!==1||!config.create_field_ids.includes(field.field_id))throw Error('create-field-mapping-required');result[field.field_id]=values[key];}return result;
 }
 const quote=s=>String(s.title||s.snippet||'').replace(/\s+/g,' ').trim().slice(0,280);
 function note(kind,event,snapshot,original,change){

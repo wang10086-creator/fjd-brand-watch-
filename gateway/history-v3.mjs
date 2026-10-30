@@ -49,7 +49,8 @@ export function nativeInitialDate(config,payload,plan){
 export function nativeCreateShapeSupported(config,payload,plan){
  if(executionPolicy(config).mode!=='daily-initial'||payload.kind!=='initial'||plan.action!=='create')return false;
  const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
- const fields=names.map(name=>config.schema.filter(f=>f.field_name===name));
+ // The compatibility text column keeps its identity when its display name changes.
+ const fields=names.map(name=>config.schema.filter(f=>name==='来源平台'?f.field_id==='fldeDsHGN7'&&f.type===1:f.field_name===name));
  if(fields.some(matches=>matches.length!==1))return false;
  const ids=fields.map(matches=>matches[0].field_id),allowed=config.create_field_ids;
  if(new Set(ids).size!==9||allowed.length!==9||new Set(allowed).size!==9||ids.some(id=>!allowed.includes(id)))return false;

@@ -4,7 +4,7 @@ import {eventId,nativeCreateShapeSupported,nativeInitialDate,decodeWorkflowRecor
 import {fixture,payload,config,context,token,nativeWrite} from './history-v3-fixtures.mjs';
 const daily={...config,execution_policy:{mode:'daily-initial',event_not_before:'2026-10-28',country_pilot_event_ids:[]}};
 const createNames=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
-const fullFields=createNames.map((field_name,i)=>({field_id:field_name==='首次发现日期'?'fldDate':'fldExtra'+i,field_name,type:field_name==='首次发现日期'?5:1}));
+const fullFields=createNames.map((field_name,i)=>({field_id:field_name==='来源平台'?'fldeDsHGN7':field_name==='首次发现日期'?'fldDate':'fldExtra'+i,field_name,type:field_name==='首次发现日期'?5:1}));
 const fullDaily={...daily,schema:[...daily.schema,...fullFields],create_field_ids:fullFields.map(f=>f.field_id)};
 const fillCreate=p=>{p.proposals={};p.create_fields=Object.fromEntries(fullFields.map(f=>[f.field_id,f.type===5?Date.parse('2026-10-28T00:00:00+08:00'):'fixture']));};
 const envelope=(p,rows,extra={})=>({...context,transport:workflowJsonTransport,event_id:p.event_id,lookup_count:rows.length,records_json:JSON.stringify(rows),...extra});
@@ -49,7 +49,7 @@ test('invalid native date cannot issue a nonce; alias never replaces strict nati
 
 test('fixed native create shape requires exactly thirteen approved keys, including empty optional extras rejection',()=>{
  const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
- const fields=names.map((field_name,i)=>({field_id:'fldCreate'+i,field_name,type:field_name==='首次发现日期'?5:1}));
+ const fields=names.map((field_name,i)=>({field_id:field_name==='来源平台'?'fldeDsHGN7':'fldCreate'+i,field_name,type:field_name==='首次发现日期'?5:1}));
  const c={...daily,schema:[...daily.schema,...fields],create_field_ids:fields.map(f=>f.field_id)},p={kind:'initial'};
  const patch=Object.fromEntries([...['history_id','url','source_id','note_text'].map(k=>[c.bindings[k],'']),...fields.map(f=>[f.field_id,f.type===5?Date.parse('2026-10-28T00:00:00+08:00'):''])]),plan={action:'create',patch};
  const before=structuredClone(plan);assert.equal(nativeCreateShapeSupported(c,p,plan),true);assert.deepEqual(plan,before);
@@ -64,7 +64,7 @@ test('real permits expose the fixed-shape flag without dropping optional patches
  for(const screenshot of [false,true]){
   const f=fixture('initial'),{p,formal}=payload('initial');p.proposals=screenshot?{screenshot_url:p.proposals.screenshot_url}:{};
   const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
-  const fields=names.map((field_name,i)=>({field_id:'fldCreate'+i,field_name,type:field_name==='首次发现日期'?5:1}));
+  const fields=names.map((field_name,i)=>({field_id:field_name==='来源平台'?'fldeDsHGN7':'fldCreate'+i,field_name,type:field_name==='首次发现日期'?5:1}));
   const c={...daily,schema:[...daily.schema,...fields],create_field_ids:fields.map(f=>f.field_id)};
   p.create_fields=Object.fromEntries(fields.map(f=>[f.field_id,f.type===5?Date.parse('2026-10-28T00:00:00+08:00'):'fixture']));
   await f.api.configure(c);await f.api.enable({native_mapping_verified:true,single_writer_confirmed:true});await f.api.register({payload:p,token,formal_report:formal});
@@ -83,4 +83,13 @@ test('unsupported JSON create stays unpermitted, does not lock the next task, an
  const next=structuredClone(p);next.source_id='lead-'+'c'.repeat(64);next.proposals={};next.event_id=eventId(next);await f.api.register({payload:next,token,formal_report:formal});assert.equal((await f.api.preflight(envelope(next,[]),token)).allowed,true);
  await f.api.pause();f.advance(1200001);assert.equal((await f.api.retireUnpermitted({event_id:p.event_id,expected_payload_hash:task.payload_hash,workflow_stopped:true,failed_run_id:'7701661930901916692'},{actor:'admin'})).retired,true);
  assert.equal(f.store.read().historyV3.tasks[next.event_id].state,'permitted');await assert.rejects(f.api.configure(fullDaily),/tasks-in-flight/);
+});
+
+test('fixed thirteen-field gate permits renamed text identity but never a same-name substitute',()=>{
+ const c=structuredClone(fullDaily),{p}=payload('initial');fillCreate(p);
+ c.schema.find(f=>f.field_id==='fldeDsHGN7').field_name='来源平台（兼容文本）';c.schema.unshift({field_id:'fldNativeRelation',field_name:'来源平台',type:18});
+ const patch={...p.create_fields,...Object.fromEntries(['history_id','url','source_id','note_text'].map(k=>[c.bindings[k],'fixture']))},plan={action:'create',patch};
+ assert.equal(nativeCreateShapeSupported(c,p,plan),true);
+ c.schema.find(f=>f.field_id==='fldeDsHGN7').type=18;assert.equal(nativeCreateShapeSupported(c,p,plan),false);
+ c.schema=c.schema.filter(f=>f.field_id!=='fldeDsHGN7');c.schema[0].type=1;assert.equal(nativeCreateShapeSupported(c,p,plan),false);
 });

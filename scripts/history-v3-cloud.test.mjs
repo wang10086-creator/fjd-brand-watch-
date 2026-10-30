@@ -5,7 +5,7 @@ import {validateV3,eventId} from '../gateway/history-v3.mjs';import {hash} from 
 import {fixture,payload,config,source,url,context} from './history-v3-fixtures.mjs';
 import {digest} from '../gateway/history-protocol.mjs';import {snapshotPayload} from '../cloud/formal-reports.mjs';
 const names=['监控分类','来源平台','页面标题','产品名称/型号','网址当前状态','监测级别','处理状态','首次发现日期','首次检索时间'];
-const full={...config,schema:[...config.schema,...names.map((field_name,i)=>({field_id:'fldExtra'+i,field_name,type:field_name==='首次发现日期'?5:1}))],create_field_ids:names.map((_,i)=>'fldExtra'+i)};
+const full={...config,schema:[...config.schema,...names.map((field_name,i)=>({field_id:field_name==='来源平台'?'fldeDsHGN7':'fldExtra'+i,field_name,type:field_name==='首次发现日期'?5:1}))],create_field_ids:names.map((name,i)=>name==='来源平台'?'fldeDsHGN7':'fldExtra'+i)};
 function vault(kind='initial'){
  const {formal}=payload(kind);return {integrationPolicy:{historyNative:true},state:{rows:[{source_id:source,url,title:'FJD new scanner',snippet:'new',platform:'dealer',firstSeen:'2026-10-26T15:20:00Z',checkedAt:'2026-10-28T00:00:00Z',verification:'page-fetched',imageUrl:'https://images.example/product.jpg',pageSnapshotUrl:'https://mirror.example/page'}],monitor:{formalReports:{'2026-10-28':formal}}},historyV3:{version:1,items:{},waiting:{},sources:{[source]:{url,config:full,original:kind==='change'?{record_id:'recOriginal',history_id:'20261027-001'}:null}}}};
 }
@@ -46,4 +46,19 @@ test('daily initial queues new formal leads only, not changed or reviewed metada
 test('daily resolution prioritizes new formal leads over an unresolved historical backlog',async()=>{
  const v=vault();v.historyV3.sources={};v.state.rows.unshift(...Array.from({length:8},(_,i)=>({url:'https://older.example/'+i,source_id:'lead-'+digest('old-'+i)})));const seen=[];
  await deliverHistoryV3(v,{bridge:{capabilities:async()=>({enabled:true,execution_policy:{mode:'daily-initial',event_not_before:'2026-10-28',country_pilot_event_ids:[]}}),identity:async x=>{seen.push(x.source_id);return {config:full,original:null};},register:async()=>({ready:false,reason:'fixture'})},checkpoint:async()=>{}});assert.equal(seen[0],source);assert.equal(seen.length,5);
+});
+
+test('renamed fixed source text field preserves payload/hash and never selects a new same-name relation',()=>{
+ const original=vault(),expected=Object.values(queueHistoryV3(original).items)[0].payload;
+ const renamed=vault(),c=structuredClone(full);c.schema.find(f=>f.field_id==='fldeDsHGN7').field_name='来源平台（兼容文本）';c.schema.unshift({field_id:'fldNativeRelation',field_name:'来源平台',type:18});renamed.historyV3.sources[source].config=c;
+ const item=Object.values(queueHistoryV3(renamed).items)[0];assert.deepEqual(item.payload,expected);assert.equal(hash(item.payload),hash(expected));assert.equal(Object.hasOwn(item.payload.create_fields,'fldNativeRelation'),false);
+ const saved=structuredClone(item);queueHistoryV3(renamed);assert.deepEqual(Object.values(renamed.historyV3.items),[saved]);
+});
+test('fixed source identity missing or converted to relation fails instead of falling back by name',()=>{
+ for(const mode of ['missing','relation']){const v=vault(),c=structuredClone(full);if(mode==='missing')c.schema=c.schema.filter(f=>f.field_id!=='fldeDsHGN7');else c.schema.find(f=>f.field_id==='fldeDsHGN7').type=18;c.schema.unshift({field_id:'fldWrong',field_name:'来源平台',type:1});v.historyV3.sources[source].config=c;assert.equal(Object.keys(queueHistoryV3(v).items).length,0);}
+});
+test('renaming source display does not resend an already verified event',async()=>{
+ const p=await pipeline(),v=vault();await deliverHistoryV3(v,p);await deliverHistoryV3(v,p);assert.equal(p.sends(),1);
+ v.historyV3.sources[source].config=structuredClone(full);v.historyV3.sources[source].config.schema.find(f=>f.field_id==='fldeDsHGN7').field_name='来源平台（兼容文本）';
+ await deliverHistoryV3(v,p);assert.equal(p.sends(),1);assert.equal(Object.values(v.historyV3.items)[0].state,'verified');
 });
