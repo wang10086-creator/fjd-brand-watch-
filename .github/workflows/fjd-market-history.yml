@@ -1,0 +1,37 @@
+name: 历史电商入口商品详情补查
+on:
+  workflow_dispatch:
+    inputs:
+      report_day:
+        description: 必须为当前未截止的实际日报周期；不得回填封版日报
+        required: true
+        default: '2026-10-31'
+        type: string
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: fjd-cloud-monitor
+  queue: max
+  cancel-in-progress: false
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 沿用真实时间、日报周期及原台账保存，不发送通知
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FJD_OPERATION: market-history
+          FJD_MARKET_REPORT_DAY: ${{ inputs.report_day }}
+          FJD_NOTION_PAUSED: 'true'
+        run: node cloud/runner.mjs

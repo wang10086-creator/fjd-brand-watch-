@@ -1,3 +1,4 @@
+import {prepareHistoryCampaign,historyPlansForCycle,historyCampaignSummary} from './market-history.mjs';
 import {resolveOperation} from './operation.mjs';
 import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {nativeProbeBridge,runNativeProbe} from './history-native-probe.mjs';
@@ -134,7 +135,7 @@ async function main(){
   process.exitCode=1;return;
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
- const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images','save-only','recover-digest','url-check','base-evidence','history-sync'].includes(op))throw Error('不支持的云端操作');
+ const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images','market-history','save-only','recover-digest','url-check','base-evidence','history-sync'].includes(op))throw Error('不支持的云端操作');
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -146,7 +147,7 @@ async function main(){
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
  vault.integrationPolicy={...vault.integrationPolicy,historyNative:config.feishuHistoryNative===true};
- vault.version=2;if(!['images','url-check','history-sync'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
+ vault.version=2;if(!['images','url-check','history-sync','market-history'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
  // One-time policy activation starts the next complete evening cycle; no historical rebucketing.
  if(op!=='history-sync'){activateReportCycles(vault);draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);}
  if(['save-only','recover-digest'].includes(op)){
@@ -209,6 +210,26 @@ async function main(){
   vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};await checkpoint({imagesOnly:true});
   await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:false}),status:publicStatus()});
   console.log('飞书证据补传：'+JSON.stringify(result));return;
+ }
+ if(op==='market-history'){
+  const day=env.FJD_MARKET_REPORT_DAY;
+  await configure(vault.state);prepareHistoryCampaign(vault.state,day);
+  vault.runtime={phase:'running',operation:op,stage:'market-history',startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};
+  const deadline=Date.now()+6*60000;
+  await checkpoint({verify:true});
+  for(let batch=0;batch<6&&Date.now()<deadline-15000;batch++){
+   const c=cycleAt();if(!c.active||c.day!==day||vault.state.monitor.formalReports?.[day])break;
+   const plans=historyPlansForCycle(vault.state,day).slice(0,6),due=dueActions(vault);
+   if(!plans.length||!due.budget)break;
+   await scan(vault.state,{discoveryPlans:plans,budget:Math.min(6,due.budget),trigger:'schedule',maxDurationMs:Math.min(90000,deadline-Date.now()),checkpoint:options=>checkpoint({...options,verify:true}),siteUrl:config.siteUrl});
+   const summary=historyCampaignSummary(vault.state);await put('market-history/'+day+'.json',summary);
+   console.log('历史入口实际核验 '+JSON.stringify({day,checked:summary.checked,targeted:summary.targeted,confirmedLists:summary.confirmedLists,newDetails:summary.newDetails.length,requests:summary.requests}));
+  }
+  vault.runtime={...vault.runtime,phase:'ready',endedAt:new Date().toISOString()};
+  const saved=await checkpoint({verify:true});const summary={...historyCampaignSummary(vault.state),checkpointSha:saved.sha,codeSha:env.GITHUB_SHA,runId:env.GITHUB_RUN_ID};
+  await put('market-history/'+day+'.json',summary);
+  await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed:publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts}),status:publicStatus()});
+  console.log('历史入口核验已保存 '+JSON.stringify({day,checkpointSha:saved.sha,newDetails:summary.newDetails.length,unattempted:summary.unattempted}));return;
  }
  if(op==='url-check'){
   const localMinute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
