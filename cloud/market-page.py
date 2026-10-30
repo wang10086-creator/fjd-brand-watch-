@@ -28,6 +28,19 @@ def parse(source,url):
         if re.search(r'recommend|related products|you may also|customers also|猜你喜欢|相关推荐|评价',text(heading),re.I):
             parent=heading.getparent()
             if parent is not None and parent.tag in ('section','div','aside') and not parent.xpath('.//h1') and parent.getparent() is not None:parent.getparent().remove(parent)
+    # Observed Rakuten legacy templates: the primary item has no h1. Require
+    # visible name + matching Product metadata + URL-bound SKU, never a sidebar.
+    rakuten=None;u=urlsplit(url);parts=u.path.strip('/').split('/')
+    if u.hostname=='item.rakuten.co.jp' and len(parts)==2 and parts[1]!='c':
+        regions=tree.xpath('//*[@id="pagebody" and (@itemtype="http://schema.org/Product" or @itemtype="https://schema.org/Product")]')
+        if len(regions)==1:
+            r=regions[0];names=r.xpath('.//*[@id="item-name-area"]')
+            if len(names)==1:
+                n=names[0];meta=n.xpath('.//*[@itemprop="name"]/@content');skus=n.xpath('.//*[@itemprop="sku"]/@content');visible=n.xpath('.//b|.//h1|.//h2')
+                shown=[text(v) for v in visible if text(v)]
+                if len(meta)==1 and skus==[parts[0]+':'+parts[1]] and len(shown)==1 and meta[0].startswith(shown[0]):
+                    imgs=[clean_url(x,url) for x in r.xpath('.//*[@itemprop="image"]/@content')]
+                    if len(imgs)==1 and imgs[0]:rakuten={'title':shown[0],'sku':skus[0],'images':imgs,'body':' '.join([shown[0],*n.xpath('.//*[@itemprop="description"]/@content'),*map(text,r.xpath('.//*[@itemprop="offers"]'))])}
     regions=tree.xpath('//*[@itemtype="https://schema.org/Product" or @itemtype="http://schema.org/Product"]|//main|//*[@id="product-detail" or @id="productDetails"]')
     primary=next((n for n in regions if (n.get('itemtype') or n.get('id') in ('product-detail','productDetails')) and len(n.xpath('.//h1'))==1),next((n for n in regions if n.tag=='main'),tree))
     headings=primary.xpath('.//h1'); title=text(headings[0]) if len(headings)==1 else ''
@@ -38,6 +51,7 @@ def parse(source,url):
     sku=str(product.get('sku') or product.get('productID') or '')[:120]
     ids=primary.xpath('.//*[@itemprop="sku" or @itemprop="productID"]')
     if not sku and len(ids)==1:sku=str(ids[0].get('content') or text(ids[0]))[:120]
+    if rakuten:title,body,images,sku=rakuten['title'],rakuten['body'],rakuten['images'],rakuten['sku']
     identity=bool(sku)
     offers=product.get('offers') or {}
     seller=offers.get('seller') if isinstance(offers,dict) else None
@@ -60,12 +74,19 @@ def parse(source,url):
                 if card.tag in ('li','article') or re.search(r'product|item-card|search-result',card.get('class',''),re.I):
                     found=True;break
                 card=card.getparent()
+            # Legacy shop product grid uses table cells inside risFil. Exclude
+            # shop/category/navigation targets even when they live in this grid.
+            if not found and u.hostname=='item.rakuten.co.jp' and a.xpath('ancestor::*[@id="risFil"]'):
+                target=urlsplit(href);target_parts=target.path.strip('/').split('/')
+                cells=a.xpath('ancestor::td[1]')
+                if target.hostname==u.hostname and len(target_parts)==2 and target_parts[0]==parts[0] and target_parts[1]!='c' and cells:
+                    card=cells[0];found=True
             if not found or card is None or len(card.xpath('.//a[@href]'))>8:continue
             label=(text(card)+' '+' '.join(card.xpath('.//img/@alt')))[:1500]
             if a.xpath('.//img') or text(a):candidates.append({'url':href,'text':label,'path':'product-card/a'})
     unique={x['url']:x for x in candidates if x['url']!=url}
     list_signal=bool(re.search(r'search|category|catalog|store|shop|検索|搜索|分类',url+' '+body[:200],re.I))
-    return {'type':'detail' if detail else 'list' if len(unique)>=2 and list_signal else 'unconfirmed','title':title,'content':body,'truncated':len(text(primary))>16000,'imageUrls':images,'sku':sku,'sellerUrl':seller_url,'candidates':list(unique.values()),'signals':{'alignedProduct':bool(product),'identity':identity,'path':path,'purchase':purchase,'description':description},'parserVersion':1}
+    return {'type':'detail' if detail else 'list' if len(unique)>=2 and list_signal else 'unconfirmed','title':title,'content':body,'truncated':False if rakuten else len(text(primary))>16000,'imageUrls':images,'sku':sku,'sellerUrl':seller_url,'candidates':list(unique.values()),'signals':{'alignedProduct':bool(product),'identity':identity,'path':path,'purchase':purchase,'description':description,'rakutenPrimary':bool(rakuten)},'parserVersion':2 if rakuten else 1}
 if __name__=='__main__':
     value=json.load(sys.stdin)
     print(json.dumps(parse(value['html'],value['url']),ensure_ascii=False))
