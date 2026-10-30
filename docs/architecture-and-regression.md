@@ -2257,3 +2257,11 @@ in its API schema/create path, retaining legacy unique text/select fallback for
 other caller schemas and refusing same-name relations. Existing update fields and
 processing-state triggers are unchanged.
 
+
+### 2026-10-30 历史电商展开线索的首次入表来源说明
+仅在正式日报的新发现事件、真实首次发现时间、历史入口清单、主商品核验来源及
+对应运行新增记录一致时，在现有备注说明事实摘要中补充“基于电商平台类历史线索
+进一步核查获得，由历史列表入口展开并核验商品详情页后收录”。复用原备注契约、
+字段和初次入表链路，不调整网关、工作流、事件ID、日报校验或人工备注。已发送/排队
+载荷和已入表记录不重写；不存在真实来源依据的普通新线索不加此说明。
+来源判定也可使用保留的原线索与历史运行记录，不依赖活动补查任务永久停留在同一天。

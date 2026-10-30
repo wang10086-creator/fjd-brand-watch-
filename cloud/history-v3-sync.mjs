@@ -10,6 +10,7 @@ import {actualUrl,digest,historyTable,historyWorkflow} from '../gateway/history-
 import {protocol,eventId,validateV3,executionPolicy,policyAllows} from '../gateway/history-v3.mjs';
 import {protocol as noteProtocol} from '../gateway/history-notes-contract.mjs';
 import {seal} from './crypto.js';
+import {historicalMarketNote} from './market-history.mjs';
 const names={monitor_category:'监控分类',source_platform:'来源平台',page_title:'页面标题',product_model:'产品名称/型号',url_status:'网址当前状态',priority:'监测级别',processing_status:'处理状态',first_discovered_date:'首次发现日期',first_discovered_at:'首次检索时间'};
 const state=v=>v.historyV3||=( {version:1,items:{},sources:{},waiting:{}} );
 function createFields(snapshot,row,config){
@@ -20,10 +21,10 @@ function createFields(snapshot,row,config){
  const result={};for(const [key,name]of Object.entries(names)){const matches=config.schema.filter(f=>key==='source_platform'?f.field_id==='fldeDsHGN7':f.field_name===name),field=matches[0];if(matches.length!==1||key==='source_platform'&&field.type!==1||!config.create_field_ids.includes(field.field_id))throw Error('create-field-mapping-required');result[field.field_id]=values[key];}return result;
 }
 const quote=s=>String(s.title||s.snippet||'').replace(/\s+/g,' ').trim().slice(0,280);
-function note(kind,event,snapshot,original,change){
+function note(kind,event,snapshot,original,change,provenance=''){
  const text=quote(snapshot);if(!text)throw Error('summary-source-required');
  const source={url:snapshot.url,subject_url:snapshot.url,quote:text,observed_at:event.at||snapshot.checkedAt,reviewed:true};
- const facts=kind==='initial'?{product:'“'+text.slice(0,160)+'”',brand:/FJD(?:ynamics)?/i.test(text+' '+(snapshot.snippet||''))?'FJD/FJDynamics':'待核实',needs_verification:'实际在售情况、经营者身份及品牌授权情况'}:{change:(change.sourceLabel+'；'+changeSummary(change)).slice(0,380)};
+ const facts=kind==='initial'?{product:'“'+text.slice(0,160)+'”'+provenance,brand:/FJD(?:ynamics)?/i.test(text+' '+(snapshot.snippet||''))?'FJD/FJDynamics':'待核实',needs_verification:'实际在售情况、经营者身份及品牌授权情况'}:{change:(change.sourceLabel+'；'+changeSummary(change)).slice(0,380)};
  return {protocol:noteProtocol,kind,url:snapshot.url,original,facts,evidence:source};
 }
 export function queueHistoryV3(vault,{sourceId=null}={}){
@@ -43,7 +44,7 @@ export function queueHistoryV3(vault,{sourceId=null}={}){
     if(!changes.length){q.waiting[source_id]={url,reason:'material-original-page-change-evidence-required'};continue;}
     for(const change of changes){
      const snapshot=change?.after||e.snapshot,kind=initial?'initial':'change',original=initial?null:known.original;
-     const p={protocol,event_id:'',kind,source_id,url,target:null,original,observation_id:change?.id||'',report_day:formal.day,report_checksum:formal.checksum,proposals:{},note:note(kind,e,{...snapshot,url},original,change),create_fields:createFields({...snapshot,url},row,known.config)};
+     const p={protocol,event_id:'',kind,source_id,url,target:null,original,observation_id:change?.id||'',report_day:formal.day,report_checksum:formal.checksum,proposals:{},note:note(kind,e,{...snapshot,url},original,change,initial?historicalMarketNote(vault.state,row,e,formal.day):''),create_fields:createFields({...snapshot,url},row,known.config)};
      // Reuse only already reviewed public evidence; never raw imageUrl or mirrors.
      const evidence=vault.historyV3Evidence?.[source_id];if(evidence?.screenshot_url)p.proposals.screenshot_url=structuredClone(evidence.screenshot_url);
      p.event_id=eventId(p);validateV3(p);if(!q.items[p.event_id])q.items[p.event_id]={payload:p,formal_report:formal,state:'queued',token:randomBytes(32).toString('base64url'),queuedAt:Date.now()};
