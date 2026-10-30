@@ -22,8 +22,8 @@ test('cloud ciphertext authenticates role, password and compressed data without 
 test('cloud runs preserve append history, per-site cursor scope and Beijing start date',async()=>{
  const s=await initialState();s.config={...s.config,regions:['CN'],platforms:['jd-cn','1688']};s.selectedBrandIds=[];s.customAliases=['FJDynamics'];s.batchSize=2;let domains=[];
  const fetcher=async(url,options)=>{const domain=JSON.parse(options.body).include_domains[0];domains.push(domain);return {ok:true,json:async()=>({results:[{url:'https://'+domain+'/cloud-test-product',title:'FJDynamics P2',content:'FJDynamics product'}]})}};
- let i=0;const now=()=>i++===0?'2026-10-13T15:59:00Z':'2026-10-13T16:01:00Z';await scan(s,{fetcher,wait:async()=>{},now,siteUrl:'https://example.invalid/'});assert.equal(s.monitor.updateChain.at(-1).day,'2026-10-13');const old=JSON.stringify(s.monitor.updateChain[0]),cursor=s.cursor;domains=[];
- await scan(s,{fetcher,wait:async()=>{},site:{platform:'jd-cn',domain:'jd.com'},trigger:'site-retry'});assert.ok(domains.every(d=>d==='jd.com'));assert.equal(s.cursor,cursor);assert.equal(JSON.stringify(s.monitor.updateChain[0]),old);assert.ok(s.monitor.updateChain.length>=2);
+ let i=0;const now=()=>i++===0?'2026-10-13T15:59:00Z':'2026-10-13T16:01:00Z';await scan(s,{marketProcessor:{expand:async results=>({results,discovery:{applied:false}})},fetcher,wait:async()=>{},now,siteUrl:'https://example.invalid/'});assert.equal(s.monitor.updateChain.at(-1).day,'2026-10-13');const old=JSON.stringify(s.monitor.updateChain[0]),cursor=s.cursor;domains=[];
+ await scan(s,{marketProcessor:{expand:async results=>({results,discovery:{applied:false}})},fetcher,wait:async()=>{},site:{platform:'jd-cn',domain:'jd.com'},trigger:'site-retry'});assert.ok(domains.every(d=>d==='jd.com'));assert.equal(s.cursor,cursor);assert.equal(JSON.stringify(s.monitor.updateChain[0]),old);assert.ok(s.monitor.updateChain.length>=2);
 });
 test('cloud read never discards a newer unsynchronized local review',()=>{
  const local={rows:[{url:'https://example.com/a',reviewedAt:'2026-10-13T02:00:00Z',status:'reviewing',note:'newer-local'}],monitor:{version:1,known:{},observations:[],reviews:[],runs:[],checks:[],legacyRuns:[]},history:[]};
@@ -32,6 +32,6 @@ test('cloud read never discards a newer unsynchronized local review',()=>{
 test('progress persistence failure marks the batch interrupted while retaining successful queries',async()=>{
  const state=await initialState();state.config={...state.config,regions:['CN'],platforms:['jd-cn','1688']};state.selectedBrandIds=[];state.customAliases=['FJDynamics'];let sites=0;
  const fetcher=async(url,options)=>{const domain=JSON.parse(options.body).include_domains[0];return {ok:true,json:async()=>({results:[{url:'https://'+domain+'/retained-product',title:'FJDynamics P2',content:'FJDynamics product'}]})}};
- await assert.rejects(scan(state,{budget:2,fetcher,wait:async()=>{},onSite:async()=>{if(++sites===2)throw Error('GitHub 云端台账 HTTP 409')}}),/409/);
+ await assert.rejects(scan(state,{marketProcessor:{expand:async results=>({results,discovery:{applied:false}})},budget:2,fetcher,wait:async()=>{},onSite:async()=>{if(++sites===2)throw Error('GitHub 云端台账 HTTP 409')}}),/409/);
  const run=state.monitor.runs.at(-1);assert.equal(run.attempted,1);assert.equal(run.success,1);assert.equal(run.cancelled,true);assert.equal(run.running,false);assert.match(run.stopReason,/中断/);assert.ok(state.rows.some(r=>r.url.includes('/retained-product')));assert.equal(state.monitor.updateChain.at(-1).summary.cancelled,true);
 });

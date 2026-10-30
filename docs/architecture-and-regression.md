@@ -2148,3 +2148,6 @@ network mutations. Restart after ambiguous send only reads status, never replays
 Daily-initial and metadata exclusions remain unchanged. No gateway changes or
 new writer/transport are included; use one existing controlled source at a time,
 query exact event first, then await native receipt before the next source.
+
+## 2026-10-30 电商详情发现开发分支（尚未生产发布）
+market-product-discovery 仅作用于明确 kind=market 的来源。复用 detectUrl 的 robots/SSRF/重定向限制，以独立 Python/lxml 主商品解析建立有界候选展开，解析未知保留待续查；普通来源原路保留。新增主商品 extractionScope 与旧页面基线隔离，避免解析器升级制造变化。当前实现仍待图片证据单独命中、分页/候选公平续查、原始计数保留、平台真实样例及整批预算边界完善；不得视为已完成上线验收或直接合并。

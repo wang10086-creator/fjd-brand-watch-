@@ -42,7 +42,7 @@ test('keyword coverage counts successful combinations, not a whole site after on
 test('checkpoint failure halts remaining queries and never acknowledges progress in finalizer',async()=>{
  const {initialState,scan}=await import('../cloud/scan.mjs');const s=await initialState();s.config={...s.config,regions:['US','DE','FR','CN','GB','ES','IT'],platforms:['amazon','jd-cn']};s.selectedBrandIds=[];s.customAliases=['FJDynamics'];s.includeWatch=false;
  let checkpoints=0,calls=0,lastConfirmed;
- await assert.rejects(scan(s,{budget:10,wait:async()=>{},imageVerifier:async()=>{},fetcher:async()=>{calls++;return {ok:true,json:async()=>({results:[]})}},checkpoint:async()=>{checkpoints++;if(checkpoints===2)throw Error('mock blob 422');lastConfirmed=JSON.parse(JSON.stringify(s))}}),/422/);
+ await assert.rejects(scan(s,{marketProcessor:{expand:async results=>({results,discovery:{applied:false}})},budget:10,wait:async()=>{},imageVerifier:async()=>{},fetcher:async()=>{calls++;return {ok:true,json:async()=>({results:[]})}},checkpoint:async()=>{checkpoints++;if(checkpoints===2)throw Error('mock blob 422');lastConfirmed=JSON.parse(JSON.stringify(s))}}),/422/);
  assert.equal(checkpoints,2);assert.equal(s.history[0].attempted,5);assert.equal(s.history[0].persistence,'unconfirmed');assert.ok(calls<=10);assert.equal(lastConfirmed.history[0].attempted,0);
 });
 test('localized terms, exclusions and manual save status remain explicit',async()=>{
