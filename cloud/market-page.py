@@ -29,7 +29,7 @@ def parse(source,url):
             parent=heading.getparent()
             if parent is not None and parent.tag in ('section','div','aside') and not parent.xpath('.//h1') and parent.getparent() is not None:parent.getparent().remove(parent)
     regions=tree.xpath('//*[@itemtype="https://schema.org/Product" or @itemtype="http://schema.org/Product"]|//main|//*[@id="product-detail" or @id="productDetails"]')
-    primary=next((n for n in regions if n.get('itemtype') or n.get('id') in ('product-detail','productDetails')),regions[0] if regions else tree)
+    primary=next((n for n in regions if (n.get('itemtype') or n.get('id') in ('product-detail','productDetails')) and len(n.xpath('.//h1'))==1),next((n for n in regions if n.tag=='main'),tree))
     headings=primary.xpath('.//h1'); title=text(headings[0]) if len(headings)==1 else ''
     body=text(primary)[:16000]
     aligned=[p for p in products if title and str(p.get('name','')).strip().casefold()==title.casefold() and clean_url(p.get('url') or p.get('@id') or '',url)==url and (p.get('url') or p.get('@id'))]
@@ -46,7 +46,8 @@ def parse(source,url):
     path=bool(re.search(r'/dp/[A-Z0-9]{10}|/itm/\d+|/item/[^/]+/[^/]+|/\d+\.html|/p/[A-Z]{2,4}\d+|/ML[A-Z]-\d+',url,re.I))
     purchase=bool(re.search(r'add to cart|buy now|加入购物车|立即购买|カートに入れる|comprar|询价',body,re.I))
     description=bool(primary.xpath('.//*[@itemprop="description"]')) or len(body)>150
-    detail=bool(title and images and (product and (identity or product.get('offers') or product.get('description')) or identity and (description or purchase) or path and purchase and len(primary.xpath('.//article'))<=1))
+    listing_heading=bool(re.search(r'^(?:search results?|category|catalog|all products|搜索|分类|検索|商品一覧)',title,re.I))
+    detail=bool(title and not listing_heading and images and (product and (identity or product.get('offers') or product.get('description')) or identity and (description or purchase) or path and purchase and len(primary.xpath('.//article'))<=1))
     candidates=[]
     if not detail:
         for a in primary.xpath('.//a[@href]'):

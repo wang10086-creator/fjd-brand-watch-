@@ -8,7 +8,7 @@ export const MARKET_BUDGET=Object.freeze({candidates:10,details:5,depth:2,reques
 export function marketSource(plan){return platforms.find(p=>p.id===plan.platform)?.kind==='market'}
 export function productUrl(value){const u=checkedUrl(value);for(const k of [...u.searchParams.keys()])if(/^(utm_.+|gclid|fbclid|msclkid)$/i.test(k))u.searchParams.delete(k);return u.href;}
 const inScope=(url,domain)=>{try{const host=new URL(productUrl(url)).hostname;return !!domain&&(host===domain||host.endsWith('.'+domain))}catch{return false}};
-export function parseMarket(html,url){return new Promise((resolve,reject)=>{const child=spawn('python3',[new URL('./market-page.py',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});let out='';const timer=setTimeout(()=>child.kill(),5000);child.stdout.on('data',b=>{out+=b;if(out.length>2000000)child.kill()});child.stderr.resume();child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('close',code=>{clearTimeout(timer);try{if(code!==0)throw Error('market-parser-failed');resolve(JSON.parse(out))}catch(e){reject(e)}});child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({html,url}));});}
+export function parseMarket(html,url,{timeoutMs=5000}={}){return new Promise((resolve,reject)=>{const child=spawn('python3',[new URL('./market-page.py',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});let out='';const timer=setTimeout(()=>child.kill(),Math.max(1,Math.min(5000,timeoutMs)));child.stdout.on('data',b=>{out+=b;if(out.length>2000000)child.kill()});child.stderr.resume();child.on('error',e=>{clearTimeout(timer);reject(e)});child.on('close',code=>{clearTimeout(timer);try{if(code!==0)throw Error('market-parser-failed');resolve(JSON.parse(out))}catch(e){reject(e)}});child.stdin.on('error',()=>{});child.stdin.end(JSON.stringify({html,url}));});}
 let catalog;
 async function primaryImageMatches(row,page,plan){
  catalog??=JSON.parse(await readFile(new URL('../brand-catalog.json',import.meta.url),'utf8'));
@@ -31,7 +31,8 @@ export function marketBatch({limits={},clock=Date.now,deadline=Infinity,request=
    const r=await request(u,o);if(r.status===200)bodies.set(u,r.text);return r},resolver,robotsCache,requestBudget:budget,timeoutMs:Math.max(1,Math.min(cfg.pageMs,end-clock()))});
    if(result.deferred||result.httpStatus!==200||result.errorKind&&result.errorKind!=='target-unconfirmed')return {type:'unconfirmed',reason:result.errorKind||result.reason||'fetch-unconfirmed',httpStatus:result.httpStatus,finalUrl:result.finalUrl||url};
    const finalUrl=productUrl(result.finalUrl||url),body=bodies.get(result.finalUrl||url);if(!body)return {type:'unconfirmed',reason:'body-missing',finalUrl};
-   return {...await parser(body,finalUrl),finalUrl,at:result.at,redirects:result.redirects,httpStatus:result.httpStatus};})();cache.set(url,promise);return promise;
+   if(clock()>=end)throw Error('market-budget');
+   return {...await parser(body,finalUrl,{timeoutMs:Math.min(5000,end-clock())}),finalUrl,at:result.at,redirects:result.redirects,httpStatus:result.httpStatus};})();cache.set(url,promise);return promise;
  };
  return {async expand(results,plan,previous={}){
   if(!marketSource(plan))return {results,discovery:{applied:false,reason:'not-explicit-market-source'}};

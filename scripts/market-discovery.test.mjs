@@ -102,3 +102,8 @@ test('durable detail continuation runs without another index request, and respec
  x.advance(21*60000);await scan(s,{...options,marketProcessor:marketBatch(x.setup)});assert.equal(searches,1);assert.equal(s.rows.length,7);assert.equal(s.history[0].items[0].provider,'电商详情续查');
  const requests=x.calls.length;await assert.rejects(scan(s,{...options,marketProcessor:marketBatch(x.setup),checkpoint:async()=>{throw Error('isolated save failure')}}),/save failure/);assert.equal(x.calls.length,requests);
 });
+test('Product microdata on list cards is not the page primary product; single card search stays unconfirmed/list',async()=>{
+ const cards=[1,2].map(i=>`<article class="product-card" itemtype="https://schema.org/Product"><h2>FJDynamics AT${i}</h2><img src="/p.jpg"><span itemprop="sku">${i}</span><p itemprop="description">FJDynamics tractor</p><a href="/${i}.html">FJDynamics AT${i}</a></article>`);
+ const multiple=await parseMarket('<main><h1>Search results</h1>'+cards.join('')+'</main>','https://jd.com/search');assert.equal(multiple.type,'list');assert.equal(multiple.candidates.length,2);
+ const single=await parseMarket('<main><h1>Search results</h1>'+cards[0]+'</main>','https://jd.com/search');assert.notEqual(single.type,'detail');
+});
