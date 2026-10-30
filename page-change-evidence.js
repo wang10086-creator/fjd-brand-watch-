@@ -20,6 +20,7 @@ const gate=/^(?:403|404|429|500|502|503|access denied|forbidden|page not found|p
 const gateBody=/verify you are human|challenge-form|cf-chl-|captcha-delivery|g-recaptcha|h-captcha|request could not be satisfied|(?:this (?:item|page|product) (?:could not|cannot) be found)|we (?:could not|couldn't) find (?:this|the) page/i;
 function validPage(s,url){return s?.verification==='page-fetched'&&s.url===url&&s.source==='direct-http'&&Number.isInteger(s.httpStatus)&&s.httpStatus>=200&&s.httpStatus<300&&s.httpStatus!==206&&s.targetPresent===true&&s.truncated===false&&!s.errorKind&&['normal','changed'].includes(s.status)&&typeof s.title==='string'&&typeof s.body==='string'&&materialPageText(s.body).length>=40&&!gate.test(materialPageText(s.title))&&!gateBody.test(s.body.slice(0,1200));}
 export function qualifyPageChange({before,after,at,reportDay,generatedAt,url,now=Infinity}){
+ if(before?.extractionScope!==after?.extractionScope)return null;
  if(!pageChangeBoundary(reportDay,at)||!validPage(before,url)||!validPage(after,url))return null;
  const beforeAt=observedTime(before.at||before.checkedAt),afterAt=observedTime(after.at||after.checkedAt),eventAt=observedTime(at),sealedAt=observedTime(generatedAt);
  if(![beforeAt,afterAt,eventAt,sealedAt].every(Number.isFinite)||beforeAt>=afterAt||afterAt<floor||afterAt>eventAt||eventAt>sealedAt||eventAt>now)return null;
