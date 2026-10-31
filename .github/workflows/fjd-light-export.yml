@@ -1,0 +1,41 @@
+name: 单日正式日报文字补导出
+on:
+  workflow_dispatch:
+    inputs:
+      report_day:
+        description: 已发布正式日报日期（YYYY-MM-DD），仅处理此日
+        required: true
+        type: string
+      formal_checksum:
+        description: 已核对的64位正式快照SHA256
+        required: true
+        type: string
+      publish:
+        description: 确认仅发布该日文字正文、清单及索引；默认只读校验
+        default: false
+        type: boolean
+permissions:
+  contents: write
+concurrency:
+  group: fjd-cloud-monitor
+  queue: max
+  cancel-in-progress: false
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 验证冻结快照并独立导出文字
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FJD_LIGHT_DAY: ${{ inputs.report_day }}
+          FJD_LIGHT_CHECKSUM: ${{ inputs.formal_checksum }}
+          FJD_LIGHT_PUBLISH: ${{ inputs.publish && 'true' || 'false' }}
+        run: node cloud/export-one-light-report.mjs

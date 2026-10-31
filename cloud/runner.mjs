@@ -3,6 +3,7 @@ import {resolveOperation} from './operation.mjs';
 import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
 import {nativeProbeBridge,runNativeProbe} from './history-native-probe.mjs';
 import {publishLightReports} from './publish-light-reports.mjs';
+import {lightExportDiagnostic} from './formal-report-light.mjs';
 import {queueHistory,deliverHistory,historySummary,historyBridge} from './history-sync.mjs';
 import {singleHistoryTask} from './history-only.mjs';
 import {archiveScreenshotBatch} from './notion-evidence.mjs';
@@ -317,7 +318,7 @@ async function main(){
   // Secondary public text export never replays Notion, bot or business-table writes.
   if(['auto','digest','sync','scan','site-retry'].includes(op)){
    try{const result=await publishLightReports({feed,store,repository:config.repository,branch:config.branch,archiveReceipts:{},archiveIndexUrl:null});console.log('轻量日报公开输入：'+result.status);}
-   catch{console.warn('轻量日报公开输入未确认；保留原索引等待补齐，Notion 与群回执不变');}
+   catch(error){console.warn('轻量日报公开输入未确认；原因 '+lightExportDiagnostic(error)+'；保留原索引等待补齐，Notion 与群回执不变');}
   }
   await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed,status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');
  }catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}
