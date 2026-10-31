@@ -25,6 +25,42 @@ function fieldsChanged(entry){
  if(!changed.length)return {text:'已标记旧线索变化；具体变化字段未知，待核实。',fields:[]};
  return {text:changed.map(k=>labels[k]).join('、')+'字段变化；'+(changed.includes('title')?'旧标题：“'+text(entry.before.title)+'”；':'')+'仅确认记录差异，具体业务变化待核实。',fields:changed};
 }
+// A frozen fourth category is evidenced by rows, never inferred from a numeric gap.
+export function pendingOnlyCoverage(coverage,rows){
+ const fail=()=>{throw Error('覆盖分类与范围总数不一致')};
+ const fields=['total','searched','failedOnly','unattempted'];
+ const complete=fields.every(k=>number(coverage[k])!==null);
+ if(!complete)return 0;
+ const gap=coverage.total-coverage.searched-coverage.failedOnly-coverage.unattempted;
+ if(rows===undefined&&gap===0)return 0; // Preserve legacy verified exports byte-for-byte.
+ if(!Array.isArray(rows)||rows.length!==coverage.total)fail();
+ const keys=new Set(),counts={searched:0,failedOnly:0,unattempted:0,pendingOnly:0};
+ for(const r of rows){
+  if(!r||typeof r.key!=='string'||!r.key||keys.has(r.key))fail();keys.add(r.key);
+  const pending=r.pending===undefined&&gap===0?0:r.pending;
+  if(!['attempted','success','failed'].every(k=>number(r[k])!==null)||number(pending)===null||r.attempted!==r.success+r.failed+pending)fail();
+  if(r.success>0)counts.searched++;
+  else if(r.failed>0)counts.failedOnly++;
+  else if(r.attempted===0)counts.unattempted++;
+  else if(pending>0)counts.pendingOnly++;
+  else fail();
+ }
+ if(['searched','failedOnly','unattempted'].some(k=>counts[k]!==coverage[k])||counts.pendingOnly!==gap)fail();
+ return counts.pendingOnly;
+}
+// Only static safe labels reach logs; no raw transport errors or payload text.
+export function lightExportDiagnostic(error){
+ const labels=new Map([
+  ['覆盖分类与范围总数不一致','coverage-partition-invalid'],
+  ['正式日报校验失败，停止发布','formal-checksum-invalid'],
+  ['轻量日报公开读取未确认','public-read-unconfirmed'],
+  ['轻量日报公开字节回读不一致','public-byte-mismatch'],
+  ['既有正文内容冲突，停止覆盖','existing-body-conflict'],
+  ['日级清单内容冲突，停止覆盖','existing-manifest-conflict'],
+  ['既有轻量日报校验值冲突','existing-checksum-conflict']
+ ]);
+ return labels.get(error?.message)||(Number.isInteger(error?.status)?'github-http-'+error.status:'export-validation-or-transport-unconfirmed');
+}
 export function buildLightExport(report,{maxCharacters=6000,maxUtf8Bytes=16000,archiveReceipt=null,archiveIndexUrl=null}={}){
  for(const n of [maxCharacters,maxUtf8Bytes])if(!Number.isSafeInteger(n)||n<1)throw Error('轻量正文大小阈值无效');
  if(report.status!=='published')throw Error('仅呈现已发布正式日报');
@@ -38,12 +74,13 @@ export function buildLightExport(report,{maxCharacters=6000,maxUtf8Bytes=16000,a
  if(number(p.total)!==null&&p.total!==cohort.length)throw Error('优先级统计总数不一致');
  const frozenCounts={high:0,medium:0,low:0};for(const e of cohort)if(Object.hasOwn(frozenCounts,e.frozenPriority?.level))frozenCounts[e.frozenPriority.level]++;
  for(const k of Object.keys(frozenCounts))if(cohort.every(e=>Object.hasOwn(frozenCounts,e.frozenPriority?.level))&&number(p.counts?.[k])!==null&&p.counts[k]!==frozenCounts[k])throw Error('封版优先级与清单不一致');
- if(['total','searched','failedOnly','unattempted'].every(k=>number(coverage[k])!==null)&&coverage.total!==coverage.searched+coverage.failedOnly+coverage.unattempted)throw Error('覆盖分类与范围总数不一致');
+ const pendingOnly=pendingOnlyCoverage(coverage,report.report.coverage?.rows);
  const sourceFields={report_day:'day',cycle:'cycle.startAt / cycle.cutoffAt',checksum:'checksum',
   new:'overview.cumulative.new',changed:'overview.cumulative.changed',deduplicated:'report.cohort[].key (unique count)',repeat:'overview.cumulative.repeat',
   priority:'overview.priorityCurrent.counts',review:'overview.cumulative.stages / pending',coverage:'overview.cumulative.coverage',
   queryCount:'report.items.length',querySuccess:'overview.cumulative.success',queryPendingFailures:'overview.cumulative.failed',failureReasons:'overview.cumulative.failureReasons',urlWarnings:'report.cohort[].frozenUrlCheck.current (reason/at)',
   numbering:'No authoritative case-number field is defined in this snapshot schema; no numbering generated',archive:'Optional checksum/day-matched archived receipt; never inferred from URLs'};
+ if(pendingOnly)sourceFields.coveragePendingOnly='report.coverage.rows: attempted > 0, success = 0, failed = 0, pending > 0; validated partition';
  const urls=[],leadProofs=[];const addUrl=(value,purpose,source)=>{const u=url(value);if(u)urls.push({url:u,purpose,source});return u};
  const lines=[`# ${report.day}｜丰疆品牌监控文字日报`,
   `检索周期：${text(report.cycle?.startAt)} 至 ${text(report.cycle?.cutoffAt)}（截止时间，以快照为准）。`,
@@ -68,7 +105,7 @@ export function buildLightExport(report,{maxCharacters=6000,maxUtf8Bytes=16000,a
    sources:{title:base+'.snapshot.title',platform:base+'.snapshot.platform',kind:base+'.kind',changes:base+'.before / snapshot',priority:base+'.frozenPriority.level',reason:f?.manual?'fixed public notice; manual free-text omitted':base+'.frozenPriority.auto.reason',review:base+'.reviewStage',url:base+'.snapshot.url'}});
  }
  lines.push('## 执行覆盖与异常',
-  `- 站点及入口范围 ${show(coverage.total)} 个：已查 ${show(coverage.searched)}、失败待补 ${show(coverage.failedOnly)}、未执行 ${show(coverage.unattempted)}。`,
+  `- 站点及入口范围 ${show(coverage.total)} 个：已查 ${show(coverage.searched)}、失败待补 ${show(coverage.failedOnly)}、未执行 ${show(coverage.unattempted)}${pendingOnly?'、仅待续查（详情未核验） '+pendingOnly:''}。`,
   `- 查询执行 ${Array.isArray(report.report.items)?report.report.items.length:'未知'} 次；成功 ${show(c.success)}；未解决失败 ${show(c.failed)}。`,
   '- 失败原因：'+(Array.isArray(c.failureReasons)&&c.failureReasons.length?c.failureReasons.map(text).join('；'):'未知（快照未提供具体原因）')+'。');
  for(const [i,e]of cohort.entries()){

@@ -59,5 +59,63 @@ test('pending/history source writes nothing; light output stays intact above lim
  const large=report();large.report.cohort[0].snapshot.title='🧭'.repeat(10000);sign(large);const a=buildLightExport(large,{maxCharacters:10});assert.equal(a.manifest.status,'requires_segmentation');assert.ok(a.body.includes('🧭'.repeat(10000)));
 });
 test('runner wiring is after final formal checkpoint and isolated from original website publication',async()=>{
- const s=await readFile(new URL('../cloud/runner.mjs',import.meta.url),'utf8');const final=s.indexOf('finally{vault.runtime=');const call=s.indexOf('await publishLightReports(');assert.ok(call>final);assert.match(s.slice(final,call),/await checkpoint\(\)/);assert.match(s.slice(call),/catch\{console.warn\('轻量日报/);assert.match(s.slice(call),/await publishWebSnapshot/);
+ const s=await readFile(new URL('../cloud/runner.mjs',import.meta.url),'utf8');const final=s.indexOf('finally{vault.runtime=');const call=s.indexOf('await publishLightReports(');assert.ok(call>final);assert.match(s.slice(final,call),/await checkpoint\(\)/);assert.match(s.slice(call),/catch\(error\)\{console.warn\('轻量日报/);assert.match(s.slice(call),/await publishWebSnapshot/);
+});
+
+test('frozen pending-only category reconciles without double counting successful or failed pending rows',()=>{
+ const r=report(),row=(key,success,failed,pending)=>({key,success,failed,pending,attempted:success+failed+pending});
+ r.report.coverage={rows:[row('success',1,0,2),row('failed',0,1,2),row('untouched',0,0,0),row('pending',0,0,3)]};
+ r.overview.cumulative.coverage={total:4,searched:1,failedOnly:1,unattempted:1};sign(r);
+ const before=JSON.stringify(r),x=buildLightExport(r);assert.match(x.body,/已查 1、失败待补 1、未执行 1、仅待续查（详情未核验） 1/);assert.equal(JSON.stringify(r),before);
+});
+test('missing, duplicate, malformed, unknown and mismatched coverage rows remain fail closed',()=>{
+ const make=()=>{const r=report();r.overview.cumulative.coverage={total:2,searched:1,failedOnly:0,unattempted:0};r.report.coverage={rows:[{key:'a',attempted:1,success:1,failed:0,pending:0},{key:'b',attempted:1,success:0,failed:0,pending:1}]};return r};
+ const mutations=[r=>delete r.report.coverage,r=>r.report.coverage.rows.pop(),r=>r.report.coverage.rows[1].key='a',r=>r.report.coverage.rows[1].pending=-1,r=>r.report.coverage.rows[1].pending=0.5,r=>r.report.coverage.rows[1].pending='1',r=>r.report.coverage.rows[1].attempted=2,r=>r.overview.cumulative.coverage.searched=0,r=>r.report.coverage.rows[1].key='',r=>r.report.coverage.rows[1].pending=Number.MAX_SAFE_INTEGER+1];
+ for(const mutate of mutations){const r=make();mutate(r);sign(r);assert.throws(()=>buildLightExport(r),/覆盖分类/);}
+});
+test('legacy no-gap export bytes remain unchanged when validated rows are supplied',()=>{
+ const r=report(),before=buildLightExport(r).body;r.report.coverage={rows:[{key:'a',attempted:1,success:1,failed:0,pending:0},{key:'b',attempted:0,success:0,failed:0,pending:0}]};sign(r);
+ // Formal checksum changes because this synthetic fixture adds evidence; compare presentation except checksum.
+ const clean=s=>s.replace(/正式快照 checksum：`[a-f0-9]+`/,'CHECKSUM');assert.equal(clean(buildLightExport(r).body),clean(before));
+});
+import {lightExportDiagnostic} from '../cloud/formal-report-light.mjs';
+import {exportOneLightReport} from '../cloud/export-one-light-report.mjs';
+test('diagnostics disclose static causes but not arbitrary exception content',()=>{
+ assert.equal(lightExportDiagnostic(Error('覆盖分类与范围总数不一致')),'coverage-partition-invalid');
+ assert.doesNotMatch(lightExportDiagnostic(Error('SECRET https://example.com?token=PRIVATE')),/SECRET|PRIVATE|example/);
+});
+test('single-day dry-run and publish preserve unrelated date bytes and entries; no business effects',async()=>{
+ const m=memory(),old=[report('2026-10-28'),report('2026-10-29'),report('2026-10-30')];await run(m,feed(old));
+ const oldFiles=new Map([...m.files].map(([k,v])=>[k,Buffer.from(v)])),oldIndex=JSON.parse(m.files.get(LIGHT_INDEX));
+ const target=report('2026-10-31'),other=report('2026-11-01');m.files.set('public-dashboard.json',Buffer.from(JSON.stringify(feed([...old,target,other]))));const before=m.writes.length;
+ const args={store:m,repository:'example/repository',day:target.day,checksum:target.checksum,fetcher:m.fetcher};
+ assert.equal((await exportOneLightReport(args)).status,'dry-run');assert.equal(m.writes.length,before);
+ assert.equal((await exportOneLightReport({...args,publish:true})).status,'published');
+ assert.deepEqual(m.writes.slice(before).flat().sort(),['daily-text/2026-10-31/body.md','daily-text/2026-10-31/manifest.json',LIGHT_INDEX].sort());
+ for(const [path,b]of oldFiles)if(path!==LIGHT_INDEX)assert.deepEqual(m.files.get(path),b);
+ assert.deepEqual(JSON.parse(m.files.get(LIGHT_INDEX)).reports.slice(0,3),oldIndex.reports);
+ assert.equal((await exportOneLightReport({...args,publish:true})).status,'verified');assert.equal(m.writes.length,before+3);
+});
+test('single-day export rejects missing/invalid targets, mismatched checksum and unpublished reports before writes',async()=>{
+ const m=memory(),r=report('2026-10-31');m.files.set('public-dashboard.json',Buffer.from(JSON.stringify(feed([r]))));
+ const args={store:m,repository:'example/repository',day:r.day,checksum:r.checksum,publish:true,fetcher:m.fetcher};
+ for(const patch of [{day:undefined},{day:'2026-02-30'},{day:'2026-10-27'},{day:'2026-11-01'},{checksum:'0'.repeat(64)},{publish:'true'}])await assert.rejects(exportOneLightReport({...args,...patch}));
+ r.status='pending';m.files.set('public-dashboard.json',Buffer.from(JSON.stringify(feed([r]))));await assert.rejects(exportOneLightReport(args));assert.equal(m.writes.length,0);
+});
+test('single-day export entry is isolated and workflow is manual, same lock, no business credentials',async()=>{
+ const entry=await readFile(new URL('../cloud/export-one-light-report.mjs',import.meta.url),'utf8'),yml=await readFile(new URL('../.github/workflows/fjd-light-export.yml',import.meta.url),'utf8');
+ assert.doesNotMatch(entry,/from ['"].*(runner|scan|delivery|feishu)[^'"]*['"]/);assert.doesNotMatch(yml,/MONITOR_CLOUD_PASSWORD|FEISHU_|NOTION_|schedule:/);assert.match(yml,/group: fjd-cloud-monitor/);assert.match(yml,/default: false/);
+});
+test('legacy frozen coverage without pending fields remains valid and unchanged',()=>{
+ const r=report();r.report.coverage={rows:[{key:'a',attempted:1,success:1,failed:0},{key:'b',attempted:0,success:0,failed:0}]};sign(r);
+ const before=buildLightExport(r);assert.doesNotMatch(before.body,/仅待续查/);
+ r.report.coverage.rows[0].attempted=2;sign(r);assert.throws(()=>buildLightExport(r),/覆盖分类/);
+});
+test('single-day retry respects manifest trace after an index publication interruption',async()=>{
+ const m=memory(),r=report('2026-10-31');await run(m,feed([r]),{archiveIndexUrl:'https://example.notion.site/archive'});
+ const original=JSON.parse(m.files.get('daily-text/2026-10-31/manifest.json')).body;
+ m.files.delete(LIGHT_INDEX);m.files.set('public-dashboard.json',Buffer.from(JSON.stringify(feed([r]))));
+ const args={store:m,repository:'example/repository',day:r.day,checksum:r.checksum,fetcher:m.fetcher};
+ assert.equal((await exportOneLightReport(args)).body.sha256,original.sha256);
+ assert.equal((await exportOneLightReport({...args,publish:true})).body.sha256,original.sha256);
 });
