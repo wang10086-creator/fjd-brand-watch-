@@ -820,6 +820,606 @@
         }
       ],
       "previewFile": "assets/products/a808c7e4f6b468be74f77724-thumb.jpg"
+    },
+    {
+      "id": "product-284eadf2f3123259dc552c68",
+      "sha256": "284eadf2f3123259dc552c68af441001d09156e9554fa2827e6a4b7e8b18ee81",
+      "pixelSha256": "ade68fcb387fd0ad7e7b30dde17fa3a57539ecc3d813a2fd372d2ccbff177b45",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1672,
+      "height": 941,
+      "format": "PNG",
+      "phash": "3dc3666e893362cc",
+      "file": "assets/products/284eadf2f3123259dc552c68.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V100F",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/34374-d74fd1c4/2.png",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+          "pageTitle": "FJD Trion V100F",
+          "pageSha256": "897ed4d843c079e9a32474392eb37811d1254f600a2d92445395e203394cd107",
+          "imageUrl": "https://www.fjdtrion.com/web/image/34374-d74fd1c4/2.png",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/34374-d74fd1c4/2.png",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/284eadf2f3123259dc552c68-thumb.jpg"
+    },
+    {
+      "id": "product-cd9f2e53c4698684fa526b4b",
+      "sha256": "cd9f2e53c4698684fa526b4bc6fed25c459cc8fa27cdfa661894fad2e990b139",
+      "pixelSha256": "ca98d0d0a1a9e7c137a5c7a4c7303e7af2fc377869aab7cb99d6c8f0ad469281",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1672,
+      "height": 941,
+      "format": "PNG",
+      "phash": "9dc16666893743ec",
+      "file": "assets/products/cd9f2e53c4698684fa526b4b.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V100F",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/34375-330605d4/%E9%85%8D%E7%BD%AE.png",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+          "pageTitle": "FJD Trion V100F",
+          "pageSha256": "897ed4d843c079e9a32474392eb37811d1254f600a2d92445395e203394cd107",
+          "imageUrl": "https://www.fjdtrion.com/web/image/34375-330605d4/%E9%85%8D%E7%BD%AE.png",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/34375-330605d4/%E9%85%8D%E7%BD%AE.png",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/cd9f2e53c4698684fa526b4b-thumb.jpg"
+    },
+    {
+      "id": "product-5f819451be54620365322bc8",
+      "sha256": "5f819451be54620365322bc83d7dd66529ba39387495d85a73232f938d44505f",
+      "pixelSha256": "87a356b869ea4284dbb27e3ab5956fdc25d867a2568c254f1cea726fbfaeccbe",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 388,
+      "format": "WEBP",
+      "phash": "f07c3e8391207cf5",
+      "file": "assets/products/5f819451be54620365322bc8.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V100F",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/33644-e887204f/%E9%81%AE%E6%8C%A1%E4%B8%8Bsurefix.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+          "pageTitle": "FJD Trion V100F",
+          "pageSha256": "897ed4d843c079e9a32474392eb37811d1254f600a2d92445395e203394cd107",
+          "imageUrl": "https://www.fjdtrion.com/web/image/33644-e887204f/%E9%81%AE%E6%8C%A1%E4%B8%8Bsurefix.webp",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/33644-e887204f/%E9%81%AE%E6%8C%A1%E4%B8%8Bsurefix.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/5f819451be54620365322bc8-thumb.jpg"
+    },
+    {
+      "id": "product-3a1dea3533f05f9b85bb7bf9",
+      "sha256": "3a1dea3533f05f9b85bb7bf942f4e7a2d53b063ad20e4cce37aa7df07f3d9914",
+      "pixelSha256": "752d58ea147874f348bfa39ccd8bead21a0456f114b7d1c98abaa409d60ea918",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1890,
+      "height": 1063,
+      "format": "PNG",
+      "phash": "9931df6d62b06790",
+      "file": "assets/products/3a1dea3533f05f9b85bb7bf9.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V100F",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/29975-d56f3bfe/7.png",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system",
+          "pageTitle": "FJD Trion V100F",
+          "pageSha256": "897ed4d843c079e9a32474392eb37811d1254f600a2d92445395e203394cd107",
+          "imageUrl": "https://www.fjdtrion.com/web/image/29975-d56f3bfe/7.png",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/29975-d56f3bfe/7.png",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/3a1dea3533f05f9b85bb7bf9-thumb.jpg"
+    },
+    {
+      "id": "product-c83b412d83c4ec4df9108cb5",
+      "sha256": "c83b412d83c4ec4df9108cb5f470e60b7c397f7c20e75ab14c6a6a8e6bd1c847",
+      "pixelSha256": "c96e73b221132a0cf97bcd0b2cecec618a3c01bd47ce6266a707024080eef9b4",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "WEBP",
+      "phash": "36d9c3a43c7bc384",
+      "file": "assets/products/c83b412d83c4ec4df9108cb5.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS PRECISION SEEDING CONTROL KIT",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/13336-d36e9eb9/kv-2.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+          "pageTitle": "FJD APS PRECISION SEEDING CONTROL KIT",
+          "pageSha256": "b2f9ddd259e00514684c4b117ccc22a043a9fcbe91bacc1ab103b7dee0370ead",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/13336-d36e9eb9/kv-2.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/13336-d36e9eb9/kv-2.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/c83b412d83c4ec4df9108cb5-thumb.jpg"
+    },
+    {
+      "id": "product-bd145e1bc79b430520756884",
+      "sha256": "bd145e1bc79b430520756884978a2a85be5d9455d1aa8cae736444658c45501f",
+      "pixelSha256": "d067a200844e77cb2894b1666ef5862d30b15c17181b6c91d41ea79ea614dd2b",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 840,
+      "height": 549,
+      "format": "WEBP",
+      "phash": "d6bc396bc2942c4b",
+      "file": "assets/products/bd145e1bc79b430520756884.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS PRECISION SEEDING CONTROL KIT",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/13361-260c5fd9/%E9%9D%99%E5%B8%A71-2.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+          "pageTitle": "FJD APS PRECISION SEEDING CONTROL KIT",
+          "pageSha256": "b2f9ddd259e00514684c4b117ccc22a043a9fcbe91bacc1ab103b7dee0370ead",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/13361-260c5fd9/%E9%9D%99%E5%B8%A71-2.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/13361-260c5fd9/%E9%9D%99%E5%B8%A71-2.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/bd145e1bc79b430520756884-thumb.jpg"
+    },
+    {
+      "id": "product-7d89069f3e1f4aff4d37705c",
+      "sha256": "7d89069f3e1f4aff4d37705ca517e2d4d14b4d781a75031a80537fa558576a24",
+      "pixelSha256": "346ad6a962a01ec2d6e38d6a3da45d61b51f755203d20bd133331986de5daf3a",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 473,
+      "format": "WEBP",
+      "phash": "771c98e16716659c",
+      "file": "assets/products/7d89069f3e1f4aff4d37705c.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS PRECISION SEEDING CONTROL KIT",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/13362-68adee6d/tj.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+          "pageTitle": "FJD APS PRECISION SEEDING CONTROL KIT",
+          "pageSha256": "b2f9ddd259e00514684c4b117ccc22a043a9fcbe91bacc1ab103b7dee0370ead",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/13362-68adee6d/tj.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/13362-68adee6d/tj.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/7d89069f3e1f4aff4d37705c-thumb.jpg"
+    },
+    {
+      "id": "product-5892ee084297648081cafcb5",
+      "sha256": "5892ee084297648081cafcb59f51923d669bece724ed07483ab6e0593838f3a0",
+      "pixelSha256": "124c60be1d5a24feee8bbfb49ed43d2e4b381508c442c132277d8c11b17485d2",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 529,
+      "format": "WEBP",
+      "phash": "9311707cefc78b90",
+      "file": "assets/products/5892ee084297648081cafcb5.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS PRECISION SEEDING CONTROL KIT",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/13419-7bfa8f66/m3-3.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit",
+          "pageTitle": "FJD APS PRECISION SEEDING CONTROL KIT",
+          "pageSha256": "b2f9ddd259e00514684c4b117ccc22a043a9fcbe91bacc1ab103b7dee0370ead",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/13419-7bfa8f66/m3-3.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/13419-7bfa8f66/m3-3.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/5892ee084297648081cafcb5-thumb.jpg"
+    },
+    {
+      "id": "product-588454a10b73d4fc543d7c84",
+      "sha256": "588454a10b73d4fc543d7c844bfa7aa63f105b4a229f9537aa095750cfdffdaf",
+      "pixelSha256": "dd904b9df79179b754e111194e8003f6d948da637de781359ee6e4e9be51c6fb",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "JPEG",
+      "phash": "1fc8c36c6c6e8b43",
+      "file": "assets/products/588454a10b73d4fc543d7c84.jpg",
+      "brand": "FJDynamics",
+      "productName": "FJD PaintMaster Mini",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/8474-71496da5/mini%E6%96%B0%E7%89%88Banner-%E5%B0%81%E9%9D%A2.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+          "pageTitle": "FJD PaintMaster Mini",
+          "pageSha256": "ce37589a240dcd7c36f2d6a9603656da7304d9955734fd5c1a3e3c4719bfe77d",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/8474-71496da5/mini%E6%96%B0%E7%89%88Banner-%E5%B0%81%E9%9D%A2.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/8474-71496da5/mini%E6%96%B0%E7%89%88Banner-%E5%B0%81%E9%9D%A2.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/588454a10b73d4fc543d7c84-thumb.jpg"
+    },
+    {
+      "id": "product-03372dfb2e3c15eb64a302fe",
+      "sha256": "03372dfb2e3c15eb64a302fe95c9390be3895e45416176b6cf5da8f5b0cad91d",
+      "pixelSha256": "4422c34a6e733bf30f88810b412da0bf4a29815722c4b85362c2b629dc0ffcbb",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 752,
+      "height": 900,
+      "format": "WEBP",
+      "phash": "74603201bb0dffcd",
+      "file": "assets/products/03372dfb2e3c15eb64a302fe.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD PaintMaster Mini",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/7948-e51d844b/Frame%202930%20%281%29.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+          "pageTitle": "FJD PaintMaster Mini",
+          "pageSha256": "ce37589a240dcd7c36f2d6a9603656da7304d9955734fd5c1a3e3c4719bfe77d",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/7948-e51d844b/Frame%202930%20%281%29.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/7948-e51d844b/Frame%202930%20%281%29.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/03372dfb2e3c15eb64a302fe-thumb.jpg"
+    },
+    {
+      "id": "product-7eb61147672b470dba4213a3",
+      "sha256": "7eb61147672b470dba4213a3021b942333823b6b606fb3f059515b44cedd8c8a",
+      "pixelSha256": "7008afcf8da28b35050860be948f45ff91f046d3ae1480b3f928c233b8ed9940",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 640,
+      "height": 640,
+      "format": "WEBP",
+      "phash": "551d8d2a6eaaab43",
+      "file": "assets/products/7eb61147672b470dba4213a3.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD PaintMaster Mini",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/8132-f655fec3/%E8%B5%84%E6%BA%90%201%404x.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+          "pageTitle": "FJD PaintMaster Mini",
+          "pageSha256": "ce37589a240dcd7c36f2d6a9603656da7304d9955734fd5c1a3e3c4719bfe77d",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/8132-f655fec3/%E8%B5%84%E6%BA%90%201%404x.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/8132-f655fec3/%E8%B5%84%E6%BA%90%201%404x.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/7eb61147672b470dba4213a3-thumb.jpg"
+    },
+    {
+      "id": "product-d7d8cb993d4a2d0037cb2c90",
+      "sha256": "d7d8cb993d4a2d0037cb2c903333c616b9ec14366943723aa2e36b174371d279",
+      "pixelSha256": "3e0e934d8becb2d0fabb6aa5b2898a54b4d16bc9e1c4485baec15d0e3e340a49",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 641,
+      "height": 640,
+      "format": "WEBP",
+      "phash": "f0b22727d0f93929",
+      "file": "assets/products/d7d8cb993d4a2d0037cb2c90.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD PaintMaster Mini",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/8131-7423328a/%E8%B5%84%E6%BA%90%202%404x.webp",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini",
+          "pageTitle": "FJD PaintMaster Mini",
+          "pageSha256": "ce37589a240dcd7c36f2d6a9603656da7304d9955734fd5c1a3e3c4719bfe77d",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/8131-7423328a/%E8%B5%84%E6%BA%90%202%404x.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/8131-7423328a/%E8%B5%84%E6%BA%90%202%404x.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/d7d8cb993d4a2d0037cb2c90-thumb.jpg"
+    },
+    {
+      "id": "product-887fe825f5082053a5880a20",
+      "sha256": "887fe825f5082053a5880a201b476aa74d4e36933165a48696de84532b56de5a",
+      "pixelSha256": "494bde4964e295499641d166ab8abd3b935d8cd0e1acccfc23a02a76210cc803",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1254,
+      "height": 1254,
+      "format": "JPEG",
+      "phash": "fd6008f479ecf070",
+      "file": "assets/products/887fe825f5082053a5880a20.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion X1 Pro-grade spatial Scanner",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-x1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_1.jpg?v=1793070883&width=1254",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-x1",
+          "pageTitle": "FJD Trion X1 Pro-grade spatial Scanner",
+          "pageSha256": "cd1a9da289e2b95227f1a1671733693ec4648a881b2c0bb9647cb9b6ffc0be42",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_1.jpg?v=1793070883&width=1254",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_1.jpg?v=1793070883&width=1254",
+          "alt": "FJD Trion X1",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/887fe825f5082053a5880a20-thumb.jpg"
+    },
+    {
+      "id": "product-b44d4a26725356f562a96ae1",
+      "sha256": "b44d4a26725356f562a96ae19fdc338105c95e779020bfb1327ecaf7c226f30b",
+      "pixelSha256": "90edc94cb110fac4df327d7f8e5680cbc8d13fa6f57f1e4e7adead5b4ca9991f",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1254,
+      "height": 1254,
+      "format": "JPEG",
+      "phash": "b6532bb44ae4a9b2",
+      "file": "assets/products/b44d4a26725356f562a96ae1.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion X1 Pro-grade spatial Scanner",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-x1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_2.jpg?v=1793070883&width=1254",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-x1",
+          "pageTitle": "FJD Trion X1 Pro-grade spatial Scanner",
+          "pageSha256": "cd1a9da289e2b95227f1a1671733693ec4648a881b2c0bb9647cb9b6ffc0be42",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_2.jpg?v=1793070883&width=1254",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_2.jpg?v=1793070883&width=1254",
+          "alt": "FJD Trion X1",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/b44d4a26725356f562a96ae1-thumb.jpg"
+    },
+    {
+      "id": "product-1a20145eab5e53431ee2bdb8",
+      "sha256": "1a20145eab5e53431ee2bdb883544ea4ed6422f3cb07f4b114798458bfcb7a83",
+      "pixelSha256": "647c02e25e4f54fee24e6df26c082da32b074564dc0f7a1de47b24aaa7eb4a15",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1254,
+      "height": 1254,
+      "format": "JPEG",
+      "phash": "75366d414360e3e7",
+      "file": "assets/products/1a20145eab5e53431ee2bdb8.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion X1 Pro-grade spatial Scanner",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-x1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_3.jpg?v=1793070883&width=1254",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-x1",
+          "pageTitle": "FJD Trion X1 Pro-grade spatial Scanner",
+          "pageSha256": "cd1a9da289e2b95227f1a1671733693ec4648a881b2c0bb9647cb9b6ffc0be42",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_3.jpg?v=1793070883&width=1254",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/X1_1-1_3.jpg?v=1793070883&width=1254",
+          "alt": "FJD Trion X1",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/1a20145eab5e53431ee2bdb8-thumb.jpg"
+    },
+    {
+      "id": "product-9454dd4fca485140854e3691",
+      "sha256": "9454dd4fca485140854e369156b2c5b155d96ee5437aeb7cf7aa004ffff35372",
+      "pixelSha256": "8466a25fe5ea4e5e2c83fddfdfecc1ca2a8cca7f84c484ecad18339c8c0ae9a2",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 2000,
+      "height": 2000,
+      "format": "PNG",
+      "phash": "7646999999666666",
+      "file": "assets/products/9454dd4fca485140854e3691.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion X1 Pro-grade spatial Scanner",
+      "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-x1",
+      "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/0002.png?v=1793090600&width=2000",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-x1",
+          "pageTitle": "FJD Trion X1 Pro-grade spatial Scanner",
+          "pageSha256": "cd1a9da289e2b95227f1a1671733693ec4648a881b2c0bb9647cb9b6ffc0be42",
+          "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/0002.png?v=1793090600&width=2000",
+          "finalImageUrl": "https://store.fjdtrion.com/cdn/shop/files/0002.png?v=1793090600&width=2000",
+          "alt": "FJD Trion X1",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/9454dd4fca485140854e3691-thumb.jpg"
+    },
+    {
+      "id": "product-1b12259bd4b621ef20c9cc5b",
+      "sha256": "1b12259bd4b621ef20c9cc5b1ae37f5a72b00442d7e5894bb6301fec09845810",
+      "pixelSha256": "1368f405d37ae8b6ef6cfc74454649dfcfa592657cac398fa3939aa38756af24",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 567,
+      "height": 567,
+      "format": "WEBP",
+      "phash": "778998766c6c390b",
+      "file": "assets/products/1b12259bd4b621ef20c9cc5b.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_feature_image_6",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+          "pageTitle": "FJD Trion V10a",
+          "pageSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_feature_image_6",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_feature_image_6",
+          "alt": "Integrated 4G Modem TDD-LTE, FDD-LTE, WCDMA, GSM/EDGE",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/1b12259bd4b621ef20c9cc5b-thumb.jpg"
+    },
+    {
+      "id": "product-988d9fa6c73892d70df6df38",
+      "sha256": "988d9fa6c73892d70df6df38b2b3942eb0ad35d57b75802dd4198525e723e638",
+      "pixelSha256": "12f899ea1e8a44330afce4a08080c1f35a9edf28353850cf9fa2f59afe294841",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 388,
+      "format": "WEBP",
+      "phash": "7c3393d4c6353169",
+      "file": "assets/products/988d9fa6c73892d70df6df38.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_1",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+          "pageTitle": "FJD Trion V10a",
+          "pageSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_1",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_1",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/988d9fa6c73892d70df6df38-thumb.jpg"
+    },
+    {
+      "id": "product-96ec7a9b79505e634b074370",
+      "sha256": "96ec7a9b79505e634b0743708e37de43cf8996cde1d663316d6f4cdb6f0b45df",
+      "pixelSha256": "b092d59c40c396df56a5ef2cfe0bd270407865597826beae1dfa20d3ee9c2601",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1616,
+      "height": 909,
+      "format": "WEBP",
+      "phash": "b8b95643339da4b1",
+      "file": "assets/products/96ec7a9b79505e634b074370.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_2",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+          "pageTitle": "FJD Trion V10a",
+          "pageSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_2",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_2",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/96ec7a9b79505e634b074370-thumb.jpg"
+    },
+    {
+      "id": "product-6eb6e1a4ba228ab5fb23e223",
+      "sha256": "6eb6e1a4ba228ab5fb23e22329916b0fc22e1e2ca466f836321dc77726e2f1d6",
+      "pixelSha256": "e4ea31d08e8025deab8f4c0ea94f5da1f151da53ba8547527e947cb67a2cd1f1",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 388,
+      "format": "WEBP",
+      "phash": "36f4877c47ca6445",
+      "file": "assets/products/6eb6e1a4ba228ab5fb23e223.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10a",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_3",
+      "collectedAt": "2026-11-01T16:59:18.982774Z",
+      "updatedAt": "2026-11-01T16:59:18.982774Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system",
+          "pageTitle": "FJD Trion V10a",
+          "pageSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_3",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10a_multi_image_text_image_3",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-01T16:59:18.982774Z"
+        }
+      ],
+      "previewFile": "assets/products/6eb6e1a4ba228ab5fb23e223-thumb.jpg"
     }
   ],
   "pages": {
@@ -1962,7 +2562,7 @@
       "candidateCount": 14
     },
     "https://shop.fjdynamics.com/products/fjd-trion-p1-3d-scanner": {
-      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
       "images": 0,
       "failures": [],
       "error": "HTTP 404"
@@ -2456,9 +3056,49 @@
       "title": "FJD Trion V4e Pro",
       "htmlSha256": "0cc434885a5a0f6e96fbd88a2372d0910ccb98c3f79241e565a22afde8c6bade",
       "candidateCount": 14
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v100f-gnss-lidar-fusion-system": {
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion V100F",
+      "htmlSha256": "897ed4d843c079e9a32474392eb37811d1254f600a2d92445395e203394cd107",
+      "candidateCount": 10
+    },
+    "https://agriculture.fjdynamics.com/products/fjd-aps-precision-seeding-control-kit": {
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD APS PRECISION SEEDING CONTROL KIT",
+      "htmlSha256": "b2f9ddd259e00514684c4b117ccc22a043a9fcbe91bacc1ab103b7dee0370ead",
+      "candidateCount": 22
+    },
+    "https://landscaping.fjdynamics.com/product/fjd-paintmaster-mini": {
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD PaintMaster Mini",
+      "htmlSha256": "ce37589a240dcd7c36f2d6a9603656da7304d9955734fd5c1a3e3c4719bfe77d",
+      "candidateCount": 11
+    },
+    "https://store.fjdtrion.com/products/fjd-trion-x1": {
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion X1 Pro-grade spatial Scanner",
+      "htmlSha256": "cd1a9da289e2b95227f1a1671733693ec4648a881b2c0bb9647cb9b6ffc0be42",
+      "candidateCount": 48
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v10a-rtk-system": {
+      "checkedAt": "2026-11-01T16:59:18.982774Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD Trion V10a",
+      "htmlSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
+      "candidateCount": 17
     }
   },
-  "updatedAt": "2026-10-25T14:16:59.410147Z",
+  "updatedAt": "2026-11-01T16:59:18.982774Z",
   "algorithmVersion": "dual-images-2.1",
   "officialDomains": {
     "www.fjdynamics.com": "https://www.fjdynamics.com/",
@@ -2468,14 +3108,14 @@
     "store.fjdtrion.com": "https://www.fjdtrion.com/",
     "shop.fjdynamics.com": "https://www.fjdtrion.com/product/fjd-trion-p1-lidar-scanner"
   },
-  "discoveredPages": 96,
+  "discoveredPages": 97,
   "lastBatch": {
-    "at": "2026-10-25T14:16:59.410147Z",
+    "at": "2026-11-01T16:59:18.982774Z",
     "checkedPages": 6,
-    "newImages": 4,
+    "newImages": 20,
     "errors": []
   },
-  "libraryVersion": "200a1f8867d2e0c2",
+  "libraryVersion": "f0cb13e25dbe9049",
   "excludedNonProductResources": [
     {
       "url": "https://landscaping.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/s_fjd_landscaping_kv_v3/kv-residential-slope.webp",
