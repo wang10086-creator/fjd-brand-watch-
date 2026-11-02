@@ -1,0 +1,62 @@
+name: 原生浏览器离线隔离验证
+on:
+  push:
+    branches: [task/history-render-recovery-20261102]
+    paths:
+      - '.github/workflows/fjd-native-isolation.yml'
+      - 'cloud/native_netns_child.py'
+      - 'cloud/native-netns-chrome.py'
+      - 'cloud/native_isolation_probe.py'
+permissions:
+  contents: read
+concurrency:
+  group: history-offline-isolation-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 准备原回归依赖
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 playwright==1.55.0 lxml==6.0.2 tinycss2==1.4.0
+      - name: 全套Node兼容性回归
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: 准备原HTML单页工具
+        run: npm ci --prefix cloud/mirror-tool --ignore-scripts --no-audit --no-fund && node cloud/mirror-tool/prepare.mjs
+      - name: 全套云端Python回归
+        run: python3 -m unittest discover -s cloud -p 'test_*.py'
+  offline-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 安装已有整窗运行依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
+          python3 -m pip install --quiet Pillow==11.3.0 playwright==1.55.0
+          if command -v google-chrome; then
+            echo "FJD_CHROME=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium; then
+            echo "FJD_CHROME=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            python3 -m playwright install --with-deps chromium
+            python3 -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print("FJD_CHROME="+p.chromium.executable_path); p.stop()' >> "$GITHUB_ENV"
+          fi
+      - name: 离线脚本与网络隔离实测（不访问原站）
+        run: xvfb-run -a -s "-screen 0 1360x1000x24" python3 cloud/native_isolation_probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: history-offline-isolation-${{ github.run_id }}
+          path: history-isolation-output/
+          retention-days: 1
+          if-no-files-found: warn

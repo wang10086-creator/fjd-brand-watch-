@@ -2470,3 +2470,13 @@ page title, parse error class and visible-content flags in short-lived private
 artifacts; never exports review notes or creates attachment-ready results.
 Explicit challenge evidence stops further diagnostics on that origin.
 The stable screenshot branch and all Feishu writers remain unchanged.
+
+## Offline normal-script isolation preflight
+A separate source-free probe tests a Chromium network namespace that has no
+route to the host network. A short privileged launcher opens only the existing
+DevTools pipe descriptors, creates the deny-only namespace and drops to the
+original non-root user before executing the existing Chrome binary. The parent
+independently checks the live browser namespace and UID. TCP and UDP probes
+inside the empty namespace must fail; no sandbox-disabling browser flags are
+added. The only browser document is an intercepted offline fixture. Real
+source JavaScript recovery remains unenabled until this proof succeeds.
