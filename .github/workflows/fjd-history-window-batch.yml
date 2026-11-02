@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
           - {cohort: resume-anchor, start: 0, limit: 1, candidates: tools/history-window-resume-anchor-20261102.json}
-    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-screenshot-backfill-20261102'
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-screenshot-backfill-20261102' && !contains(github.event.head_commit.message, '[checks-only]')
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:

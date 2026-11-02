@@ -1,5 +1,5 @@
 import unittest
-from history_window_batch import validate_document,page_downs_for,anchor_product_heading
+from history_window_batch import validate_document,page_downs_for,anchor_product_heading,needs_product_anchor
 
 URL='https://example.com/item/1'
 def check(body,title='Product listing',url=URL,status=200):
@@ -43,6 +43,10 @@ class StrictDocumentTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class HeadingAnchorTests(unittest.TestCase):
+    def test_product_anchor_does_not_affect_other_models_on_same_host(self):
+        self.assertTrue(needs_product_anchor('https://www.lidarsolutions.com.au/product/trion-p1-low-cost-tof-lidar-scanner-outdoor/'))
+        self.assertFalse(needs_product_anchor('https://www.lidarsolutions.com.au/product/trion-p2'))
+        self.assertFalse(needs_product_anchor('https://www.lidarsolutions.com.au.evil.example/product/trion-p1-low-cost-tof-lidar-scanner-outdoor'))
     def test_unique_visible_heading_is_scrolled_and_offscreen_body_is_rejected(self):
         class Heading:
             def __init__(self,n=1,visible=True,y=100):self.n=n;self.visible=visible;self.y=y;self.scrolled=False

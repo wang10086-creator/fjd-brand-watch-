@@ -52,6 +52,10 @@ def page_downs_for(url):
             'www.reliablerobots.ca':3,'highconstruction.am':2,
             'www.lidarsolutions.com.au':3}.get(urllib.parse.urlsplit(url).hostname,0)
 
+def needs_product_anchor(url):
+    parsed=urllib.parse.urlsplit(url)
+    return parsed.hostname=='www.lidarsolutions.com.au' and parsed.path.removesuffix('/')=='/product/trion-p1-low-cost-tof-lidar-scanner-outdoor'
+
 def anchor_product_heading(page,scroll):
     """One visible native heading scroll, without rewriting page content."""
     heading=page.get_by_role('heading',name=re.compile(r'\bTrion\s*P1\b',re.I),level=1)
@@ -77,7 +81,7 @@ def capture_checked(request):
     browser_window.main_document=checked
     def framed_scroll(page,count):
         scroll=original_scroll(page,count)
-        if urllib.parse.urlsplit(request['url']).hostname=='www.lidarsolutions.com.au':
+        if needs_product_anchor(request['url']):
             scroll=anchor_product_heading(page,scroll)
         return scroll
     browser_window.apply_page_down=framed_scroll

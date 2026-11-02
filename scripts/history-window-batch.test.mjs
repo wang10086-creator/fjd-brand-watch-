@@ -33,7 +33,7 @@ test('native format alone does not allow a redirect, failed response, login targ
 });
 test('reviewed exact hosts require the intended real scroll sequence',()=>{
  const bytes=png(),before={x:0,y:0,width:1360,height:900};
- const cases=[['https://item.rakuten.co.jp/shop/item/',1],['https://search.rakuten.co.jp/search/mall/fixture/',3],['https://www.reliablerobots.ca/product',3],['https://highconstruction.am/product',2],['https://www.lidarsolutions.com.au/product',3]];
+ const cases=[['https://item.rakuten.co.jp/shop/item/',1],['https://search.rakuten.co.jp/search/mall/fixture/',3],['https://www.reliablerobots.ca/product',3],['https://highconstruction.am/product',2],['https://www.lidarsolutions.com.au/product/trion-p1-low-cost-tof-lidar-scanner-outdoor/',3]];
  for(const [u,count] of cases){
   const steps=Array.from({length:count},(_,i)=>({...before,y:(i+1)*750}));
   const pageScroll={action:'PageDown',count,before,after:steps.at(-1),...(count>1?{steps}:{})};
@@ -58,6 +58,13 @@ test('reviewed exact hosts require the intended real scroll sequence',()=>{
   assert.throws(()=>validateCapture({...proof(u,bytes),pageScroll:{action:'PageDown',count:1,before,after:{...before,y:750}}},bytes,u),/scroll/);
   assert.equal('pageScroll' in validateCapture(proof(u,bytes),bytes,u),false);
  }
+});
+test('a different model on the same host does not require the P1 heading',()=>{
+ const u='https://www.lidarsolutions.com.au/product/trion-p2',bytes=png(),before={x:0,y:0,width:1360,height:900};
+ const steps=[750,1500,2250].map(y=>({...before,y}));
+ const pageScroll={action:'PageDown',count:3,before,after:steps.at(-1),steps};
+ assert.equal(validateCapture({...proof(u,bytes),pageScroll},bytes,u).reviewRequired,true);
+ assert.throws(()=>validateCapture({...proof(u,bytes),pageScroll:{...pageScroll,anchor:{}}},bytes,u),/scroll/);
 });
 test('archive is read at one immutable commit with GET requests and no mutation',async()=>{
  const password='synthetic-fixture-password',value=await seal({state:{rows:[{url}],privateNotes:'must-never-export'}},password,'vault');value.keyScheme='data-password-v2';

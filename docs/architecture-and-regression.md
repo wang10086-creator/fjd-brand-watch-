@@ -2453,3 +2453,9 @@ matching Trion P1 into view. The manifest records its actual text, before/after
 positions and visible bounding box, which the Node verifier checks for that
 exact host only. Missing, ambiguous or off-screen headings are rejected. No
 HTML, CSS, pixels or address bar is edited; source JavaScript remains disabled.
+
+The heading anchor applies only to the exact reviewed P1 product path, not
+to other models on the same host; same-host P2 fixtures verify that boundary.
+The P1 attempt remained content-unconfirmed and was not uploaded. A
+[checks-only] commit runs full regression without repeating source requests;
+normal candidate-list commits retain the existing capture behavior.
