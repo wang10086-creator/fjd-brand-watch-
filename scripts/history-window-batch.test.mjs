@@ -31,21 +31,27 @@ test('native format alone does not allow a redirect, failed response, login targ
  assert.throws(()=>validateCapture({...p,documents:[{url,status:403,mainDocument:true}]},b,url),/response/);
  const changed=Buffer.from(b);changed[500]=1;assert.throws(()=>validateCapture(p,changed,url),/integrity/);
 });
-test('exact Rakuten item/search hosts require one recorded effective PageDown; other origins keep the default',()=>{
- const bytes=png();
- const pageScroll={action:'PageDown',count:1,before:{x:0,y:0,width:1360,height:900},after:{x:0,y:750,width:1360,height:900}};
- for(const u of ['https://item.rakuten.co.jp/shop/item/','https://search.rakuten.co.jp/search/mall/fixture/','https://SEARCH.RAKUTEN.CO.JP/search/mall/fixture/']){
+test('reviewed exact hosts require the intended real scroll sequence',()=>{
+ const bytes=png(),before={x:0,y:0,width:1360,height:900};
+ const cases=[['https://item.rakuten.co.jp/shop/item/',1],['https://search.rakuten.co.jp/search/mall/fixture/',3],['https://www.reliablerobots.ca/product',1],['https://highconstruction.am/product',1],['https://www.lidarsolutions.com.au/product',1]];
+ for(const [u,count] of cases){
+  const steps=Array.from({length:count},(_,i)=>({...before,y:(i+1)*750}));
+  const pageScroll={action:'PageDown',count,before,after:steps.at(-1),...(count>1?{steps}:{})};
   const p=proof(u,bytes);
   assert.throws(()=>validateCapture(p,bytes,u),/scroll/);
   assert.deepEqual(validateCapture({...p,pageScroll},bytes,u).pageScroll,pageScroll);
-  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:2}},bytes,u),/scroll/);
-  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:pageScroll.before}},bytes,u),/scroll/);
+  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:count+1}},bytes,u),/scroll/);
+  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:before}},bytes,u),/scroll/);
+  if(count>1){
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,steps:steps.slice(1)}},bytes,u),/scroll/);
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,steps:[steps[0],before,steps[2]]}},bytes,u),/scroll/);
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,steps:[steps[0],steps[1],{...steps[2],x:1}]}},bytes,u),/scroll/);
+  }
  }
- for(const u of [url,'https://search.rakuten.co.jp.evil.example/search/mall/fixture/','https://other.rakuten.co.jp/item']){
-  assert.throws(()=>validateCapture({...proof(u,bytes),pageScroll},bytes,u),/scroll/);
+ for(const u of [url,'https://search.rakuten.co.jp.evil.example/item','https://www.reliablerobots.ca.evil.example/item','https://other.rakuten.co.jp/item']){
+  assert.throws(()=>validateCapture({...proof(u,bytes),pageScroll:{action:'PageDown',count:1,before,after:{...before,y:750}}},bytes,u),/scroll/);
   assert.equal('pageScroll' in validateCapture(proof(u,bytes),bytes,u),false);
  }
- assert.equal('pageScroll' in validateCapture(proof(url,bytes),bytes,url),false);
 });
 test('archive is read at one immutable commit with GET requests and no mutation',async()=>{
  const password='synthetic-fixture-password',value=await seal({state:{rows:[{url}],privateNotes:'must-never-export'}},password,'vault');value.keyScheme='data-password-v2';

@@ -50,10 +50,11 @@ class PageScrollTests(unittest.TestCase):
         self.assertEqual(capture.args.defaults[-1].value,0)
     def test_only_bounded_integer_requests_are_accepted(self):
         from window_navigation import validate_page_downs
-        for value in (None,True,False,-1,2,1.0,'1'):
+        for value in (None,True,False,-1,4,1.0,'1'):
             with self.subTest(value=value):
                 with self.assertRaisesRegex(ValueError,'invalid-page-scroll'):validate_page_downs(value)
         self.assertEqual(validate_page_downs(1),1)
+        self.assertEqual(validate_page_downs(3),3)
     def test_one_real_key_and_read_only_scroll_observations(self):
         from window_navigation import apply_page_down
         class Keyboard:
@@ -69,3 +70,15 @@ class PageScrollTests(unittest.TestCase):
         self.assertEqual(page.keyboard.keys,['PageDown']);self.assertEqual(page.waits,[300])
         self.assertEqual(result['action'],'PageDown');self.assertEqual(result['count'],1)
         self.assertEqual(result['before']['y'],0);self.assertEqual(result['after']['y'],750)
+    def test_three_keys_record_each_real_scroll_in_order(self):
+        from window_navigation import apply_page_down
+        class Page:
+            def __init__(self):self.keyboard=self;self.keys=[];self.y=0
+            def press(self,key):self.keys.append(key);self.y+=750
+            def wait_for_timeout(self,ms):pass
+            def evaluate(self,expression):return {'x':0,'y':self.y,'width':1360,'height':900}
+        page=Page();result=apply_page_down(page,3)
+        self.assertEqual(page.keys,['PageDown']*3)
+        self.assertEqual(result['count'],3)
+        self.assertEqual([x['y'] for x in result['steps']],[750,1500,2250])
+        self.assertEqual(result['after'],result['steps'][-1])

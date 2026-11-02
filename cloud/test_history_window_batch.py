@@ -7,12 +7,16 @@ def check(body,title='Product listing',url=URL,status=200):
     return validate_document(URL,[{'url':url}],{'status':status,'headers':{'content-type':'text/html'}},html)
 
 class StrictDocumentTests(unittest.TestCase):
-    def test_page_down_is_exact_rakuten_item_or_search_host_only(self):
+    def test_page_down_is_exact_reviewed_host_only(self):
         for url in ['https://item.rakuten.co.jp/shop/item/','https://ITEM.RAKUTEN.CO.JP/shop/item/',
-                    'https://search.rakuten.co.jp/search/mall/fixture/','https://SEARCH.RAKUTEN.CO.JP/search/mall/fixture/']:
+                    'https://www.reliablerobots.ca/product','https://highconstruction.am/product',
+                    'https://www.lidarsolutions.com.au/product']:
             self.assertEqual(page_downs_for(url),1)
+        self.assertEqual(page_downs_for('https://search.rakuten.co.jp/search/mall/fixture/'),3)
         for url in ['https://rakuten.co.jp/shop/item/','https://item.rakuten.co.jp.evil.example/item',
-                    'https://search.rakuten.co.jp.evil.example/search/mall/fixture/','https://other.rakuten.co.jp/item','https://example.com/item']:
+                    'https://search.rakuten.co.jp.evil.example/search/mall/fixture/','https://other.rakuten.co.jp/item','https://example.com/item',
+                    'https://www.reliablerobots.ca.evil.example/product','https://highconstruction.am.evil.example/product',
+                    'https://www.lidarsolutions.com.au.evil.example/product']:
             self.assertEqual(page_downs_for(url),0)
     def test_public_product_document(self):
         check('Public product details and genuine business information. '*5)

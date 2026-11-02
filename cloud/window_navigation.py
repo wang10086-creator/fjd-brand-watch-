@@ -4,7 +4,7 @@ from urllib.parse import urljoin, urlsplit
 
 def validate_page_downs(value=0):
     """A bounded opt-in page movement; bool is not an integer request."""
-    if type(value) is not int or not 0<=value<=1:raise ValueError('invalid-page-scroll')
+    if type(value) is not int or not 0<=value<=3:raise ValueError('invalid-page-scroll')
     return value
 
 def apply_page_down(page,count=0):
@@ -12,10 +12,15 @@ def apply_page_down(page,count=0):
     validate_page_downs(count)
     if not count:return None
     before=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
-    page.keyboard.press('PageDown')
-    page.wait_for_timeout(300)
-    after=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
-    return {'action':'PageDown','count':1,'before':before,'after':after}
+    steps=[]
+    for _ in range(count):
+        page.keyboard.press('PageDown')
+        page.wait_for_timeout(300)
+        after=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
+        steps.append(after)
+    result={'action':'PageDown','count':count,'before':before,'after':after}
+    if count>1:result['steps']=steps
+    return result
 
 def main_document(url, fetch, allowed, max_hops=6):
     documents=[]

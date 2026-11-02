@@ -2419,3 +2419,19 @@ validator require the actual positive PageDown. All non-Rakuten defaults,
 JavaScript-disabled execution and existing source-policy/integrity checks stay
 unchanged. No Feishu writer, workflow, production configuration or FINN capture
 behavior is changed; a new frame still requires visual review before UI upload.
+
+## Bounded continuation after 71 verified attachments
+
+The continuation excludes the 68 robots-restricted documents and every record
+already uploaded. A separate ID-only list retries only prior transport, window
+or address-confirmation failures once, retaining every existing access gate.
+A five-ID framing list uses actual PageDown movement: three presses for the
+exact Rakuten search host and one for the reviewed ReliableRobots,
+HighConstruction and LiDAR Solutions hosts. Multi-key captures record and
+validate each monotonic page position; default callers still do not scroll,
+and Rakuten item pages retain one press. The native toolbar and framebuffer
+pixels are never rewritten. JavaScript remains disabled, and no domain,
+transport, robots/noarchive, target-identity, time or byte budget is relaxed.
+No public candidate file contains URLs, business state or review notes.
+Source collection is not an attachment write: every candidate still needs
+visual review, fresh native Feishu checks and attachment readback.

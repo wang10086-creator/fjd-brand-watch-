@@ -48,7 +48,9 @@ def validate_document(expected,documents,response,raw):
     if len(text)<80 or not title:raise ValueError('target-content-unconfirmed')
 
 def page_downs_for(url):
-    return 1 if urllib.parse.urlsplit(url).hostname in {'item.rakuten.co.jp','search.rakuten.co.jp'} else 0
+    return {'item.rakuten.co.jp':1,'search.rakuten.co.jp':3,
+            'www.reliablerobots.ca':1,'highconstruction.am':1,
+            'www.lidarsolutions.com.au':1}.get(urllib.parse.urlsplit(url).hostname,0)
 
 def capture_checked(request):
     import browser_window

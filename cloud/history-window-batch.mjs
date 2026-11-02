@@ -51,10 +51,16 @@ export function validateCapture(manifest,bytes,url){
  if(width!==manifest.width||height!==manifest.height||width<1000||height<700||manifest.bytes!==bytes.length||manifest.sha256!==hash(bytes)||!Number.isFinite(Date.parse(manifest.at)))throw Error('capture-integrity-unconfirmed');
  const main=(manifest.documents||[]).filter(d=>d.mainDocument===true).at(-1);
  if(!main||!same(main.url)||!Number.isInteger(main.status)||main.status<200||main.status>=300)throw Error('target-response-unconfirmed');
- const scroll=manifest.pageScroll,needsScroll=['item.rakuten.co.jp','search.rakuten.co.jp'].includes(new URL(url).hostname);
- if(needsScroll){
+ const scroll=manifest.pageScroll,scrollCount=new Map([['item.rakuten.co.jp',1],['search.rakuten.co.jp',3],['www.reliablerobots.ca',1],['highconstruction.am',1],['www.lidarsolutions.com.au',1]]).get(new URL(url).hostname)||0;
+ if(scrollCount){
   const point=v=>v&&['x','y','width','height'].every(k=>Number.isFinite(v[k]))&&v.width>0&&v.height>0;
-  if(!scroll||scroll.action!=='PageDown'||scroll.count!==1||!point(scroll.before)||!point(scroll.after)||scroll.after.y<=scroll.before.y||scroll.after.x!==scroll.before.x)throw Error('page-scroll-unconfirmed');
+  if(!scroll||scroll.action!=='PageDown'||scroll.count!==scrollCount||!point(scroll.before)||!point(scroll.after)||scroll.after.y<=scroll.before.y||scroll.after.x!==scroll.before.x)throw Error('page-scroll-unconfirmed');
+  if(scrollCount>1){
+   if(!Array.isArray(scroll.steps)||scroll.steps.length!==scrollCount)throw Error('page-scroll-unconfirmed');
+   let previous=scroll.before;
+   for(const step of scroll.steps){if(!point(step)||step.y<previous.y||step.x!==previous.x||step.width!==previous.width||step.height!==previous.height)throw Error('page-scroll-unconfirmed');previous=step;}
+   if(['x','y','width','height'].some(k=>previous[k]!==scroll.after[k]))throw Error('page-scroll-unconfirmed');
+  }else if(scroll.steps)throw Error('page-scroll-unconfirmed');
  }else if(scroll)throw Error('page-scroll-unconfirmed');
  return {capturedAt:manifest.at,originalUrl:manifest.originalUrl,finalUrl:manifest.addressBarUrl,sha256:manifest.sha256,bytes:bytes.length,width,height,method:manifest.method,addressReadMethod:manifest.addressReadMethod,browserVersion:manifest.browserVersion,scripts:manifest.scripts,strictTargetGate:manifest.strictTargetGate,httpStatus:main.status,reviewRequired:true,...(scroll?{pageScroll:structuredClone(scroll)}:{})};
 }

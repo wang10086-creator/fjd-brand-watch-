@@ -70,3 +70,19 @@ budget, target or image-integrity check is relaxed. This framing correction is
 not proof that a result becomes visible: root must inspect both new PNGs before
 deciding whether either is suitable for a native Feishu attachment upload.
 FINN's blank-body frames are not retried or changed by this correction.
+
+## Bounded continuation after 71 verified attachments
+
+The continuation excludes the 68 robots-restricted documents and every record
+already uploaded. A separate ID-only list retries only prior transport, window
+or address-confirmation failures once, retaining every existing access gate.
+A five-ID framing list uses actual PageDown movement: three presses for the
+exact Rakuten search host and one for the reviewed ReliableRobots,
+HighConstruction and LiDAR Solutions hosts. Multi-key captures record and
+validate each monotonic page position; default callers still do not scroll,
+and Rakuten item pages retain one press. The native toolbar and framebuffer
+pixels are never rewritten. JavaScript remains disabled, and no domain,
+transport, robots/noarchive, target-identity, time or byte budget is relaxed.
+No public candidate file contains URLs, business state or review notes.
+Source collection is not an attachment write: every candidate still needs
+visual review, fresh native Feishu checks and attachment readback.
