@@ -43,10 +43,13 @@ export async function loadArchive({token,password,fetcher=fetch}={}){
  return {commit,rows:vault.state.rows};
 }
 export function validateCapture(manifest,bytes,url){
- const same=v=>canonical(v)===canonical(url);
+ const canonicalExpected=canonical(url),mainDocs=(manifest?.documents||[]).filter(d=>d.mainDocument===true);
+ const slashKey=v=>{const u=new URL(canonical(v));u.pathname=u.pathname.replace(/\/$/,'')||'/';return u.href;};
+ const trackedSlash=mainDocs.length>1&&canonical(mainDocs[0].url)===canonicalExpected&&mainDocs.slice(0,-1).every((d,i)=>[301,302,303,307,308].includes(d.status)&&typeof d.location==='string'&&canonical(new URL(d.location,d.url).href)===canonical(mainDocs[i+1].url))&&slashKey(mainDocs.at(-1).url)===slashKey(url);
+ const same=v=>canonical(v)===canonicalExpected||(trackedSlash&&canonical(v)===canonical(mainDocs.at(-1).url));
  if(!manifest||!Buffer.isBuffer(bytes)||bytes.length<1000||bytes.length>8000000||!bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))throw Error('capture-integrity-unconfirmed');
  if(manifest.method!=='x11-native-window'||manifest.addressReadMethod!=='native-omnibox-clipboard'||!/chrom(?:e|ium)/i.test(manifest.windowTree||'')||manifest.scripts!=='disabled'||manifest.strictTargetGate!=='public-document-v1')throw Error('native-window-unconfirmed');
- if(!same(manifest.originalUrl)||!same(manifest.addressBarUrl)||!same(manifest.pageUrl)||manifest.navigationError)throw Error('target-navigation-unconfirmed');
+ if(canonical(manifest.originalUrl)!==canonicalExpected||!same(manifest.addressBarUrl)||!same(manifest.pageUrl)||manifest.navigationError)throw Error('target-navigation-unconfirmed');
  const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20);
  if(width!==manifest.width||height!==manifest.height||width<1000||height<700||manifest.bytes!==bytes.length||manifest.sha256!==hash(bytes)||!Number.isFinite(Date.parse(manifest.at)))throw Error('capture-integrity-unconfirmed');
  const main=(manifest.documents||[]).filter(d=>d.mainDocument===true).at(-1);

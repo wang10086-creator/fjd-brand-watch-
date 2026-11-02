@@ -2480,3 +2480,19 @@ independently checks the live browser namespace and UID. TCP and UDP probes
 inside the empty namespace must fail; no sandbox-disabling browser flags are
 added. The only browser document is an intercepted offline fixture. Real
 source JavaScript recovery remains unenabled until this proof succeeds.
+
+Diagnostics recovered two concrete capturer bugs: valueless aria-hidden/style/type
+HTML attributes crashed the parser on the App Store pages, and a recorded HTTP
+redirect adding a path slash before the query was rejected by the final URL
+comparison on Rakuten categories. Null attributes now retain browser-like
+empty-attribute semantics. Slash equivalence requires the original URL, a fully
+recorded HTTP redirect chain and an identical origin/path/query identity;
+untracked navigation and changed product parameters remain rejected.
+A four-ID capture trial validates these corrections before any Feishu upload.
+
+The first offline probe reached the empty network namespace but exposed a
+DevTools transport detail: the descriptors are sockets, which cannot be
+reopened via procfs. The launcher now transfers the exact existing descriptors
+through a private pathname Unix socket with SCM_RIGHTS and peer-credential
+checks; no new browser debugging port or host-network route is introduced.
+Real-source JS remains unenabled pending the successful offline probe.

@@ -98,3 +98,12 @@ test('document-specific robots/noarchive/login failure does not suppress a diffe
   }finally{await rm(output,{recursive:true,force:true});}
  }
 });
+
+test('only a tracked HTTP redirect permits a terminal slash variant with the same query identity',()=>{
+ const original='https://example.com/category?product=123',final='https://example.com/category/?product=123',bytes=png();
+ const p={...proof(original,bytes),addressBarUrl:final,pageUrl:final,documents:[{url:original,status:301,location:final,mainDocument:true},{url:final,status:200,mainDocument:true}]};
+ assert.equal(validateCapture(p,bytes,original).reviewRequired,true);
+ assert.throws(()=>validateCapture({...p,documents:[{url:final,status:200,mainDocument:true}]},bytes,original),/navigation/);
+ assert.throws(()=>validateCapture({...p,documents:[{...p.documents[0],location:'/unrelated'},p.documents[1]]},bytes,original),/navigation/);
+ assert.throws(()=>validateCapture({...p,addressBarUrl:'https://example.com/category/?product=456'},bytes,original),/navigation/);
+});
