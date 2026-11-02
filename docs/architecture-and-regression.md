@@ -2307,3 +2307,75 @@ structured array took ~2.95s on the baseline in this environment; this establish
 token-volume cost, not production timeout or OOM. Deployment of the gateway would
 be required to obtain the new diagnostic from the existing UI download; approval
 and live acceptance remain with the parent task. No alternative API is added.
+
+## 2026-11-02 — avoid object-stream work for ignored vault tokens (local follow-up)
+
+The single post-release UI audit request returned HTTP 503 after 46,673ms. Its
+structured Railway diagnostic (`@event:gateway-history-backup-parse-failed`)
+reported timeout / stream / 45,005ms / 331,972,608 plaintext bytes / 0 selected
+bytes / 20,870,296 compressed bytes. This proves the 45-second streaming limit
+expired before any history data was selected, rather than either byte limit.
+The service stayed Online with 1/1 replica. No request was replayed.
+
+Data flow remains authenticated compressed bytes -> bounded gunzip -> the same
+pinned stream-json 1.9.1 syntax parser -> selected JSON -> existing redaction and
+checksum. The previous parser forwarded every ignored token through a root-check
+Transform and a general path-stack Filter. A fused Transform alone saved only
+~15% on a 21.9MB structured fixture. Selection at the parser's public push output
+boundary instead drops ignored tokens before they enter object-mode stream
+queues/callbacks. Depth and the current top-level key suffice for this fixed
+history-prefix selection; full path-stack maintenance is unnecessary. No private
+parser fields or syntax methods are changed. Selected packed keys are serialized
+with Stringer's useKeyValues option, preserving the existing surrogate fix.
+
+The original root is still validated before filtering. All source bytes,
+including ignored data after history fields, still pass the original syntax
+parser. Selected output is returned only after the entire pipeline succeeds.
+The 45-second, 2GiB plaintext and 32MiB selected-output bounds, safe diagnostics,
+admin authentication, response scope, redaction and hashing are unchanged.
+No API, writer, identity allocation, queue state, setting or permission changes.
+
+Regression adds alternating selected/ignored containers and scalars, malformed
+ignored tails after complete identities, and 60 deterministic nested fixtures
+compared with native JSON top-level selection. Existing root/gzip/Unicode,
+resource-limit, HTTP authorization/fail-closed, redaction and hash tests remain.
+The standalone scripts/history-backup-benchmark.mjs generates synthetic gzip
+fixtures incrementally (no full giant input in memory), places every selected
+field at the end, and measures each version in an isolated child process under
+unchanged production defaults. Its reported maxRSS includes worker startup and
+compressed input but excludes fixture generation. This benchmark is manual,
+not part of ordinary unit tests or production startup.
+
+Production acceptance still requires a separately authorized controlled release
+and one UI read. Synthetic improvement does not establish the unknown production
+vault's total expanded size/token mix or guarantee it finishes within 45 seconds.
+
+Measured on Node v24.19.0, sequential isolated processes, history at the tail:
+
+| Expanded fixture | Old wall / peak RSS | New wall / peak RSS | Output |
+| --- | --- | --- | --- |
+| 134,548,828 bytes | 15.886s / 134,824 KiB | 6.855s / 87,228 KiB | identical SHA-256 |
+| 537,179,868 bytes | timeout at 45.027s / 156,056 KiB | 26.396s / 134,312 KiB | new equals expected SHA-256 |
+
+The large old run stopped at 366,608,384 plaintext bytes with selectedBytes=0,
+reproducing the live failure category without relaxing any limit. Expected/output
+SHA-256: `9b4475ed1b1bd48aaddd10553fd8b605fb0081daa1a18f72bc6f3d120ae58d78`.
+No output hash is claimed for the failed old large run.
+
+Separate CPU profiling on the 128MiB fixture confirms the targeted cost: old
+Node internal-stream self samples 5,501/14,540 plus Filter 1,185/14,540; new stream
+samples 96/7,236 and no Filter. Parser samples remain ~4,586 vs ~4,582, consistent
+with retaining full syntax work while removing transport/filter overhead. These
+are profiler self samples, not absolute CPU-time percentages or production data.
+
+Pre-PR hardening additionally checks duplicate keys against native JSON's
+last-key semantics (never merging stale identities from an earlier duplicate),
+rejects extra root values, and runs the revised parser over the entire 512MiB
+fixture followed by an invalid trailing comma in a concatenated gzip member.
+The large-tail check must fail with json-invalid after selectedBytes becomes
+positive, proving that collected identities are not returned before full-input
+validation finishes. It uses the same production limits.
+The final large invalid-tail run (64KiB legal trailing whitespace before the bad
+comma) consumed 537,245,405 plaintext bytes and buffered 361 selected bytes, then
+rejected with json-invalid in 28.680s; no snapshot/hash returned. Local complete
+regression: 829 Node tests and 103 cloud Python tests passed.

@@ -104,3 +104,31 @@ test('all resource limits reject the entire selection including already selected
   await assert.rejects(historyVaultStream(compressed,options),error=>{assert.equal(error.historyBackupDiagnostic.failure,failure);assert.equal(error.historyBackupDiagnostic.stage,'stream');return true});
  }
 });
+
+test('top-level token selection resumes across ignored containers and scalar history values',async()=>{
+ const raw='{"ignored":[{"historyDecoy":true}],"historyFirst":null,"middle":{"x":[1,{"historyDecoy":2}]},"historyText":"中文😀","skip":3,"historyNumber":-1.25e12,"historyFlags":[true,false],"historyEmpty":{},"last":false,"historyLast":{"a":[{},[],"\\ud800",{"b":"\\\\\\\""}]}}';
+ const original=JSON.parse(raw),expected=Object.fromEntries(Object.entries(original).filter(([key])=>key.startsWith('history')));
+ const selected=await historyVaultStream(gzipSync(raw));assert.deepEqual(selected,expected);
+ assert.equal(createHash('sha256').update(JSON.stringify(selected)).digest('hex'),createHash('sha256').update(JSON.stringify(expected)).digest('hex'));
+ for(const tail of [',"ignored":[1,]',',"ignored":{"unfinished":',',"ignored":"bad\\q"']){
+  await assert.rejects(historyVaultStream(gzipSync('{"historyIdentities":{"u":{"record_id":"rec1"}}'+tail+'}')),error=>error.historyBackupDiagnostic.failure==='json-invalid');
+ }
+});
+
+test('direct parser output selection agrees with native JSON selection for varied nested values',async()=>{
+ let seed=1234567;const next=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed};
+ const atoms=[null,true,false,0,-0.125,1e40,'\\"\n\t中文😀\ud800','x'.repeat(255)+'😀'];
+ function value(depth){const choice=next()%5;if(depth===0||choice<2)return atoms[next()%atoms.length];if(choice===2)return Array.from({length:next()%5},()=>value(depth-1));const object={};for(let i=0;i<next()%5;i++)object[['a','historyDecoy','key😀','slash\\quote"'][i]]=value(depth-1);return object}
+ for(let i=0;i<60;i++){
+  const original={ignored:value(4),historyFirst:value(4),middle:value(4),historySecond:value(4),tail:value(4)};
+  const expected=Object.fromEntries(Object.entries(original).filter(([key])=>key.startsWith('history')));
+  assert.deepEqual(await historyVaultStream(gzipSync(JSON.stringify(original))),expected);
+ }
+});
+
+test('history duplicate keys follow native JSON last-key semantics without merging earlier identities',async()=>{
+ const raw='{"historyIdentities":{"old":{"record_id":"old"}},"ignored":{"historyIdentities":{"decoy":true}},"historyIdentities":{"new":{"record_id":"new"}},"historySync":{"items":{"q":1,"q":2}},"ignored":null}';
+ const original=JSON.parse(raw),expected=Object.fromEntries(Object.entries(original).filter(([key])=>key.startsWith('history')));
+ assert.deepEqual(await historyVaultStream(gzipSync(raw)),expected);
+ for(const rawRoot of ['{}{}','{"historySync":{}}[]','{"historySync":{}}null'])await assert.rejects(historyVaultStream(gzipSync(rawRoot)),error=>error.historyBackupDiagnostic.failure==='json-invalid');
+});
