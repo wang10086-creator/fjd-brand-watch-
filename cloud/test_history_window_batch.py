@@ -8,10 +8,11 @@ def check(body,title='Product listing',url=URL,status=200):
 
 class StrictDocumentTests(unittest.TestCase):
     def test_page_down_is_exact_reviewed_host_only(self):
-        for url in ['https://item.rakuten.co.jp/shop/item/','https://ITEM.RAKUTEN.CO.JP/shop/item/',
-                    'https://www.reliablerobots.ca/product','https://highconstruction.am/product',
-                    'https://www.lidarsolutions.com.au/product']:
+        for url in ['https://item.rakuten.co.jp/shop/item/','https://ITEM.RAKUTEN.CO.JP/shop/item/']:
             self.assertEqual(page_downs_for(url),1)
+        self.assertEqual(page_downs_for('https://www.reliablerobots.ca/product'),3)
+        self.assertEqual(page_downs_for('https://highconstruction.am/product'),2)
+        self.assertEqual(page_downs_for('https://www.lidarsolutions.com.au/product'),3)
         self.assertEqual(page_downs_for('https://search.rakuten.co.jp/search/mall/fixture/'),3)
         for url in ['https://rakuten.co.jp/shop/item/','https://item.rakuten.co.jp.evil.example/item',
                     'https://search.rakuten.co.jp.evil.example/search/mall/fixture/','https://other.rakuten.co.jp/item','https://example.com/item',

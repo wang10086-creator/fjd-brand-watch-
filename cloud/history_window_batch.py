@@ -49,8 +49,8 @@ def validate_document(expected,documents,response,raw):
 
 def page_downs_for(url):
     return {'item.rakuten.co.jp':1,'search.rakuten.co.jp':3,
-            'www.reliablerobots.ca':1,'highconstruction.am':1,
-            'www.lidarsolutions.com.au':1}.get(urllib.parse.urlsplit(url).hostname,0)
+            'www.reliablerobots.ca':3,'highconstruction.am':2,
+            'www.lidarsolutions.com.au':3}.get(urllib.parse.urlsplit(url).hostname,0)
 
 def capture_checked(request):
     import browser_window

@@ -33,7 +33,7 @@ test('native format alone does not allow a redirect, failed response, login targ
 });
 test('reviewed exact hosts require the intended real scroll sequence',()=>{
  const bytes=png(),before={x:0,y:0,width:1360,height:900};
- const cases=[['https://item.rakuten.co.jp/shop/item/',1],['https://search.rakuten.co.jp/search/mall/fixture/',3],['https://www.reliablerobots.ca/product',1],['https://highconstruction.am/product',1],['https://www.lidarsolutions.com.au/product',1]];
+ const cases=[['https://item.rakuten.co.jp/shop/item/',1],['https://search.rakuten.co.jp/search/mall/fixture/',3],['https://www.reliablerobots.ca/product',3],['https://highconstruction.am/product',2],['https://www.lidarsolutions.com.au/product',3]];
  for(const [u,count] of cases){
   const steps=Array.from({length:count},(_,i)=>({...before,y:(i+1)*750}));
   const pageScroll={action:'PageDown',count,before,after:steps.at(-1),...(count>1?{steps}:{})};

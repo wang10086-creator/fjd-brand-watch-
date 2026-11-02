@@ -1,6 +1,13 @@
 """Checked main-document navigation; redirects never escape the routed transport."""
 from datetime import datetime, timezone
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
+
+def browser_navigation_url(url):
+    """Chromium serializes an empty HTTP path as '/'; keep every other byte."""
+    parsed=urlsplit(url)
+    if parsed.scheme in ('https','http') and parsed.netloc and not parsed.path:
+        return urlunsplit((parsed.scheme,parsed.netloc,'/',parsed.query,parsed.fragment))
+    return url
 
 def validate_page_downs(value=0):
     """A bounded opt-in page movement; bool is not an integer request."""

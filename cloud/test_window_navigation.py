@@ -1,6 +1,12 @@
 import unittest
 from window_navigation import main_document
 class NavigationTests(unittest.TestCase):
+ def test_browser_empty_path_serialization_does_not_change_other_identity(self):
+  from window_navigation import browser_navigation_url
+  self.assertEqual(browser_navigation_url('https://example.com'),'https://example.com/')
+  self.assertEqual(browser_navigation_url('https://example.com?product=123'),'https://example.com/?product=123')
+  for url in ['https://example.com/','https://example.com/a','https://example.com/a/','https://example.com/a?product=123&language=en']:
+   self.assertEqual(browser_navigation_url(url),url)
  def test_redirect_chain_keeps_initial_and_final_with_real_codes(self):
   calls=[]
   def fetch(url):

@@ -2435,3 +2435,14 @@ transport, robots/noarchive, target-identity, time or byte budget is relaxed.
 No public candidate file contains URLs, business state or review notes.
 Source collection is not an attachment write: every candidate still needs
 visual review, fresh native Feishu checks and attachment readback.
+
+After visual review, the two Rakuten search pages expose genuine product
+results; their images remain source-side broken. The other three hosts need
+further bounded real movement (ReliableRobots 3, HighConstruction 2, LiDAR
+Solutions 3), with the same maximum of three keys and unchanged access gates.
+The root-URL continuation also fixes a reproducible renderer mismatch: the
+archive canonical URL can be `https://host`, while Chromium requests
+`https://host/`. Only an empty HTTP(S) path is padded before exact routed
+navigation. Tracked response history and original URL remain intact; paths,
+query identity and redirects are not relaxed. A one-ID root list verifies
+this serialization correction through the genuine native window.

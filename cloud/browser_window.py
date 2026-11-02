@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime,timezone
 from PIL import ImageGrab
 from playwright.sync_api import sync_playwright
-from window_navigation import main_document, save_window_png, validate_page_downs, apply_page_down
+from window_navigation import main_document, save_window_png, validate_page_downs, apply_page_down, browser_navigation_url
 ROOT=Path(__file__).resolve().parent
 
 def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
@@ -33,7 +33,7 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
         rule=policies[origin]
         return rule if isinstance(rule,bool) else rule.can_fetch('FJD-Brand-Monitor',target)
     documents, main_response, main_bytes=main_document(url,fetch,allowed)
-    final_url=documents[-1]['url']
+    final_url=browser_navigation_url(documents[-1]['url'])
     output=Path(output);output.mkdir(parents=True,exist_ok=True,mode=0o700)
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=False,executable_path=os.environ.get('FJD_CHROME') or shutil.which('google-chrome') or shutil.which('chromium'),args=['--window-position=0,0','--window-size=1360,1000','--force-device-scale-factor=1','--disable-background-networking','--disable-quic','--force-webrtc-ip-handling-policy=disable_non_proxied_udp'])

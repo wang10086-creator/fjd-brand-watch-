@@ -51,7 +51,7 @@ export function validateCapture(manifest,bytes,url){
  if(width!==manifest.width||height!==manifest.height||width<1000||height<700||manifest.bytes!==bytes.length||manifest.sha256!==hash(bytes)||!Number.isFinite(Date.parse(manifest.at)))throw Error('capture-integrity-unconfirmed');
  const main=(manifest.documents||[]).filter(d=>d.mainDocument===true).at(-1);
  if(!main||!same(main.url)||!Number.isInteger(main.status)||main.status<200||main.status>=300)throw Error('target-response-unconfirmed');
- const scroll=manifest.pageScroll,scrollCount=new Map([['item.rakuten.co.jp',1],['search.rakuten.co.jp',3],['www.reliablerobots.ca',1],['highconstruction.am',1],['www.lidarsolutions.com.au',1]]).get(new URL(url).hostname)||0;
+ const scroll=manifest.pageScroll,scrollCount=new Map([['item.rakuten.co.jp',1],['search.rakuten.co.jp',3],['www.reliablerobots.ca',3],['highconstruction.am',2],['www.lidarsolutions.com.au',3]]).get(new URL(url).hostname)||0;
  if(scrollCount){
   const point=v=>v&&['x','y','width','height'].every(k=>Number.isFinite(v[k]))&&v.width>0&&v.height>0;
   if(!scroll||scroll.action!=='PageDown'||scroll.count!==scrollCount||!point(scroll.before)||!point(scroll.after)||scroll.after.y<=scroll.before.y||scroll.after.x!==scroll.before.x)throw Error('page-scroll-unconfirmed');
