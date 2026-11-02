@@ -30,3 +30,30 @@ test('UI verifies scope, counts and hash before download and does not fetch at s
  let clicked=0,calls=0;const message={},button={};await downloadHistoryStateExport({request:async path=>{calls++;assert.equal(path,'/maintenance/history-sync/state-export');return r},message,button,document:{body:{appendChild(){}},createElement(){return {click(){clicked++},remove(){}}}},URL:{createObjectURL(){return 'blob:test'},revokeObjectURL(){}}});assert.equal(calls,1);assert.equal(clicked,mode==='ok'?1:0);assert.equal(button.disabled,false);
  }
 });
+test('task candidates never hide disagreements and metadata/permitted references survive before receipt',()=>{
+ const s=fixture();s.historyV3.tasks.m={state:'permitted',history_id:'20261031-020',record_id:'recA',existingRecord:'recB',payload:{kind:'metadata',history_id:'20261031-021',target:{history_id:'20261031-022',record_id:'recC'},original:{history_id:'20261031-023',record_id:'recOriginal'}},plan:{record_id:'recD',original_record_id:'recBefore'},nonce:'not-exported'};
+ const r=historyStateExport(s),t=r.data.v3Tasks.find(t=>t.event_id==='m');assert.deepEqual(t.history_ids,{task:'20261031-020',payload:'20261031-021',target:'20261031-022',original:'20261031-023',plan:null});assert.deepEqual(t.record_ids,{task:'recA',existing:'recB',payload:null,target:'recC',original:'recOriginal',plan:'recD',plan_original:'recBefore'});
+ assert.ok(r.conflicts.issues.some(i=>i.type==='task-history-candidates-disagree'));assert.ok(r.conflicts.issues.some(i=>i.type==='task-record-candidates-disagree'));
+ delete s.historyV3.tasks.m.record_id;delete s.historyV3.tasks.m.existingRecord;const beforeReceipt=historyStateExport(s).data.v3Tasks.find(t=>t.event_id==='m');assert.equal(beforeReceipt.record_ids.task,null);assert.equal(beforeReceipt.record_ids.target,'recC');assert.equal(beforeReceipt.record_ids.plan,'recD');
+});
+test('cross task and identity claims detect reused IDs and alias collisions',()=>{
+ const s=fixture();s.historyV3.tasks.future.history_id='20261031-001';s.historyV3.tasks.future.record_id='recDifferent';
+ s.historyTasks.other={state:'unknown',payload:{history_id:'20261031-001',source_id:'lead-other'},record_id:'recOther'};
+ const r=historyStateExport(s);assert.ok(r.conflicts.issues.some(i=>i.type==='history-record-conflict'));assert.ok(r.conflicts.issues.some(i=>i.type==='history-source-conflict'));
+ const s2=fixture();s2.historyV3.tasks.future.record_id='reczz28UfRquY9nn';assert.ok(historyStateExport(s2).conflicts.issues.some(i=>i.type==='record-history-conflict'));
+});
+test('legitimate retained aliases and repeated metadata tasks for one record are not conflicts',()=>{
+ const s=fixture();delete s.historyV3.tasks.future;delete s.historyTasks.old;
+ for(let i=0;i<3;i++)s.historyV3.tasks['m'+i]={state:'verified',history_id:i?'20261031-006':'20261031-001',record_id:'reczz28UfRquY9nn',payload:{kind:'metadata',source_id:'lead-a',target:{history_id:'20261031-006',record_id:'reczz28UfRquY9nn'}},plan:{record_id:'reczz28UfRquY9nn'}};
+ assert.deepEqual(historyStateExport(s).conflicts.issues,[]);
+});
+test('failed-state reason is safely classified and never authorizes replay',()=>{
+ const s=fixture();s.historyTasks={};s.historyV3.tasks={};
+ for(const [n,error]of ['operator-retired-before-permit','native-run-stopped-without-write','private business detail',undefined].entries())s.historyV3.tasks[n]={state:'failed',error,payload:{},retirement:n===0?{actor:'PRIVATE-ACTOR'}:undefined};
+ const r=historyStateExport(s);assert.deepEqual(r.data.v3Tasks.map(t=>t.failure.error_class),['operator-retired-before-permit','native-run-stopped-without-write','unknown','unknown']);assert.ok(r.data.v3Tasks.every(t=>t.failure.safe_to_replay===false));assert.equal(r.replayAllowed,false);assert.equal(r.cutoverReady,false);assert.doesNotMatch(JSON.stringify(r),/private business|PRIVATE-ACTOR/);
+});
+test('all identities and both task indexes remain complete beyond 1500 entries',()=>{
+ const s={historyIdentities:{},historyTasks:{},historyV3:{tasks:{}},historyReservedIds:{}};
+ for(let i=0;i<1501;i++){const id='20261101-'+String(i+1).padStart(3,'0'),record='rec'+i,source='lead-'+i,url='https://example.test/'+i;s.historyIdentities[url]={history_id:id,record_id:record,source_id:source};s.historyTasks[i]={state:'verified',record_id:record,payload:{history_id:id,source_id:source,url}};s.historyV3.tasks[i]={state:'verified',history_id:id,record_id:record,payload:{kind:'metadata',source_id:source,url,target:{record_id:record,history_id:id}}};s.historyReservedIds[id]=true;}
+ const r=historyStateExport(s);assert.deepEqual(r.counts,{identities:1501,reservations:1501,legacyTasks:1501,v3Tasks:1501});assert.equal(r.data.legacyTasks.at(-1).event_id,'1500');assert.equal(r.data.v3Tasks.at(-1).history_ids.task,'20261101-1501');assert.deepEqual(r.conflicts.issues,[]);
+});
