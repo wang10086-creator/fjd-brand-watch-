@@ -4,8 +4,6 @@ on:
     branches: [task/history-render-recovery-20261102]
     paths:
       - '.github/workflows/fjd-history-recovery-capture.yml'
-      - 'cloud/history_window_batch.py'
-      - 'cloud/history-window-batch.mjs'
       - 'tools/history-window-recovery-parser-slash-20261102.json'
 permissions:
   contents: read

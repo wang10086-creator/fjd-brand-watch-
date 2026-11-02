@@ -56,9 +56,9 @@ def needs_product_anchor(url):
     parsed=urllib.parse.urlsplit(url)
     return parsed.hostname=='www.lidarsolutions.com.au' and parsed.path.removesuffix('/')=='/product/trion-p1-low-cost-tof-lidar-scanner-outdoor'
 
-def anchor_product_heading(page,scroll):
+def anchor_product_heading(page,scroll,pattern=r'\bTrion\s*P1\b'):
     """One visible native heading scroll, without rewriting page content."""
-    heading=page.get_by_role('heading',name=re.compile(r'\bTrion\s*P1\b',re.I),level=1)
+    heading=page.get_by_role('heading',name=re.compile(pattern,re.I),level=1)
     if heading.count()!=1 or not heading.is_visible():raise ValueError('target-content-unconfirmed')
     text=heading.inner_text().strip()
     if len(text)>300:raise ValueError('target-content-unconfirmed')
@@ -79,15 +79,21 @@ def capture_checked(request):
         validate_document(request['url'],documents,response,raw)
         return documents,response,raw
     browser_window.main_document=checked
+    framing={}
     def framed_scroll(page,count):
         scroll=original_scroll(page,count)
         if needs_product_anchor(request['url']):
             scroll=anchor_product_heading(page,scroll)
+        parsed=urllib.parse.urlsplit(request['url'])
+        if parsed.hostname=='baby-shop.prom.ua' and parsed.path=='/ua/p3118562260-robot-konstruktor-clementoni.html':
+            before=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
+            framing.update(anchor_product_heading(page,{'after':before},r'\bClementoni\b')['anchor'])
         return scroll
     browser_window.apply_page_down=framed_scroll
     try:
         result=browser_window.capture(request['url'],request['output'],pageDowns=page_downs_for(request['url']))
         result['strictTargetGate']='public-document-v1'
+        if framing:result['sourceHeading']=framing
         return result
     finally:
         browser_window.main_document=original

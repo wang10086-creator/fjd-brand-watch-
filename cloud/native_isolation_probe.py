@@ -1,16 +1,16 @@
 """Offline JS/pipe/X11 probe; no source page or Feishu record is contacted."""
 import json,os,tempfile
 from pathlib import Path
-from playwright.sync_api import sync_playwright
 
 def confirm_namespace(attestation):
     value=json.loads(Path(attestation).read_text());pid=value['pid']
     actual=Path(f'/proc/{pid}/ns/net').stat().st_ino;host=Path('/proc/self/ns/net').stat().st_ino
     status=Path(f'/proc/{pid}/status').read_text();uid=int(next(s for s in status.splitlines() if s.startswith('Uid:')).split()[2])
-    if actual==host or actual!=value['netns'] or uid!=os.getuid() or uid==0 or len(value['directNetworkErrors'])!=2:raise ValueError('isolation-proof-failed')
+    if actual==host or actual!=value['netns'] or uid!=os.getuid() or uid==0 or value['uid']!=uid or value['directNetworkErrors']!=[101,101]:raise ValueError('isolation-proof-failed')
     return {'networkNamespaceDifferent':True,'unprivilegedBrowser':True,'directTcpAndUdpUnavailable':True,'devtoolsTransport':'pipe'}
 
 def main():
+    from playwright.sync_api import sync_playwright
     output=Path('history-isolation-output');output.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory() as temporary,sync_playwright() as p:
         attest=Path(temporary)/'isolation.json';env=dict(os.environ,FJD_NETNS_CHROME=os.environ['FJD_CHROME'],FJD_NETNS_ATTESTATION=str(attest))

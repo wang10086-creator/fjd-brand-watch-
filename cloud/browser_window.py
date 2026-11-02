@@ -10,14 +10,17 @@ from playwright.sync_api import sync_playwright
 from window_navigation import main_document, save_window_png, validate_page_downs, apply_page_down, browser_navigation_url
 ROOT=Path(__file__).resolve().parent
 
-def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
+def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0,*,recovery=None):
     validate_page_downs(pageDowns)
+    if recovery is not None:recovery.check_url(url)
     started=time.monotonic(); requests=0; size=0; policies={}; documents=[]
     def fetch(target):
         nonlocal requests,size
         if requests>=32 or size>=8000000 or time.monotonic()-started>35:raise ValueError('capture-budget')
         requests+=1
-        p=subprocess.run(['node',str(ROOT/'window-fetch.mjs')],input=json.dumps({'url':target}),text=True,capture_output=True,timeout=6)
+        payload={'url':target}
+        if recovery is not None:payload['preserveBrowserHeaders']=True
+        p=subprocess.run(['node',str(ROOT/'window-fetch.mjs')],input=json.dumps(payload),text=True,capture_output=True,timeout=6)
         r=json.loads(p.stdout)
         if r.get('error'):raise ValueError(r['error'])
         data=base64.b64decode(r.get('base64',''));size+=len(data)
@@ -36,12 +39,16 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
     final_url=browser_navigation_url(documents[-1]['url'])
     output=Path(output);output.mkdir(parents=True,exist_ok=True,mode=0o700)
     with sync_playwright() as p:
-        browser=p.chromium.launch(headless=False,executable_path=os.environ.get('FJD_CHROME') or shutil.which('google-chrome') or shutil.which('chromium'),args=['--window-position=0,0','--window-size=1360,1000','--force-device-scale-factor=1','--disable-background-networking','--disable-quic','--force-webrtc-ip-handling-policy=disable_non_proxied_udp'])
-        context=browser.new_context(no_viewport=True,service_workers='block',accept_downloads=False,java_script_enabled=False)
+        launch={'headless':False,'executable_path':os.environ.get('FJD_CHROME') or shutil.which('google-chrome') or shutil.which('chromium'),'args':['--window-position=0,0','--window-size=1360,1000','--force-device-scale-factor=1','--disable-background-networking','--disable-quic','--force-webrtc-ip-handling-policy=disable_non_proxied_udp']}
+        if recovery is not None:launch=recovery.launch_options(launch,output)
+        browser=p.chromium.launch(**launch)
+        isolation=recovery.confirm_isolation() if recovery is not None else None
+        context=browser.new_context(no_viewport=True,service_workers='block',accept_downloads=False,java_script_enabled=recovery is not None)
         def route_handler(route):
             req=route.request
             try:
                 if req.method!='GET' or req.resource_type in ('media','websocket','eventsource') or not allowed(req.url):raise ValueError('blocked')
+                if recovery is not None and req.is_navigation_request() and (req.frame.page!=page or req.frame!=page.main_frame):raise ValueError('untracked-navigation')
                 if req.is_navigation_request() and req.frame==page.main_frame:
                     if req.url!=final_url:raise ValueError('untracked-navigation')
                     r,data=main_response,main_bytes
@@ -53,10 +60,12 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
         context.route('**/*',route_handler)
         if hasattr(context,'route_web_socket'):context.route_web_socket('**/*',lambda ws:ws.close())
         page=context.new_page(); navigation_error=False
+        if recovery is not None:context.on('page',lambda extra:extra.close() if extra!=page else None)
         try:page.goto(final_url,wait_until='domcontentloaded',timeout=38000)
         except Exception:navigation_error=True
-        page.wait_for_timeout(700)
+        page.wait_for_timeout(1500 if recovery is not None else 700)
         page_scroll=apply_page_down(page,pageDowns)
+        rendered=recovery.validate_rendered(page) if recovery is not None else None
         # Native omnibox selection/copy. The clipboard is read from this isolated X display.
         tree=subprocess.run(['xwininfo','-root','-tree'],capture_output=True,text=True,check=True).stdout
         windows=[]
@@ -88,6 +97,7 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
         if urlCheckId:manifest['urlCheckId']=urlCheckId
         if urlCheckedAt:manifest['urlCheckedAt']=urlCheckedAt
         if page_scroll:manifest['pageScroll']=page_scroll
+        if recovery is not None:manifest.update(scripts='enabled-isolated',strictTargetGate='isolated-rendered-public-v1',isolation=isolation,renderedGate=rendered,recoveryScope=recovery.scope)
         (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False));browser.close()
         return manifest
 if __name__=='__main__':

@@ -29,7 +29,7 @@ async function main(){
  for(const row of candidates){const result={...row,state:'failed'};results.push(result);let temporary;
   try{const source=resolveArchiveSource(archive.rows,row.sourceId),diagnostic=await collectDiagnostic(source.url),redirect=verifiedTarget(row,source.url,diagnostic,rules);
    temporary=await mkdtemp(join(tmpdir(),'fjd-verified-window-'));const native=await collectWindow(redirect.target,{output:temporary}),bytes=await readFile(join(temporary,'window.png')),proof=validateCapture(native,bytes,redirect.target);
-   const file=row.historyId+'__'+row.recordId+'.png';await copyFile(join(temporary,'window.png'),join(output,file));Object.assign(result,{state:'machine-candidate',file,...proof,recordUrl:source.url,verifiedRedirect:redirect,redirectDocuments:diagnostic.documents,metaRefresh:diagnostic.final.metaRefresh??null});
+   const file=row.historyId+'__'+row.recordId+'.png';await copyFile(join(temporary,'window.png'),join(output,file));Object.assign(result,{state:'machine-candidate',file,...proof,...(native.sourceHeading?{sourceHeading:native.sourceHeading}:{}),recordUrl:source.url,verifiedRedirect:redirect,redirectDocuments:diagnostic.documents,metaRefresh:diagnostic.final.metaRefresh??null});
   }catch(error){result.reason=error.message==='redirect-scope-unconfirmed'?error.message:safeFailure(error);}
   finally{if(temporary)await rm(temporary,{recursive:true,force:true});}
   await writeFile(join(output,'results.json'),JSON.stringify({purpose:'verified-mapping-machine-candidates-for-manual-ui',archiveCommit:archive.commit,results},null,2),{mode:0o600});console.log(JSON.stringify({historyId:row.historyId,state:result.state,reason:result.reason}));

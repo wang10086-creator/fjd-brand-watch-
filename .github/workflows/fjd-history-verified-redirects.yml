@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/fjd-history-verified-redirects.yml'
       - 'cloud/history-verified-redirects.mjs'
+      - 'tools/history-window-recovery-prom-framing-20261102.json'
       - 'tools/history-window-verified-redirects-20261102.json'
       - 'tools/history-window-recovery-verified-20261102.json'
 permissions:
@@ -36,7 +37,7 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-          - {cohort: verified-redirects, start: 0, limit: 3, candidates: tools/history-window-recovery-verified-20261102.json}
+          - {cohort: prom-framing, start: 0, limit: 1, candidates: tools/history-window-recovery-prom-framing-20261102.json}
     if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102' && !contains(github.event.head_commit.message, '[checks-only]')
     runs-on: ubuntu-latest
     timeout-minutes: 50
