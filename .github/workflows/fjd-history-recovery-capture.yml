@@ -4,7 +4,7 @@ on:
     branches: [task/history-render-recovery-20261102]
     paths:
       - '.github/workflows/fjd-history-recovery-capture.yml'
-      - 'tools/history-window-recovery-parser-slash-20261102.json'
+      - 'tools/history-window-recovery-timeout-20261103.json'
 permissions:
   contents: read
 concurrency:
@@ -34,7 +34,7 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-          - {cohort: parser-slash, start: 0, limit: 4, candidates: tools/history-window-recovery-parser-slash-20261102.json}
+          - {cohort: timeout-recheck, start: 0, limit: 2, candidates: tools/history-window-recovery-timeout-20261103.json}
     if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102' && !contains(github.event.head_commit.message, '[checks-only]')
     runs-on: ubuntu-latest
     timeout-minutes: 50
