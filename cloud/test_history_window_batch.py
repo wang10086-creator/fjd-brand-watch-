@@ -1,5 +1,5 @@
 import unittest
-from history_window_batch import validate_document,page_downs_for
+from history_window_batch import validate_document,page_downs_for,anchor_product_heading
 
 URL='https://example.com/item/1'
 def check(body,title='Product listing',url=URL,status=200):
@@ -41,3 +41,22 @@ class StrictDocumentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'target-content-unconfirmed'):check('<script>'+('pretend product '*30)+'</script>')
 
 if __name__=='__main__':unittest.main()
+
+class HeadingAnchorTests(unittest.TestCase):
+    def test_unique_visible_heading_is_scrolled_and_offscreen_body_is_rejected(self):
+        class Heading:
+            def __init__(self,n=1,visible=True,y=100):self.n=n;self.visible=visible;self.y=y;self.scrolled=False
+            def count(self):return self.n
+            def is_visible(self):return self.visible
+            def inner_text(self):return 'Trion P1 low cost scanner'
+            def scroll_into_view_if_needed(self,timeout):self.scrolled=True
+            def bounding_box(self):return {'x':300,'y':self.y,'width':700,'height':60}
+        class Page:
+            def __init__(self,h):self.h=h
+            def get_by_role(self,*args,**kwargs):return self.h
+            def wait_for_timeout(self,ms):pass
+            def evaluate(self,s):return {'x':0,'y':4500,'width':1360,'height':900}
+        before={'x':0,'y':2250,'width':1360,'height':900}
+        h=Heading();result=anchor_product_heading(Page(h),{'after':before});self.assertTrue(h.scrolled);self.assertEqual(result['anchor']['before'],before)
+        for h in [Heading(n=0),Heading(n=2),Heading(visible=False),Heading(y=950)]:
+            with self.assertRaisesRegex(ValueError,'target-content-unconfirmed'):anchor_product_heading(Page(h),{'after':before})

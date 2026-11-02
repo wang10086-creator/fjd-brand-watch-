@@ -37,11 +37,17 @@ test('reviewed exact hosts require the intended real scroll sequence',()=>{
  for(const [u,count] of cases){
   const steps=Array.from({length:count},(_,i)=>({...before,y:(i+1)*750}));
   const pageScroll={action:'PageDown',count,before,after:steps.at(-1),...(count>1?{steps}:{})};
+  if(u.includes('lidarsolutions'))pageScroll.anchor={action:'heading-into-view',level:1,text:'Trion P1 Low Cost LiDAR Scanner',before:steps.at(-1),after:{...before,y:4500},box:{x:300,y:100,width:700,height:60}};
   const p=proof(u,bytes);
   assert.throws(()=>validateCapture(p,bytes,u),/scroll/);
   assert.deepEqual(validateCapture({...p,pageScroll},bytes,u).pageScroll,pageScroll);
   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:count+1}},bytes,u),/scroll/);
   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:before}},bytes,u),/scroll/);
+  if(u.includes('lidarsolutions')){
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,anchor:undefined}},bytes,u),/scroll/);
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,anchor:{...pageScroll.anchor,text:'Unrelated product'}}},bytes,u),/scroll/);
+   assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,anchor:{...pageScroll.anchor,box:{x:300,y:1000,width:700,height:60}}}},bytes,u),/scroll/);
+  }
   if(count>1){
    assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,steps:steps.slice(1)}},bytes,u),/scroll/);
    assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,steps:[steps[0],before,steps[2]]}},bytes,u),/scroll/);

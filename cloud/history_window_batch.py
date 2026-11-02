@@ -52,19 +52,42 @@ def page_downs_for(url):
             'www.reliablerobots.ca':3,'highconstruction.am':2,
             'www.lidarsolutions.com.au':3}.get(urllib.parse.urlsplit(url).hostname,0)
 
+def anchor_product_heading(page,scroll):
+    """One visible native heading scroll, without rewriting page content."""
+    heading=page.get_by_role('heading',name=re.compile(r'\bTrion\s*P1\b',re.I),level=1)
+    if heading.count()!=1 or not heading.is_visible():raise ValueError('target-content-unconfirmed')
+    text=heading.inner_text().strip()
+    if len(text)>300:raise ValueError('target-content-unconfirmed')
+    heading.scroll_into_view_if_needed(timeout=2000)
+    page.wait_for_timeout(300)
+    after=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
+    box=heading.bounding_box()
+    if not box or box['height']<=0 or box['y']<0 or box['y']+box['height']>after['height']+1:raise ValueError('target-content-unconfirmed')
+    scroll['anchor']={'action':'heading-into-view','level':1,'text':text,'before':scroll['after'],'after':after,'box':box}
+    return scroll
+
 def capture_checked(request):
     import browser_window
     original=browser_window.main_document
+    original_scroll=browser_window.apply_page_down
     def checked(url,fetch,allowed):
         documents,response,raw=original(url,fetch,allowed)
         validate_document(request['url'],documents,response,raw)
         return documents,response,raw
     browser_window.main_document=checked
+    def framed_scroll(page,count):
+        scroll=original_scroll(page,count)
+        if urllib.parse.urlsplit(request['url']).hostname=='www.lidarsolutions.com.au':
+            scroll=anchor_product_heading(page,scroll)
+        return scroll
+    browser_window.apply_page_down=framed_scroll
     try:
         result=browser_window.capture(request['url'],request['output'],pageDowns=page_downs_for(request['url']))
         result['strictTargetGate']='public-document-v1'
         return result
-    finally:browser_window.main_document=original
+    finally:
+        browser_window.main_document=original
+        browser_window.apply_page_down=original_scroll
 
 if __name__=='__main__':
     try:print(json.dumps(capture_checked(json.load(sys.stdin)),ensure_ascii=False))

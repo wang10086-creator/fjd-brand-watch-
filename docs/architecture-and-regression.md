@@ -2446,3 +2446,10 @@ archive canonical URL can be `https://host`, while Chromium requests
 navigation. Tracked response history and original URL remain intact; paths,
 query identity and redirects are not relaxed. A one-ID root list verifies
 this serialization correction through the genuine native window.
+
+The LiDAR Solutions page still exposes navigation after three keys. Its
+final bounded framing attempt scrolls one unique visible level-one heading
+matching Trion P1 into view. The manifest records its actual text, before/after
+positions and visible bounding box, which the Node verifier checks for that
+exact host only. Missing, ambiguous or off-screen headings are rejected. No
+HTML, CSS, pixels or address bar is edited; source JavaScript remains disabled.

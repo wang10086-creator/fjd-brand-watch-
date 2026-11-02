@@ -61,6 +61,11 @@ export function validateCapture(manifest,bytes,url){
    for(const step of scroll.steps){if(!point(step)||step.y<previous.y||step.x!==previous.x||step.width!==previous.width||step.height!==previous.height)throw Error('page-scroll-unconfirmed');previous=step;}
    if(['x','y','width','height'].some(k=>previous[k]!==scroll.after[k]))throw Error('page-scroll-unconfirmed');
   }else if(scroll.steps)throw Error('page-scroll-unconfirmed');
+  const anchor=scroll.anchor,needsAnchor=new URL(url).hostname==='www.lidarsolutions.com.au';
+  if(needsAnchor){
+   const box=anchor?.box;
+   if(!anchor||anchor.action!=='heading-into-view'||anchor.level!==1||typeof anchor.text!=='string'||anchor.text.length>300||!/\btrion\s*p1\b/i.test(anchor.text)||!point(anchor.before)||!point(anchor.after)||['x','y','width','height'].some(k=>anchor.before[k]!==scroll.after[k])||anchor.after.width!==scroll.after.width||anchor.after.height!==scroll.after.height||!box||!['x','y','width','height'].every(k=>Number.isFinite(box[k]))||box.height<=0||box.y<0||box.y+box.height>anchor.after.height+1)throw Error('page-scroll-unconfirmed');
+  }else if(anchor)throw Error('page-scroll-unconfirmed');
  }else if(scroll)throw Error('page-scroll-unconfirmed');
  return {capturedAt:manifest.at,originalUrl:manifest.originalUrl,finalUrl:manifest.addressBarUrl,sha256:manifest.sha256,bytes:bytes.length,width,height,method:manifest.method,addressReadMethod:manifest.addressReadMethod,browserVersion:manifest.browserVersion,scripts:manifest.scripts,strictTargetGate:manifest.strictTargetGate,httpStatus:main.status,reviewRequired:true,...(scroll?{pageScroll:structuredClone(scroll)}:{})};
 }
