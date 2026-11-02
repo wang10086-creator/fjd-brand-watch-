@@ -4,6 +4,7 @@ import {historyV3} from './history-v3.mjs';
 import {historyV3Dispatch} from './history-v3-dispatch.mjs';
 import {historyNativeProbe} from './history-native-probe.mjs';
 import {historyVaultStream} from './history-vault-stream.mjs';
+import {historyStateExport} from './history-state-export.mjs';
 import {historyBackup} from './history-backup.mjs';
 import {historyTasks} from './history-tasks.mjs';
 import {digest as historyDigest,actualUrl} from './history-protocol.mjs';
@@ -334,6 +335,11 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
    if(path==='/maintenance/history-native-probe'){
     if(user.role!=='admin')throw issue(403,'仅管理员可读取原生结构验收');
     if(req.method!=='GET')throw issue(405,'仅支持只读验收报告');respond(200,nativeProbe.report());return;
+   }
+   if(path==='/maintenance/history-sync/state-export'){
+    if(user.role!=='admin')throw issue(403,'仅管理员可导出编号交接快照');
+    if(req.method!=='GET')throw issue(405,'仅支持只读导出');
+    respond(200,historyStateExport(store.read(),{now}));return;
    }
    if(path==='/maintenance/history-sync/backup'){
     if(user.role!=='admin')throw issue(403,'仅管理员可导出历史维护审计快照');

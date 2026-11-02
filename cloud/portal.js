@@ -1,4 +1,5 @@
 import {bindHistoryV3Maintenance} from './history-v3-maintenance-ui.mjs';
+import {downloadHistoryStateExport} from './history-state-export-ui.mjs';
 import {downloadHistoryBackup} from './history-maintenance-ui.mjs';
 import {initializeSharedCloud,sharedCloudStatus,sharedCloudEnabled,sharedSignedIn,sharedIsPublic,sharedPublicAccess,sharedLogin,sharedSetup,sharedLogout,sharedRequest,canReadCloud,canWriteCloud,restoreCloudCredentials,rememberCloudCredentials,clearCloudCredentials,connectionStorageStatus,verifyBrowserSync,cloudCredentials,requireCloudCredentials,setCloudCredentials,publicCloudFile,readDashboard,makePayload,dispatch,migrationState,refreshCloud,syncArchive,reviewSyncStatus,prepareReviewTransfer,uploadPointer,refreshCloudSnapshot} from './client.js?v=20261023-url-r1';
 import {loadState,persist,flush} from '../storage.js?v=20261020-review';
@@ -66,6 +67,7 @@ if(typeof window!=='undefined'){
  $('#history-native-send').onclick=()=>perform(async()=>{const source_id=await previewSourceId($('#history-native-target').value);await send('history-sync',{source_id,mode:'native-probe'});$('#history-native-result').textContent='已提交一次只读结构验收命令，请读取报告；尚未确认记录传递。'});
  $('#history-native-report').onclick=()=>perform(async()=>{const result=await sharedRequest('/maintenance/history-native-probe');$('#history-native-result').textContent=JSON.stringify(result,null,2)});
 
+ $('#history-state-export-download').onclick=()=>downloadHistoryStateExport({request:sharedRequest,button:$('#history-state-export-download'),message:$('#history-state-export-status')});
  $('#history-backup-download').onclick=()=>downloadHistoryBackup({request:sharedRequest,button:$('#history-backup-download'),message:$('#history-backup-status')});
 
  $('#history-sync-form').onsubmit=async e=>{e.preventDefault();try{const form=new FormData(e.target),file=form.get('baseline'),data={enabled:form.has('enabled'),workflow_id:'wkfQwGPTGxlwgiUq',table_id:'tbl76uhMEgt3fmQK'};if(file?.size){if(file.size>900000)throw Error('基线文件过大，请先核对');const baseline=JSON.parse(await file.text());if(!Array.isArray(baseline))throw Error('基线必须为完整记录数组');data.baseline=baseline;data.expectedCount=baseline.length;}const result=await sharedRequest('/maintenance/history-sync',{method:'POST',data});historyMessage.textContent=result.enabled?'接线已启用；真实入表与回读仍需验收':'接线未启用；编号与历史记录保留'}catch(error){historyMessage.textContent=error.message}};
