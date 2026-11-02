@@ -57,3 +57,7 @@ test('all identities and both task indexes remain complete beyond 1500 entries',
  for(let i=0;i<1501;i++){const id='20261101-'+String(i+1).padStart(3,'0'),record='rec'+i,source='lead-'+i,url='https://example.test/'+i;s.historyIdentities[url]={history_id:id,record_id:record,source_id:source};s.historyTasks[i]={state:'verified',record_id:record,payload:{history_id:id,source_id:source,url}};s.historyV3.tasks[i]={state:'verified',history_id:id,record_id:record,payload:{kind:'metadata',source_id:source,url,target:{record_id:record,history_id:id}}};s.historyReservedIds[id]=true;}
  const r=historyStateExport(s);assert.deepEqual(r.counts,{identities:1501,reservations:1501,legacyTasks:1501,v3Tasks:1501});assert.equal(r.data.legacyTasks.at(-1).event_id,'1500');assert.equal(r.data.v3Tasks.at(-1).history_ids.task,'20261101-1501');assert.deepEqual(r.conflicts.issues,[]);
 });
+
+test('pre-receipt initial allocation conflicts with known source identity even without record_id',()=>{
+ const s=fixture();s.historyV3.tasks.future.payload.source_id='lead-a';const r=historyStateExport(s);assert.equal(r.data.v3Tasks[0].record_ids.task,null);assert.ok(r.conflicts.issues.some(i=>i.type==='task-identity-reference-conflict'));
+});

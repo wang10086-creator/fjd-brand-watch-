@@ -36,6 +36,9 @@ export function historyStateExport(state,{now=Date.now}={}){
   const allocationRecords=unique([r.task,r.existing,r.payload,r.plan,...(t.kind==='metadata'?[r.target]:[])]);
   if(!aliasEquivalent(allocationIds,allocationRecords.length===1?allocationRecords[0]:null))issues.push({type:'task-history-candidates-disagree',origin});
   if(allocationRecords.length>1)issues.push({type:'task-record-candidates-disagree',origin});
+  if(group==='legacy'||['initial','metadata'].includes(t.kind))for(const i of identities.filter(i=>t.source_id&&i.source_id===t.source_id||t.url&&i.url===t.url)){
+   if(allocationIds.some(id=>![i.history_id,...i.history_id_aliases].includes(id))||i.record_id&&allocationRecords.some(id=>id!==i.record_id))issues.push({type:'task-identity-reference-conflict',origin});
+  }
   for(const id of allocationIds)for(const record of allocationRecords.length?allocationRecords:[null])claim(origin,id,record,t.source_id);
   for(const role of ['target','original','plan'])if(h[role]||r[role])claim(origin+':'+role,h[role],r[role],t.source_id);
   if(r.plan_original)claim(origin+':plan_original',h.original,r.plan_original,t.source_id);
