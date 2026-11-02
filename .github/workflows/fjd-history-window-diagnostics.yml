@@ -1,0 +1,59 @@
+name: 历史未补线索只读诊断
+on:
+  push:
+    branches: [task/history-render-recovery-20261102]
+    paths:
+      - '.github/workflows/fjd-history-window-diagnostics.yml'
+      - 'cloud/history-window-diagnostics.mjs'
+      - 'cloud/history_window_diagnostics.py'
+      - 'tools/history-window-recovery-diagnostics-20261102.json'
+permissions:
+  contents: read
+concurrency:
+  group: history-native-window-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 准备原回归依赖
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 playwright==1.55.0 lxml==6.0.2 tinycss2==1.4.0
+      - name: 全套Node兼容性回归
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: 准备原HTML单页工具
+        run: npm ci --prefix cloud/mirror-tool --ignore-scripts --no-audit --no-fund && node cloud/mirror-tool/prepare.mjs
+      - name: 全套云端Python回归
+        run: python3 -m unittest discover -s cloud -p 'test_*.py'
+  diagnose:
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 验证只读诊断
+        run: |
+          node --test scripts/history-window-diagnostics.test.mjs
+          python3 -m unittest discover -s cloud -p test_history_window_diagnostics.py
+      - name: 检查未补原因（不写飞书）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FJD_SCREENSHOT_CANDIDATES: tools/history-window-recovery-diagnostics-20261102.json
+          FJD_SCREENSHOT_OUTPUT: history-diagnostic-output
+        run: node cloud/history-window-diagnostics.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: history-diagnostics-${{ github.run_id }}
+          path: history-diagnostic-output/
+          retention-days: 1
+          if-no-files-found: error

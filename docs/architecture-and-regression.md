@@ -2459,3 +2459,14 @@ to other models on the same host; same-host P2 fixtures verify that boundary.
 The P1 attempt remained content-unconfirmed and was not uploaded. A
 [checks-only] commit runs full regression without repeating source requests;
 normal candidate-list commits retain the existing capture behavior.
+
+## Unfinished history source diagnostics
+The next recovery step is isolated on task/history-render-recovery-20261102.
+Fifty-eight ID-only candidates exclude verified attachments, robots-restricted
+records and already-confirmed generic/no-result pages. A diagnostic-only
+collector reuses the existing checked GET transport, robots/noarchive rules
+and request budgets. It reports status, redirect history, bounded public
+page title, parse error class and visible-content flags in short-lived private
+artifacts; never exports review notes or creates attachment-ready results.
+Explicit challenge evidence stops further diagnostics on that origin.
+The stable screenshot branch and all Feishu writers remain unchanged.
