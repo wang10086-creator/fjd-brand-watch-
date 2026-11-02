@@ -39,3 +39,19 @@ change only its start/limit bounds and artifact label in the same branch. The
 input contains all 213 candidates so the global UI upload order remains known.
 No production cloud-UI job has been updated by adding this collector. Its reusable
 entry accepts a future ID-only task list and bounded start/limit/deadline settings.
+
+## Opt-in Rakuten framing correction
+
+The first twenty produced a valid made-in-china candidate, while two Rakuten
+windows showed a tall announcement and cut off the product. Those two were not
+uploaded. The shared capturer now accepts optional integer `pageDowns` 0 or 1;
+the default 0 performs no page interaction and adds no scroll manifest field.
+Only this batch wrapper's exact `item.rakuten.co.jp` host selects 1. It sends one
+actual PageDown before the existing native-omnibox/full-frame capture, without
+rewriting the document, cropping, compositing or drawing an address bar.
+The manifest records the action and actual scroll positions/viewport before and
+after; a Rakuten candidate without positive downward movement is rejected. All
+previous robots, public-network, final-target, login/challenge and image checks
+remain. Root must still inspect product framing before UI upload. The two-row
+ID-only recapture list preserves original global indices 15 and 16 in that order;
+the full 213-row input remains available for the next start=20 continuation.

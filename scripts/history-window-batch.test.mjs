@@ -31,6 +31,16 @@ test('native format alone does not allow a redirect, failed response, login targ
  assert.throws(()=>validateCapture({...p,documents:[{url,status:403,mainDocument:true}]},b,url),/response/);
  const changed=Buffer.from(b);changed[500]=1;assert.throws(()=>validateCapture(p,changed,url),/integrity/);
 });
+test('Rakuten requires one recorded effective PageDown; other origins keep the default',()=>{
+ const u='https://item.rakuten.co.jp/shop/item/',bytes=png(),p=proof(u,bytes);
+ assert.throws(()=>validateCapture(p,bytes,u),/scroll/);
+ const pageScroll={action:'PageDown',count:1,before:{x:0,y:0,width:1360,height:900},after:{x:0,y:750,width:1360,height:900}};
+ assert.deepEqual(validateCapture({...p,pageScroll},bytes,u).pageScroll,pageScroll);
+ assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:2}},bytes,u),/scroll/);
+ assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:pageScroll.before}},bytes,u),/scroll/);
+ assert.throws(()=>validateCapture({...proof(url,bytes),pageScroll},bytes,url),/scroll/);
+ assert.equal('pageScroll' in validateCapture(proof(url,bytes),bytes,url),false);
+});
 test('archive is read at one immutable commit with GET requests and no mutation',async()=>{
  const password='synthetic-fixture-password',value=await seal({state:{rows:[{url}],privateNotes:'must-never-export'}},password,'vault');value.keyScheme='data-password-v2';
  const bytes=Buffer.from(JSON.stringify(value)),blob=createHash('sha1').update(Buffer.concat([Buffer.from('blob '+bytes.length+'\0'),bytes])).digest('hex'),commit='a'.repeat(40),tree='b'.repeat(40),calls=[];

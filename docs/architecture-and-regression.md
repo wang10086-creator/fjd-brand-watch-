@@ -2404,3 +2404,10 @@ candidate result is checkpointed. The first push is limited to the newest twenty
 full Node and cloud Python regressions run in an independent job. This collector
 is reusable tooling, not proof that an unknown cloud-UI scheduler was changed.
 
+The first visual review rejected two Rakuten frames with a tall announcement.
+The capturer's new optional bounded `pageDowns=0` keeps all existing callers at
+their original viewport; only the batch wrapper opts in to one actual PageDown
+for `item.rakuten.co.jp`. Recorded before/after page positions must confirm the
+scroll, and root still reviews each unmodified full-window PNG before upload.
+There is no content rewriting, address-bar compositing or source-policy bypass.
+

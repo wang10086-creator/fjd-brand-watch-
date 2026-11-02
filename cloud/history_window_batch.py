@@ -47,6 +47,9 @@ def validate_document(expected,documents,response,raw):
     if re.search(blocked,title+' '+text,re.I):raise ValueError('blocked-page')
     if len(text)<80 or not title:raise ValueError('target-content-unconfirmed')
 
+def page_downs_for(url):
+    return 1 if urllib.parse.urlsplit(url).hostname=='item.rakuten.co.jp' else 0
+
 def capture_checked(request):
     import browser_window
     original=browser_window.main_document
@@ -56,7 +59,7 @@ def capture_checked(request):
         return documents,response,raw
     browser_window.main_document=checked
     try:
-        result=browser_window.capture(request['url'],request['output'])
+        result=browser_window.capture(request['url'],request['output'],pageDowns=page_downs_for(request['url']))
         result['strictTargetGate']='public-document-v1'
         return result
     finally:browser_window.main_document=original

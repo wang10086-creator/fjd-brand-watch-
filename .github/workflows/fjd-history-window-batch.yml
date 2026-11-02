@@ -7,6 +7,9 @@ on:
       - 'cloud/history-window-batch.mjs'
       - 'cloud/history_window_batch.py'
       - 'tools/history-window-candidates-20261102.json'
+      - 'tools/history-window-rakuten-recapture-20261102.json'
+      - 'cloud/browser_window.py'
+      - 'cloud/window_navigation.py'
 permissions:
   contents: read
 concurrency:
@@ -31,9 +34,20 @@ jobs:
       - name: 全套云端Python回归
         run: python3 -m unittest discover -s cloud -p 'test_*.py'
   capture:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - {cohort: rakuten, start: 0, limit: 2, candidates: tools/history-window-rakuten-recapture-20261102.json}
+          - {cohort: batch20, start: 20, limit: 40, candidates: tools/history-window-candidates-20261102.json}
+          - {cohort: batch60, start: 60, limit: 40, candidates: tools/history-window-candidates-20261102.json}
+          - {cohort: batch100, start: 100, limit: 40, candidates: tools/history-window-candidates-20261102.json}
+          - {cohort: batch140, start: 140, limit: 40, candidates: tools/history-window-candidates-20261102.json}
+          - {cohort: batch180, start: 180, limit: 40, candidates: tools/history-window-candidates-20261102.json}
     if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-screenshot-backfill-20261102'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,23 +73,23 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/history-window-blocked.json
-          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}
+          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}-${{ matrix.cohort }}
           restore-keys: history-window-blocked-${{ github.ref_name }}-
-      - name: 只读加载云档案并采集最先20条（逐条保存结果）
+      - name: 只读采集当前批次（逐条保存结果）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
-          FJD_SCREENSHOT_CANDIDATES: tools/history-window-candidates-20261102.json
-          FJD_SCREENSHOT_START: '0'
-          FJD_SCREENSHOT_LIMIT: '20'
-          FJD_SCREENSHOT_DEADLINE_MS: '1100000'
+          FJD_SCREENSHOT_CANDIDATES: ${{ matrix.candidates }}
+          FJD_SCREENSHOT_START: ${{ matrix.start }}
+          FJD_SCREENSHOT_LIMIT: ${{ matrix.limit }}
+          FJD_SCREENSHOT_DEADLINE_MS: '2400000'
           FJD_SCREENSHOT_OUTPUT: history-window-output
           FJD_SCREENSHOT_BLOCKED_STATE: ${{ runner.temp }}/history-window-blocked.json
         run: node cloud/history-window-batch.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: history-native-window-${{ github.run_id }}-start0-limit20
+          name: history-native-window-${{ github.run_id }}-${{ matrix.cohort }}-start${{ matrix.start }}-limit${{ matrix.limit }}
           path: history-window-output/
           retention-days: 1
           if-no-files-found: error
@@ -83,4 +97,4 @@ jobs:
         if: always()
         with:
           path: ${{ runner.temp }}/history-window-blocked.json
-          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}
+          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}-${{ matrix.cohort }}

@@ -2,6 +2,21 @@
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit
 
+def validate_page_downs(value=0):
+    """A bounded opt-in page movement; bool is not an integer request."""
+    if type(value) is not int or not 0<=value<=1:raise ValueError('invalid-page-scroll')
+    return value
+
+def apply_page_down(page,count=0):
+    """Scroll actual page content, leaving pixels and the browser toolbar intact."""
+    validate_page_downs(count)
+    if not count:return None
+    before=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
+    page.keyboard.press('PageDown')
+    page.wait_for_timeout(300)
+    after=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
+    return {'action':'PageDown','count':1,'before':before,'after':after}
+
 def main_document(url, fetch, allowed, max_hops=6):
     documents=[]
     visited=set()

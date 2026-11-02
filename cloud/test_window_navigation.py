@@ -34,3 +34,38 @@ class CaptureVersionTests(unittest.TestCase):
             self.assertEqual(restored.tobytes(),image.tobytes())
             self.assertEqual(restored.info['CaptureTime'],at)
         self.assertNotEqual(hashlib.sha256(outputs[0]).digest(),hashlib.sha256(outputs[1]).digest())
+
+class PageScrollTests(unittest.TestCase):
+    def test_default_is_zero_and_does_not_interact_with_page(self):
+        from window_navigation import apply_page_down,validate_page_downs
+        class Untouched:
+            def __getattr__(self,name):raise AssertionError('default capture touched page')
+        self.assertEqual(validate_page_downs(),0)
+        self.assertIsNone(apply_page_down(Untouched()))
+        import ast
+        from pathlib import Path
+        tree=ast.parse(Path(__file__).with_name('browser_window.py').read_text())
+        capture=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='capture')
+        self.assertEqual(capture.args.args[-1].arg,'pageDowns')
+        self.assertEqual(capture.args.defaults[-1].value,0)
+    def test_only_bounded_integer_requests_are_accepted(self):
+        from window_navigation import validate_page_downs
+        for value in (None,True,False,-1,2,1.0,'1'):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError,'invalid-page-scroll'):validate_page_downs(value)
+        self.assertEqual(validate_page_downs(1),1)
+    def test_one_real_key_and_read_only_scroll_observations(self):
+        from window_navigation import apply_page_down
+        class Keyboard:
+            def __init__(self):self.keys=[]
+            def press(self,key):self.keys.append(key)
+        class Page:
+            def __init__(self):self.keyboard=Keyboard();self.reads=0;self.waits=[]
+            def evaluate(self,expression):
+                self.assertion=expression;self.reads+=1
+                return {'x':0,'y':0 if self.reads==1 else 750,'width':1360,'height':900}
+            def wait_for_timeout(self,ms):self.waits.append(ms)
+        page=Page();result=apply_page_down(page,1)
+        self.assertEqual(page.keyboard.keys,['PageDown']);self.assertEqual(page.waits,[300])
+        self.assertEqual(result['action'],'PageDown');self.assertEqual(result['count'],1)
+        self.assertEqual(result['before']['y'],0);self.assertEqual(result['after']['y'],750)

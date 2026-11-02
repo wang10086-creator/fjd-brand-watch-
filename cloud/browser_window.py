@@ -7,10 +7,11 @@ from pathlib import Path
 from datetime import datetime,timezone
 from PIL import ImageGrab
 from playwright.sync_api import sync_playwright
-from window_navigation import main_document, save_window_png
+from window_navigation import main_document, save_window_png, validate_page_downs, apply_page_down
 ROOT=Path(__file__).resolve().parent
 
-def capture(url,output,urlCheckId=None,urlCheckedAt=None):
+def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0):
+    validate_page_downs(pageDowns)
     started=time.monotonic(); requests=0; size=0; policies={}; documents=[]
     def fetch(target):
         nonlocal requests,size
@@ -55,6 +56,7 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None):
         try:page.goto(final_url,wait_until='domcontentloaded',timeout=38000)
         except Exception:navigation_error=True
         page.wait_for_timeout(700)
+        page_scroll=apply_page_down(page,pageDowns)
         # Native omnibox selection/copy. The clipboard is read from this isolated X display.
         tree=subprocess.run(['xwininfo','-root','-tree'],capture_output=True,text=True,check=True).stdout
         windows=[]
@@ -85,11 +87,12 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None):
         raw=path.read_bytes();manifest={'version':2,'method':'x11-native-window','at':captured_at,'originalUrl':url,'addressBarUrl':address,'pageUrl':page.url,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'width':image.width,'height':image.height,'browserVersion':browser.version,'windowTree':window,'addressReadMethod':'native-omnibox-clipboard','navigationError':navigation_error,'documents':documents,'environment':'isolated-headed-chromium','scripts':'disabled','requests':requests}
         if urlCheckId:manifest['urlCheckId']=urlCheckId
         if urlCheckedAt:manifest['urlCheckedAt']=urlCheckedAt
+        if page_scroll:manifest['pageScroll']=page_scroll
         (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False));browser.close()
         return manifest
 if __name__=='__main__':
     try:
-        request=json.load(sys.stdin);print(json.dumps(capture(request['url'],request['output'],request.get('urlCheckId'),request.get('urlCheckedAt')),ensure_ascii=False))
+        request=json.load(sys.stdin);print(json.dumps(capture(request['url'],request['output'],request.get('urlCheckId'),request.get('urlCheckedAt'),request.get('pageDowns',0)),ensure_ascii=False))
     except Exception as e:
-        reason=str(e) if str(e) in {'robots-restricted','native-address-unconfirmed','native-window-missing','capture-budget','noarchive','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url'} else 'native-window-capture-unconfirmed'
+        reason=str(e) if str(e) in {'invalid-page-scroll','robots-restricted','native-address-unconfirmed','native-window-missing','capture-budget','noarchive','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url'} else 'native-window-capture-unconfirmed'
         print(json.dumps({'deferred':True,'reason':reason,'kind':type(e).__name__}));sys.exit(1)

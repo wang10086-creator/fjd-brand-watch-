@@ -51,9 +51,14 @@ export function validateCapture(manifest,bytes,url){
  if(width!==manifest.width||height!==manifest.height||width<1000||height<700||manifest.bytes!==bytes.length||manifest.sha256!==hash(bytes)||!Number.isFinite(Date.parse(manifest.at)))throw Error('capture-integrity-unconfirmed');
  const main=(manifest.documents||[]).filter(d=>d.mainDocument===true).at(-1);
  if(!main||!same(main.url)||!Number.isInteger(main.status)||main.status<200||main.status>=300)throw Error('target-response-unconfirmed');
- return {capturedAt:manifest.at,originalUrl:manifest.originalUrl,finalUrl:manifest.addressBarUrl,sha256:manifest.sha256,bytes:bytes.length,width,height,method:manifest.method,addressReadMethod:manifest.addressReadMethod,browserVersion:manifest.browserVersion,scripts:manifest.scripts,strictTargetGate:manifest.strictTargetGate,httpStatus:main.status,reviewRequired:true};
+ const scroll=manifest.pageScroll,needsScroll=new URL(url).hostname==='item.rakuten.co.jp';
+ if(needsScroll){
+  const point=v=>v&&['x','y','width','height'].every(k=>Number.isFinite(v[k]))&&v.width>0&&v.height>0;
+  if(!scroll||scroll.action!=='PageDown'||scroll.count!==1||!point(scroll.before)||!point(scroll.after)||scroll.after.y<=scroll.before.y||scroll.after.x!==scroll.before.x)throw Error('page-scroll-unconfirmed');
+ }else if(scroll)throw Error('page-scroll-unconfirmed');
+ return {capturedAt:manifest.at,originalUrl:manifest.originalUrl,finalUrl:manifest.addressBarUrl,sha256:manifest.sha256,bytes:bytes.length,width,height,method:manifest.method,addressReadMethod:manifest.addressReadMethod,browserVersion:manifest.browserVersion,scripts:manifest.scripts,strictTargetGate:manifest.strictTargetGate,httpStatus:main.status,reviewRequired:true,...(scroll?{pageScroll:structuredClone(scroll)}:{})};
 }
-const publicFailures=new Set(['archive-source-missing','archive-source-ambiguous','archive-source-conflict','archive-load-unconfirmed','robots-restricted','noarchive','blocked-page','login-required','target-redirected','http-status-not-success','target-content-unconfirmed','native-address-unconfirmed','native-window-missing','capture-budget','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url','capture-timeout','capture-integrity-unconfirmed','native-window-unconfirmed','target-navigation-unconfirmed','target-response-unconfirmed']);
+const publicFailures=new Set(['archive-source-missing','archive-source-ambiguous','archive-source-conflict','archive-load-unconfirmed','robots-restricted','noarchive','blocked-page','login-required','target-redirected','http-status-not-success','target-content-unconfirmed','native-address-unconfirmed','native-window-missing','capture-budget','request-failed','ETIMEDOUT','ENOTFOUND','EAI_AGAIN','ABORT_ERR','unsafe-url','capture-timeout','capture-integrity-unconfirmed','native-window-unconfirmed','target-navigation-unconfirmed','target-response-unconfirmed','page-scroll-unconfirmed']);
 export const safeFailure=error=>publicFailures.has(error?.message)?error.message:'capture-unconfirmed';
 // A document-specific robots/noarchive/login result is not an origin-wide ban.
 // Only an explicit bot/security challenge stops every later URL on that origin.
