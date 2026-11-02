@@ -344,7 +344,7 @@ export async function createGateway({directory,fetcher=fetch,now=Date.now,siteOr
     const encrypted=await boundedJson(await github('/repos/'+REPO+'/contents/vault.json?ref='+revision,{token:config.token,raw:true}),64*1024*1024);
     const compressed=await unsealCompressed(encrypted,config.password,'vault'),started=Date.now();let vault;
     try{vault=await historyVaultStream(compressed)}catch(error){
-     try{diagnostic({event:'gateway-history-backup-parse-failed',elapsedMs:Date.now()-started,compressedBytes:compressed.byteLength,aborted:error.name==='AbortError'})}catch{}
+     try{diagnostic({event:'gateway-history-backup-parse-failed',elapsedMs:Date.now()-started,compressedBytes:compressed.byteLength,aborted:error.name==='AbortError',...error.historyBackupDiagnostic})}catch{}
      throw issue(503,'历史备份完整解析未完成；未生成备份，原记录保留。')}
     try{diagnostic({event:'gateway-history-backup-parsed',elapsedMs:Date.now()-started,compressedBytes:compressed.byteLength})}catch{}
     respond(200,historyBackup(store.read(),vault,{now,cloudRevision:revision}));return;

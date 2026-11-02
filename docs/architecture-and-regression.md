@@ -2270,3 +2270,40 @@ processing-state triggers are unchanged.
 
 文字导出原三类覆盖校验不涵盖“已尝试、仅待续查”的冻结行。新增由冻结 coverage.rows 严格证明的互斥第四类，原概览数字与正式checksum保持不变；缺证据不推算。历史无pending schema在零差额时兼容，旧正文/清单不能重写。异常日志仅使用静态安全原因码。
 新增单日手动文字补导出入口，默认只读、必须指定日期和checksum，复用监控锁，仅目标body/manifest/index可写。独立于扫描、业务投递及网关。详见 daily-text-recovery.md。
+
+## 2026-11-02 — local maintenance export integrity and failure classification
+
+Scope/data flow: admin-only GET `/maintenance/history-sync/backup` pins the cloud
+revision, authenticates compressed vault bytes, streams/validates the whole JSON,
+selects top-level history fields, redacts the gateway/cloud snapshot and hashes
+its exported data. Only the selector and this route's failure diagnostic change.
+Writer, IDs, queues, permissions, settings and production data remain untouched.
+
+Synthetic reproductions on main 825bde3 establish two defects: a non-object JSON
+root is filtered to empty output then accepted as `{}`; a surrogate pair split at
+the parser's 256-code-unit token boundary becomes two U+FFFD characters when
+Stringer independently UTF-8 encodes its pushes. Lone JSON surrogates also change.
+Validate the original root token and escape surrogate code units in serialized
+JSON before Stringer pushes UTF-8. Do not pack unrelated values in memory.
+
+Failure diagnostics add only fixed categories (`plain-limit`, `selected-limit`,
+`root-invalid`, `timeout`, `gzip-invalid`, `json-invalid`, `unexpected`), stage, byte counts and
+elapsed time. No input fragments, parser messages, keys, identities or secrets
+are logged. Existing 2 GiB plaintext, 32 MiB selected output and 45-second bounds
+remain; exceeding any limit or invalid trailing input yields no snapshot. Escaped
+surrogates use more output bytes, so a near-limit Unicode-heavy selection may
+correctly fail earlier under the unchanged serialized-output bound.
+
+Regression: original admin authorization/method/revision/no-mutation checks,
+HTTP 503 with no data on invalid root, nested/escaped/multibyte strings spanning
+parser/gunzip chunks, lone surrogates and Unicode keys, large unrelated fields,
+all history/identity/reservation preservation, corrupt gzip/ignored trailing JSON,
+each resource limit, redaction and SHA-256 over exported data.
+
+These are local integrity fixes plus diagnosis, NOT proof of the observed
+production 503's root cause or proof the live export now succeeds. No production
+vault or authenticated service was accessed. A synthetic 21,888,950-byte ignored
+structured array took ~2.95s on the baseline in this environment; this establishes
+token-volume cost, not production timeout or OOM. Deployment of the gateway would
+be required to obtain the new diagnostic from the existing UI download; approval
+and live acceptance remain with the parent task. No alternative API is added.
