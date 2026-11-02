@@ -2496,3 +2496,8 @@ reopened via procfs. The launcher now transfers the exact existing descriptors
 through a private pathname Unix socket with SCM_RIGHTS and peer-credential
 checks; no new browser debugging port or host-network route is introduced.
 Real-source JS remains unenabled pending the successful offline probe.
+
+
+### 2026-11-02: bounded verified-address screenshot recovery
+
+Three history ID/record ID/source-hash tuples have a separately reviewed canonical destination hash: a same-product language path, a corrected category spelling, and the same product's zero-delay meta refresh from its checkout subdomain. The collector rechecks the public source and full HTTP redirect chain (or exact zero-delay meta refresh) on each run, captures the genuine native browser window at the approved final URL, and validates that captured URL without rewriting the history record URL. The machine candidate retains both recordUrl and the actual originalUrl/captured address plus the redirect evidence. Unreviewed destinations, changed listing IDs, challenges, login pages, robots/noarchive restrictions and incomplete chains fail closed. This is a separate three-record recovery workflow on the experimental branch; the scheduled/default screenshot workflow remains unchanged. Feishu uploads require fresh pending/empty record checks and visual review. Synthetic tests cover tuple mismatch, destination mismatch, incomplete chain, challenge and delayed/unapproved meta refresh. The existing full Node and cloud Python regressions are run by this workflow before UI use.

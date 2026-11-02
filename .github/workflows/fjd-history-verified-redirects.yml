@@ -1,0 +1,92 @@
+name: 历史正式地址真实截图验收
+on:
+  push:
+    branches: [task/history-render-recovery-20261102]
+    paths:
+      - '.github/workflows/fjd-history-verified-redirects.yml'
+      - 'cloud/history-verified-redirects.mjs'
+      - 'tools/history-window-verified-redirects-20261102.json'
+      - 'tools/history-window-recovery-verified-20261102.json'
+permissions:
+  contents: read
+concurrency:
+  group: history-verified-redirects-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 准备原回归依赖
+        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 playwright==1.55.0 lxml==6.0.2 tinycss2==1.4.0
+      - name: 全套Node兼容性回归
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm test
+      - name: 准备原HTML单页工具
+        run: npm ci --prefix cloud/mirror-tool --ignore-scripts --no-audit --no-fund && node cloud/mirror-tool/prepare.mjs
+      - name: 全套云端Python回归
+        run: python3 -m unittest discover -s cloud -p 'test_*.py'
+  capture:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - {cohort: verified-redirects, start: 0, limit: 3, candidates: tools/history-window-recovery-verified-20261102.json}
+    if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102' && !contains(github.event.head_commit.message, '[checks-only]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 验证批补边界（不访问原站或飞书）
+        run: |
+          node --test scripts/history-window-batch.test.mjs
+          python3 -m unittest discover -s cloud -p test_history_window_batch.py
+      - name: 安装已有整窗采集程序的依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
+          python3 -m pip install --quiet Pillow==11.3.0 playwright==1.55.0
+          if command -v google-chrome; then
+            echo "FJD_CHROME=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium; then
+            echo "FJD_CHROME=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            python3 -m playwright install --with-deps chromium
+            python3 -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print("FJD_CHROME="+p.chromium.executable_path); p.stop()' >> "$GITHUB_ENV"
+          fi
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/history-window-blocked.json
+          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}-${{ matrix.cohort }}
+          restore-keys: history-window-blocked-${{ github.ref_name }}-
+      - name: 只读采集当前批次（逐条保存结果）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FJD_SCREENSHOT_CANDIDATES: ${{ matrix.candidates }}
+          FJD_SCREENSHOT_START: ${{ matrix.start }}
+          FJD_SCREENSHOT_LIMIT: ${{ matrix.limit }}
+          FJD_SCREENSHOT_DEADLINE_MS: '2400000'
+          FJD_SCREENSHOT_OUTPUT: history-window-output
+          FJD_SCREENSHOT_BLOCKED_STATE: ${{ runner.temp }}/history-window-blocked.json
+        run: node cloud/history-verified-redirects.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: history-native-window-${{ github.run_id }}-${{ matrix.cohort }}-start${{ matrix.start }}-limit${{ matrix.limit }}
+          path: history-window-output/
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ${{ runner.temp }}/history-window-blocked.json
+          key: history-window-blocked-${{ github.ref_name }}-${{ github.run_id }}-${{ matrix.cohort }}

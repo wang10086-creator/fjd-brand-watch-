@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "historyId": "20261028-002",
+      "sourceId": "lead-691e1fdcf8bec67e01567c28788d3c0dc897a1014c9f46591103724f65f8b035",
+      "recordId": "reczz28SzpxtnDbY",
+      "targetSourceId": "lead-3ae7a657fd43ac4ecc90a4d30fc193f97e8c080586a58756f1990ed49c1f4534",
+      "kind": "http"
+    },
+    {
+      "historyId": "20261016-010",
+      "sourceId": "lead-8b534b313f272dbc37d696a365f09bfb3bbba176501512eb330b392ce5c1dae2",
+      "recordId": "reczz28S0hkdkHCU",
+      "targetSourceId": "lead-d0f4a8d3eee0c7f249ee26ffa00c7595ec9d5aa4ad4da781fce38bf2a6bb8f6f",
+      "kind": "http"
+    },
+    {
+      "historyId": "20261012-022",
+      "sourceId": "lead-f055e3704af76ef47bd4b712ac5067409c146b2d47365b17b566279b09ae4dca",
+      "recordId": "reczz28S0hkdgZRb",
+      "targetSourceId": "lead-1485f57341db9b11c6f138df0e36e0327b8cccae13639070727aa13fcf5cf30a",
+      "kind": "meta-refresh"
+    }
+  ]
+}
