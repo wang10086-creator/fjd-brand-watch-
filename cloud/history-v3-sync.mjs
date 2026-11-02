@@ -1,3 +1,4 @@
+import {assertNativeHistoryWriter} from './history-writer-policy.mjs';
 import {recoverReceipt} from './history-receipt-recovery.mjs';
 import {validateSingleHistoryCommand,countryPilotTargets} from '../gateway/history-country-pilot.mjs';
 import {hash} from '../gateway/history-metadata-contract.mjs';
@@ -28,6 +29,7 @@ function note(kind,event,snapshot,original,change,provenance=''){
  return {protocol:noteProtocol,kind,url:snapshot.url,original,facts,evidence:source};
 }
 export function queueHistoryV3(vault,{sourceId=null}={}){
+ assertNativeHistoryWriter(vault);
  const q=state(vault);q.waiting||={};
  for(const formal of Object.values(vault.state.monitor?.formalReports||{}).sort((a,b)=>String(a.day).localeCompare(String(b.day)))){
   try{verifyFormal(formal);}catch{q.lastError='formal-proof-invalid';continue;}
@@ -79,6 +81,7 @@ export function applyHistoryStatus(q,item,s){
  return false;
 }
 export async function deliverHistoryV3(vault,{bridge,checkpoint,webhook,now=Date.now,limit=5,deadline=now()+45000,eventId=null,sourceId=null,controlled=false}={}){
+ assertNativeHistoryWriter(vault);
  const q=state(vault);if(!Number.isInteger(limit)||limit<1||limit>5)throw Error('v3-batch-limit');
  const caps=await bridge.capabilities();if(!caps.enabled){q.lastError='history-v3-paused';await checkpoint();return summaryHistoryV3(vault);}
  q.execution_policy=caps.execution_policy||executionPolicy(null);
@@ -133,6 +136,7 @@ export function nativeHistoryV3Bridge({origin,password,fetcher=fetch}){
 }
 
 export async function singleHistoryV3Task(vault,input,{bridge,checkpoint,webhook,now=Date.now}={}){
+ assertNativeHistoryWriter(vault);
  const prepared=validateSingleHistoryCommand(input,{now:now()}),{source_id,mode}=input,q=state(vault);
  if(mode==='recover-receipt')return recoverReceipt(vault,input,{bridge,webhook,now});
  const rows=(vault.state.rows||[]).filter(r=>(r.source_id||'lead-'+digest(canonical(r.url)))===source_id);if(rows.length!==1)throw Error('single-v3-unique-source-required');const row=rows[0];

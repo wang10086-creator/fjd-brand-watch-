@@ -1,3 +1,4 @@
+import {assertNativeHistoryWriter} from './history-writer-policy.mjs';
 import {queueHistoryV3,deliverHistoryV3,summaryHistoryV3,nativeHistoryV3Bridge} from './history-v3-sync.mjs';
 import {canonical} from '../model.js';
 import {randomBytes} from 'node:crypto';
@@ -6,6 +7,7 @@ import {seal} from './crypto.js';
 import {digest,actualUrl,validatePayload,historyTable,historyWorkflow,allocationDay,withReportDay} from '../gateway/history-protocol.mjs';
 import {firstFormalReportIndex} from './history-report-day.mjs';
 export function queueHistory(vault,{now=Date.now(),sourceId=null}={}){
+ assertNativeHistoryWriter(vault);
  if(vault.integrationPolicy?.historyNative){vault.historySync||={version:1,items:{},sources:{},conflicts:{}};return queueHistoryV3(vault,{sourceId});}
  const q=vault.historySync||={version:1,items:{},sources:{},conflicts:{}};
  q.waitingReports||={};let reports;try{reports=firstFormalReportIndex(vault.state)}catch{q.lastError='history-formal-report-unverified';return q}
@@ -50,6 +52,7 @@ export function queueHistory(vault,{now=Date.now(),sourceId=null}={}){
 }
 export function historySummary(vault){if(vault.historyV3)return summaryHistoryV3(vault);const q=vault.historySync,counts={};for(const v of Object.values(q?.items||{}))counts[v.state]=(counts[v.state]||0)+1;return {mode:'history-native',...counts,waitingReportDay:Object.keys(q?.waitingReports||{}).length,conflicts:Object.keys(q?.conflicts||{}).length,lastError:q?.lastError||'',...(q?.singleCheck?{single:{mode:q.singleCheck.mode,state:q.singleCheck.state,reason:q.singleCheck.reason||'',at:q.singleCheck.at}}:{}),verifiedMeans:'native-workflow-record-readback'};}
 export async function deliverHistory(vault,{checkpoint,webhook,bridge,now=Date.now,limit=5,deadline=now()+45000,eventId=null,sourceId=null,controlled=false}={}){
+ assertNativeHistoryWriter(vault);
  if(bridge?.protocol==='fjd-history-v3')return deliverHistoryV3(vault,{checkpoint,webhook,bridge,now,limit,deadline});
  queueHistory(vault,{now:now(),sourceId});const q=vault.historySync;await checkpoint();
  // Never reuse the old monitoring-ledger Webhook for history imports.

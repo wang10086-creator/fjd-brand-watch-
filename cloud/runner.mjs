@@ -1,3 +1,4 @@
+import {historyWriterMode,historyIntegrationPolicy,assertHistoryOperation} from './history-writer-policy.mjs';
 import {prepareHistoryCampaign,historyPlansForCycle,historyCampaignSummary} from './market-history.mjs';
 import {resolveOperation} from './operation.mjs';
 import {validateSingleHistoryCommand} from '../gateway/history-country-pilot.mjs';
@@ -67,7 +68,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  try{
  if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
  if(imagesOnly&&pageEvidence)updateCycleDraft(vault.state);
- if(vault.integrationPolicy?.historyNative&&!historyOnly)queueHistory(vault);
+ if(vault.integrationPolicy?.historyNative&&historyWriterMode(config)==='native'&&!historyOnly)queueHistory(vault);
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
@@ -137,6 +138,7 @@ async function main(){
  }
  if(!env.GITHUB_TOKEN)throw Error('缺少云端仓库写入身份');
  const op=operation();if(!['auto','check','verify','authorize','schedule','scan','site-retry','sync','digest','test-digest','migrate','review','images','market-history','save-only','recover-digest','url-check','base-evidence','history-sync'].includes(op))throw Error('不支持的云端操作');
+ assertHistoryOperation(config,op);
  await branch();const saved=await file('vault.json');
  if(saved){
   if(saved.value.keyScheme==='data-password-v2')vault=await unseal(saved.value,password,'vault');
@@ -147,7 +149,7 @@ async function main(){
    vault.delivery={receipts:{},pages:{},pushes:vault.feishu?.pushes||{}};delete vault.feishu;
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
- vault.integrationPolicy={...vault.integrationPolicy,historyNative:config.feishuHistoryNative===true};
+ vault.integrationPolicy=historyIntegrationPolicy(config,vault.integrationPolicy);
  vault.version=2;if(!['images','url-check','history-sync','market-history'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
  // One-time policy activation starts the next complete evening cycle; no historical rebucketing.
  if(op!=='history-sync'){activateReportCycles(vault);draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);}
@@ -304,7 +306,7 @@ async function main(){
    }
    vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
    await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync');
-   if(vault.integrationPolicy.historyNative&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint,bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
+   if(vault.integrationPolicy.historyNative&&historyWriterMode(config)==='native'&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint,bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
  }catch(error){
    vault.lastError=error.message||'云端操作失败，原记录保留';
    // Saved results can still be archived after a search failure. Atomic checkpoints
