@@ -2379,3 +2379,7 @@ The final large invalid-tail run (64KiB legal trailing whitespace before the bad
 comma) consumed 537,245,405 plaintext bytes and buffered 361 selected bytes, then
 rejected with json-invalid in 28.680s; no snapshot/hash returned. Local complete
 regression: 829 Node tests and 103 cloud Python tests passed.
+
+### Gateway-only numbering handoff export
+
+`GET /maintenance/history-sync/state-export` is an admin-only, no-store read of the in-memory persisted gateway state. It does not fetch/decrypt GitHub vault or mutate any writer/identity/queue state. The explicit v1 scope contains all identity and reservation entries and all legacy/v3 task allocation/state indexes; payloads, task tokens, nonces and unrelated configuration are omitted. Unsafe selected values or malformed maps reject the entire export with a fixed error. Unknown task states and identity conflicts remain visible; counts and SHA-256 describe the returned data, not cross-system consistency. `cutoverReady:false` is unconditional: a snapshot is never proof of quiescence. The separate portal button validates format, counts and hash before downloading, only on explicit click. Existing full backup remains unchanged. Migration must independently fence old writers and reconcile Feishu records; this release does neither.
