@@ -2459,3 +2459,8 @@ to other models on the same host; same-host P2 fixtures verify that boundary.
 The P1 attempt remained content-unconfirmed and was not uploaded. A
 [checks-only] commit runs full regression without repeating source requests;
 normal candidate-list commits retain the existing capture behavior.
+
+
+### 2026-11-02: default screenshot parser and tracked terminal-slash compatibility
+
+The normal scripts-disabled native-window collector now tolerates valueless HTML aria-hidden/style/input-type attributes without a parser exception. A terminal path slash before an unchanged meaningful query is accepted only when every actual recorded HTTP redirect starts at the exact expected canonical URL and links to the next recorded document; untracked navigation, changed query parameters and changed product IDs remain rejected. These four parser/validator/test files passed the complete Node and cloud Python regression on the recovery branch (41468371708) and genuine capture review before being synced here. No script-enabled pilot, network-namespace wrapper, verified-destination mapping, production writer, source schedule or business field is introduced by this sync. Existing attachment skip/status checks and manual visual review remain required. The [checks-only] commit runs regression without repeating historical source requests.

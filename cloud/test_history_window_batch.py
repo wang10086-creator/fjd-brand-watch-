@@ -21,6 +21,9 @@ class StrictDocumentTests(unittest.TestCase):
             self.assertEqual(page_downs_for(url),0)
     def test_public_product_document(self):
         check('Public product details and genuine business information. '*5)
+    def test_valueless_html_attributes_do_not_crash_public_page_parser(self):
+        check('<div aria-hidden style><input type>'+'Public product details and genuine business information. '*5+'</div>')
+        with self.assertRaisesRegex(ValueError,'target-content-unconfirmed'):check('<div aria-hidden="true">'+'Private hidden text. '*30+'</div>')
     def test_challenge_page_with_http_200(self):
         with self.assertRaisesRegex(ValueError,'blocked-page'):check('Verify you are human. Checking your browser. '*8,title='Just a moment')
         for phrase in ['Please enable JS and disable any ad blocker','Pardon our interruption','Verifying the device','Sorry, you have been blocked']:

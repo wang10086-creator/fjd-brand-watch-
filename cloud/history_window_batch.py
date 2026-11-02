@@ -11,10 +11,10 @@ class PublicDocument(HTMLParser):
     def handle_starttag(self,tag,attrs):
         data=dict(attrs)
         inherited=self.stack[-1][1] if self.stack else False
-        hidden=inherited or tag in ('script','style','svg') or 'hidden' in data or data.get('aria-hidden','').lower()=='true' or bool(re.search(r'display\s*:\s*none|visibility\s*:\s*hidden',data.get('style',''),re.I))
+        hidden=inherited or tag in ('script','style','svg') or 'hidden' in data or (data.get('aria-hidden') or '').lower()=='true' or bool(re.search(r'display\s*:\s*none|visibility\s*:\s*hidden',data.get('style') or '',re.I))
         if tag not in ('area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr'):self.stack.append((tag,hidden))
         if tag=='title':self.in_title=True
-        if tag=='input' and not hidden and data.get('type','').lower()=='password':self.password=True
+        if tag=='input' and not hidden and (data.get('type') or '').lower()=='password':self.password=True
     def handle_endtag(self,tag):
         for i in range(len(self.stack)-1,-1,-1):
             if self.stack[i][0]==tag:
