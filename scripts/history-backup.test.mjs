@@ -29,11 +29,18 @@ import {createGateway} from '../gateway/server.mjs';import {openStore,hash} from
 test('backup HTTP is admin-only GET, pins cloud revision, and preserves enabled store',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'history-backup-')),now=Date.now(),password='synthetic-backup-password',revision='a'.repeat(40),store=await openStore(directory);
  await store.mutate(s=>{s.config={token:'synthetic-backup-token',password};s.users={admin:{role:'admin'},member:{role:'member'}};s.sessions={[hash('admin')]:{name:'admin',expiresAt:now+600000},[hash('member')]:{name:'member',expiresAt:now+600000}};s.historySettings={enabled:true};s.historyTasks={x:{state:'unknown',nonce:'must-not-leak'}};});
- const encrypted=await seal({historySync:{items:Object.fromEntries(Array.from({length:251},(_,i)=>['q'+i,{state:'queued',token:'secret-token'}]))}},password,'vault'),calls=[];
- const g=await createGateway({directory,fetcher:async url=>{calls.push(url);if(url.endsWith('/git/ref/heads/data-cloud'))return Response.json({object:{sha:revision}});assert.ok(url.endsWith('/contents/vault.json?ref='+revision));return Response.json(encrypted)}});
+ let encrypted=await seal({historySync:{items:Object.fromEntries(Array.from({length:251},(_,i)=>['q'+i,{state:'queued',token:'secret-token'}]))}},password,'vault');const calls=[],diagnostics=[];
+ const g=await createGateway({directory,diagnostic:event=>diagnostics.push(event),fetcher:async url=>{calls.push(url);if(url.endsWith('/git/ref/heads/data-cloud'))return Response.json({object:{sha:revision}});assert.ok(url.endsWith('/contents/vault.json?ref='+revision));return Response.json(encrypted)}});
  try{await new Promise(r=>g.server.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+g.server.address().port+'/maintenance/history-sync/backup';
   assert.equal((await fetch(url)).status,401);assert.equal((await fetch(url,{headers:{Authorization:'Bearer member'}})).status,403);assert.equal(calls.length,0);
   const before=JSON.stringify((await openStore(directory)).read());const response=await fetch(url,{headers:{Authorization:'Bearer admin'}}),result=await response.json();assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(result.cloudRevision,revision);assert.equal(Object.keys(result.data.cloud.historySync.items).length,251);assert.equal(result.counts.historyTasks.unknown,1);assert.equal(JSON.stringify((await openStore(directory)).read()),before);assert.ok(!JSON.stringify(result).includes('must-not-leak'));
+  encrypted=await seal(null,password,'vault');
+  const failed=await fetch(url,{headers:{Authorization:'Bearer admin'}}),failure=await failed.json();
+  assert.equal(failed.status,503);assert.equal(failure.data,undefined);assert.notEqual(failure.completeForDeclaredScope,true);
+  assert.equal(JSON.stringify((await openStore(directory)).read()),before);
+  const diagnostic=diagnostics.find(event=>event.event==='gateway-history-backup-parse-failed');
+  assert.equal(diagnostic.failure,'root-invalid');assert.equal(diagnostic.stage,'stream');
+  assert.ok(!JSON.stringify(diagnostics).includes(password));assert.ok(!JSON.stringify(diagnostics).includes('synthetic-backup-token'));
   assert.equal((await fetch(url,{method:'POST',headers:{Authorization:'Bearer admin',Origin:'https://wang10086-creator.github.io'}})).status,405);
  }finally{await new Promise(r=>g.server.close(r));await rm(directory,{recursive:true,force:true})}
 });
@@ -53,4 +60,47 @@ test('streaming backup preserves all history fields and excludes a large unrelat
  await assert.rejects(historyVaultStream(compressed,{maxPlainBytes:1024}),/vault-limit/);
  await assert.rejects(historyVaultStream(gzipSync(JSON.stringify({historySync:{large:'x'.repeat(4096)}})),{maxSelectedBytes:256}),/selected-limit/);
  await assert.rejects(historyVaultStream(gzipSync('{"historySync":{}')),/./);
+});
+
+import {createHash} from 'node:crypto';
+test('streaming selection preserves split UTF-8, escaped/lone surrogates, nesting and all history keys',async()=>{
+ const expected={historySync:{items:{}},historyReservedIds:{'20261031-001':true},historyIdentities:{u:{history_id:'20261031-001',record_id:'rec1'}},historyEmpty:[],historyNested:{array:[{},[],null,true,false,-1.25e30]},historyScalar:'ok'};
+ // Parser emits string chunks up to 256 UTF-16 units; gunzip emits byte chunks.
+ for(const n of [0,1,254,255,256,257,16380,16383,16384,16385])expected.historySync.items[n]={text:'x'.repeat(n)+'😀中文\\"\n\u0000\ud800Z\udfff',token:'synthetic-sensitive-token'};
+ expected.historyNested['key😀\ud800']={'escaped\\"': '🚀'.repeat(1000)};
+ const input={unrelated:{nested:{historyHidden:'must-not-select'},large:'中😀'.repeat(2*1024*1024)},...expected,tail:[{historyHidden:'also-not-selected'}]};
+ const selected=await historyVaultStream(gzipSync(JSON.stringify(input)));
+ assert.deepEqual(selected,expected);
+ const audit=historyBackup({},selected,{now:()=>0});
+ assert.equal(audit.sha256,createHash('sha256').update(JSON.stringify(audit.data)).digest('hex'));
+ assert.equal(Object.keys(audit.data.cloud.historySync.items).length,10);
+ assert.ok(!JSON.stringify(audit).includes('synthetic-sensitive-token'));
+ assert.equal(audit.data.cloud.historyIdentities.u.record_id,'rec1');
+ assert.equal(audit.data.cloud.historyReservedIds['20261031-001'],true);
+});
+
+test('invalid root, malformed ignored tail and gzip fail closed with content-free diagnostics',async()=>{
+ const cases=[
+  ...[null,[],[{}],42,'private-root',true].map(value=>[gzipSync(JSON.stringify(value)),'root-invalid']),
+  [gzipSync('{"historySync":{"items":{"q":"private-record"}},"ignored":"private-tail'), 'json-invalid'],
+  [gzipSync('{"historySync":{},"ignored": invalid-private-value}'),'json-invalid'],
+  [Buffer.from('private-invalid-gzip'),'gzip-invalid'],
+  [gzipSync(''),'json-invalid'],
+ ];
+ for(const [compressed,failure] of cases){
+  await assert.rejects(historyVaultStream(compressed),error=>{
+   const d=error.historyBackupDiagnostic;assert.equal(d.failure,failure);
+   assert.deepEqual(Object.keys(d).sort(),['elapsedMs','failure','plainBytes','selectedBytes','stage'].sort());
+   assert.ok(!JSON.stringify(d).includes('private'));
+   assert.ok(Number.isFinite(d.plainBytes)&&Number.isFinite(d.selectedBytes)&&Number.isFinite(d.elapsedMs));return true;
+  });
+ }
+ assert.deepEqual(await historyVaultStream(gzipSync('{"unrelated":[]}')),{});
+});
+
+test('all resource limits reject the entire selection including already selected identities',async()=>{
+ const compressed=gzipSync(JSON.stringify({historyIdentities:{u:{record_id:'rec1'}},ignored:'x'.repeat(8*1024*1024),historySync:{large:'x'.repeat(4096)}}));
+ for(const [options,failure] of [[{maxPlainBytes:1024},'plain-limit'],[{maxSelectedBytes:128},'selected-limit'],[{maxMilliseconds:1},'timeout']]){
+  await assert.rejects(historyVaultStream(compressed,options),error=>{assert.equal(error.historyBackupDiagnostic.failure,failure);assert.equal(error.historyBackupDiagnostic.stage,'stream');return true});
+ }
 });
