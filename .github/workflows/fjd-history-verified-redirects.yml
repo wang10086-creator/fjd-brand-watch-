@@ -1,4 +1,4 @@
-name: 历史正式地址真实截图验收
+name: 历史正式地址真实截图验收 # dismiss native hover menu
 on:
   push:
     branches: [task/history-render-recovery-20261102]

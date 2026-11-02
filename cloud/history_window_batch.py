@@ -86,6 +86,8 @@ def capture_checked(request):
             scroll=anchor_product_heading(page,scroll)
         parsed=urllib.parse.urlsplit(request['url'])
         if parsed.hostname=='baby-shop.prom.ua' and parsed.path=='/ua/p3118562260-robot-konstruktor-clementoni.html':
+            page.mouse.move(1300,880)
+            page.wait_for_timeout(300)
             before=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
             framing.update(anchor_product_heading(page,{'after':before},r'\bClementoni\b')['anchor'])
         return scroll
