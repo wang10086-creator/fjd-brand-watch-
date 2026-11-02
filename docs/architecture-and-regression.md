@@ -2389,3 +2389,18 @@ Export task references retain separate `history_ids` and `record_ids` provenance
 ### Cloud-UI dispatcher retirement
 
 Optional `historyWriterMode: cloud-ui` fences queue construction, native delivery and manual history-sync before transport calls. The runner rejects history-sync before reading vault, skips native queue/delivery during unrelated jobs, and keeps historyNative isolation true to avoid reviving legacy baseReview/baseStatus writers. Missing mode retains current native behavior; invalid modes fail closed. The repository config enables cloud-ui mode. This changes future runners only; old checked-out jobs must still be settled by the operator. Existing native instances and gateway/Feishu direct triggers must be retired independently before activation; this fence is not quiescence proof. UI receipts must live in approved private persistent storage, never this public repository.
+
+### Read-only history native-window candidates (2026-11-02)
+
+The branch-scoped maintenance collector documented in `docs/history-window-batch.md`
+reads one immutable encrypted archive checkpoint, resolves an ID-only candidate
+list uniquely to public URLs, and reuses the unchanged genuine native omnibox/
+framebuffer capturer behind an additional strict public-document gate. It never
+imports the production runner, writes the archive or Feishu, enables a retired
+writer, or publishes private notes. Artifact images remain machine candidates
+requiring visual review and fresh Feishu status/empty-attachment checks before
+manual UI upload. Explicit blocked origins stop further source requests; every
+candidate result is checkpointed. The first push is limited to the newest twenty;
+full Node and cloud Python regressions run in an independent job. This collector
+is reusable tooling, not proof that an unknown cloud-UI scheduler was changed.
+

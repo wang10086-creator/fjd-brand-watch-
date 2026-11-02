@@ -1,0 +1,31 @@
+import unittest
+from history_window_batch import validate_document
+
+URL='https://example.com/item/1'
+def check(body,title='Product listing',url=URL,status=200):
+    html=('<html><head><title>'+title+'</title></head><body>'+body+'</body></html>').encode()
+    return validate_document(URL,[{'url':url}],{'status':status,'headers':{'content-type':'text/html'}},html)
+
+class StrictDocumentTests(unittest.TestCase):
+    def test_public_product_document(self):
+        check('Public product details and genuine business information. '*5)
+    def test_challenge_page_with_http_200(self):
+        with self.assertRaisesRegex(ValueError,'blocked-page'):check('Verify you are human. Checking your browser. '*8,title='Just a moment')
+        for phrase in ['Please enable JS and disable any ad blocker','Pardon our interruption','Verifying the device','Sorry, you have been blocked']:
+            with self.subTest(phrase=phrase):
+                with self.assertRaisesRegex(ValueError,'blocked-page'):check(phrase*10)
+    def test_password_and_login_page(self):
+        with self.assertRaisesRegex(ValueError,'login-required'):check('<input type="password">'+'Please log in. '*30,title='Log in to vendor')
+        with self.assertRaisesRegex(ValueError,'login-required'):check('Log into Facebook to continue. '*12)
+    def test_hidden_login_form_does_not_block_public_product_body(self):
+        check('Public product specifications, seller and price information. '*8+'<div style="display:none"><form>Log in to continue<input type="password"></form></div>')
+        check('Public product specifications, seller and price information. '*8+'<form hidden>Log in to continue<input type="password"></form>')
+    def test_noscript_challenge_is_visible_when_scripts_are_disabled(self):
+        with self.assertRaisesRegex(ValueError,'blocked-page'):check('<noscript>Please enable JS and disable any ad blocker</noscript>'*5)
+    def test_redirect_and_error_are_not_target_evidence(self):
+        with self.assertRaisesRegex(ValueError,'target-redirected'):check('Company homepage. '*30,url='https://example.com/')
+        with self.assertRaisesRegex(ValueError,'http-status-not-success'):check('Not found. '*30,status=404)
+    def test_empty_script_shell_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,'target-content-unconfirmed'):check('<script>'+('pretend product '*30)+'</script>')
+
+if __name__=='__main__':unittest.main()
