@@ -31,14 +31,20 @@ test('native format alone does not allow a redirect, failed response, login targ
  assert.throws(()=>validateCapture({...p,documents:[{url,status:403,mainDocument:true}]},b,url),/response/);
  const changed=Buffer.from(b);changed[500]=1;assert.throws(()=>validateCapture(p,changed,url),/integrity/);
 });
-test('Rakuten requires one recorded effective PageDown; other origins keep the default',()=>{
- const u='https://item.rakuten.co.jp/shop/item/',bytes=png(),p=proof(u,bytes);
- assert.throws(()=>validateCapture(p,bytes,u),/scroll/);
+test('exact Rakuten item/search hosts require one recorded effective PageDown; other origins keep the default',()=>{
+ const bytes=png();
  const pageScroll={action:'PageDown',count:1,before:{x:0,y:0,width:1360,height:900},after:{x:0,y:750,width:1360,height:900}};
- assert.deepEqual(validateCapture({...p,pageScroll},bytes,u).pageScroll,pageScroll);
- assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:2}},bytes,u),/scroll/);
- assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:pageScroll.before}},bytes,u),/scroll/);
- assert.throws(()=>validateCapture({...proof(url,bytes),pageScroll},bytes,url),/scroll/);
+ for(const u of ['https://item.rakuten.co.jp/shop/item/','https://search.rakuten.co.jp/search/mall/fixture/','https://SEARCH.RAKUTEN.CO.JP/search/mall/fixture/']){
+  const p=proof(u,bytes);
+  assert.throws(()=>validateCapture(p,bytes,u),/scroll/);
+  assert.deepEqual(validateCapture({...p,pageScroll},bytes,u).pageScroll,pageScroll);
+  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,count:2}},bytes,u),/scroll/);
+  assert.throws(()=>validateCapture({...p,pageScroll:{...pageScroll,after:pageScroll.before}},bytes,u),/scroll/);
+ }
+ for(const u of [url,'https://search.rakuten.co.jp.evil.example/search/mall/fixture/','https://other.rakuten.co.jp/item']){
+  assert.throws(()=>validateCapture({...proof(u,bytes),pageScroll},bytes,u),/scroll/);
+  assert.equal('pageScroll' in validateCapture(proof(u,bytes),bytes,u),false);
+ }
  assert.equal('pageScroll' in validateCapture(proof(url,bytes),bytes,url),false);
 });
 test('archive is read at one immutable commit with GET requests and no mutation',async()=>{

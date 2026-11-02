@@ -8,6 +8,7 @@ on:
       - 'cloud/history_window_batch.py'
       - 'tools/history-window-candidates-20261102.json'
       - 'tools/history-window-rakuten-recapture-20261102.json'
+      - 'tools/history-window-rakuten-search-recapture-20261102.json'
       - 'cloud/browser_window.py'
       - 'cloud/window_navigation.py'
 permissions:
@@ -39,12 +40,7 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-          - {cohort: rakuten, start: 0, limit: 2, candidates: tools/history-window-rakuten-recapture-20261102.json}
-          - {cohort: batch20, start: 20, limit: 40, candidates: tools/history-window-candidates-20261102.json}
-          - {cohort: batch60, start: 60, limit: 40, candidates: tools/history-window-candidates-20261102.json}
-          - {cohort: batch100, start: 100, limit: 40, candidates: tools/history-window-candidates-20261102.json}
-          - {cohort: batch140, start: 140, limit: 40, candidates: tools/history-window-candidates-20261102.json}
-          - {cohort: batch180, start: 180, limit: 40, candidates: tools/history-window-candidates-20261102.json}
+          - {cohort: rakuten-search, start: 0, limit: 2, candidates: tools/history-window-rakuten-search-recapture-20261102.json}
     if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-screenshot-backfill-20261102'
     runs-on: ubuntu-latest
     timeout-minutes: 50

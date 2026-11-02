@@ -2411,3 +2411,11 @@ for `item.rakuten.co.jp`. Recorded before/after page positions must confirm the
 scroll, and root still reviews each unmodified full-window PNG before upload.
 There is no content rewriting, address-bar compositing or source-policy bypass.
 
+
+The same bounded framing option also applies to exact `search.rakuten.co.jp`
+after review found original candidate indices 91/92 showed navigation/filters
+only. A separate two-ID list preserves their order, and both producer and
+validator require the actual positive PageDown. All non-Rakuten defaults,
+JavaScript-disabled execution and existing source-policy/integrity checks stay
+unchanged. No Feishu writer, workflow, production configuration or FINN capture
+behavior is changed; a new frame still requires visual review before UI upload.

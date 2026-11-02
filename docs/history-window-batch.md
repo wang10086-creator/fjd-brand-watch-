@@ -55,3 +55,18 @@ previous robots, public-network, final-target, login/challenge and image checks
 remain. Root must still inspect product framing before UI upload. The two-row
 ID-only recapture list preserves original global indices 15 and 16 in that order;
 the full 213-row input remains available for the next start=20 continuation.
+
+## Bounded Rakuten search framing recovery
+
+Visual review of original indices 91 and 92 found the exact search URLs loaded
+their navigation and filters but no result content in the initial viewport.
+The same single real PageDown now also applies to exact `search.rakuten.co.jp`;
+the item-host behavior and every other host's default remain unchanged. Both
+producer and validator require the recorded positive downward movement. The
+two-row ID-only list `tools/history-window-rakuten-search-recapture-20261102.json`
+retains indices 91 and 92 in their original order for a separate bounded run.
+JavaScript remains disabled, and no robots/challenge/login, transport, request
+budget, target or image-integrity check is relaxed. This framing correction is
+not proof that a result becomes visible: root must inspect both new PNGs before
+deciding whether either is suitable for a native Feishu attachment upload.
+FINN's blank-body frames are not retried or changed by this correction.

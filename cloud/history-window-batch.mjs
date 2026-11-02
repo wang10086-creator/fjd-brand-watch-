@@ -51,7 +51,7 @@ export function validateCapture(manifest,bytes,url){
  if(width!==manifest.width||height!==manifest.height||width<1000||height<700||manifest.bytes!==bytes.length||manifest.sha256!==hash(bytes)||!Number.isFinite(Date.parse(manifest.at)))throw Error('capture-integrity-unconfirmed');
  const main=(manifest.documents||[]).filter(d=>d.mainDocument===true).at(-1);
  if(!main||!same(main.url)||!Number.isInteger(main.status)||main.status<200||main.status>=300)throw Error('target-response-unconfirmed');
- const scroll=manifest.pageScroll,needsScroll=new URL(url).hostname==='item.rakuten.co.jp';
+ const scroll=manifest.pageScroll,needsScroll=['item.rakuten.co.jp','search.rakuten.co.jp'].includes(new URL(url).hostname);
  if(needsScroll){
   const point=v=>v&&['x','y','width','height'].every(k=>Number.isFinite(v[k]))&&v.width>0&&v.height>0;
   if(!scroll||scroll.action!=='PageDown'||scroll.count!==1||!point(scroll.before)||!point(scroll.after)||scroll.after.y<=scroll.before.y||scroll.after.x!==scroll.before.x)throw Error('page-scroll-unconfirmed');
