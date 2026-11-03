@@ -13,10 +13,12 @@ ROOT=Path(__file__).resolve().parent
 def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0,*,recovery=None):
     validate_page_downs(pageDowns)
     if recovery is not None:recovery.check_url(url)
+    source=urllib.parse.urlsplit(url)
+    p1=recovery is not None and source.hostname=='www.lidarsolutions.com.au' and source.path.rstrip('/')=='/product/trion-p1-low-cost-tof-lidar-scanner-outdoor'
     started=time.monotonic(); requests=0; size=0; policies={}; documents=[]
     def fetch(target):
         nonlocal requests,size
-        if requests>=32 or size>=8000000 or time.monotonic()-started>35:raise ValueError('capture-budget')
+        if requests>=(80 if p1 else 32) or size>=(16000000 if p1 else 8000000) or time.monotonic()-started>35:raise ValueError('capture-budget')
         requests+=1
         payload={'url':target}
         if recovery is not None:payload['preserveBrowserHeaders']=True
@@ -47,6 +49,7 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0,*,recovery=
         def route_handler(route):
             req=route.request
             try:
+                if p1 and urllib.parse.urlsplit(req.url).hostname!=source.hostname:raise ValueError('blocked')
                 if req.method!='GET' or req.resource_type in ('media','websocket','eventsource') or not allowed(req.url):raise ValueError('blocked')
                 if recovery is not None and req.is_navigation_request() and (req.frame.page!=page or req.frame!=page.main_frame):raise ValueError('untracked-navigation')
                 if req.is_navigation_request() and req.frame==page.main_frame:
@@ -64,6 +67,7 @@ def capture(url,output,urlCheckId=None,urlCheckedAt=None,pageDowns=0,*,recovery=
         try:page.goto(final_url,wait_until='domcontentloaded',timeout=38000)
         except Exception:navigation_error=True
         page.wait_for_timeout(1500 if recovery is not None else 700)
+        if p1:page.mouse.move(1345,875)
         page_scroll=apply_page_down(page,pageDowns)
         rendered=recovery.validate_rendered(page) if recovery is not None else None
         # Native omnibox selection/copy. The clipboard is read from this isolated X display.

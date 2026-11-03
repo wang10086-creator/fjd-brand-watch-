@@ -36,7 +36,7 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-          - {cohort: p1-visible-product, start: 0, limit: 1, candidates: tools/history-window-recovery-js-20261102.json}
+          - {cohort: p1-visible-assets, start: 0, limit: 1, candidates: tools/history-window-recovery-js-20261102.json}
     if: github.repository == 'wang10086-creator/fjd-brand-watch-' && github.ref == 'refs/heads/task/history-render-recovery-20261102' && !contains(github.event.head_commit.message, '[checks-only]')
     runs-on: ubuntu-latest
     timeout-minutes: 50

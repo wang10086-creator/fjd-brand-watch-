@@ -2514,3 +2514,5 @@ Prom framing review found the source's hover navigation covered its otherwise vi
 ### 2026-11-03 P1 native screenshot framing
 
 The live P1 product page shows the matching product name in its visible WooCommerce breadcrumb while its H1 has zero layout height. The exact P1 path may use that unique visible breadcrumb as the native scroll target; keep model-text, bounds, address, access policy and manual visual checks. The isolated rerun is limited to the P1 record.
+
+The visually rejected first capture exposed an overlapping navigation menu and missing product assets. A second exact-P1 isolated run reserves its bounded resource budget for the same site, moves the real pointer outside navigation, and keeps public transport, elapsed time and address checks unchanged.
