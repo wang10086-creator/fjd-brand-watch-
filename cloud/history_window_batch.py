@@ -56,18 +56,22 @@ def needs_product_anchor(url):
     parsed=urllib.parse.urlsplit(url)
     return parsed.hostname=='www.lidarsolutions.com.au' and parsed.path.removesuffix('/')=='/product/trion-p1-low-cost-tof-lidar-scanner-outdoor'
 
-def anchor_product_heading(page,scroll,pattern=r'\bTrion\s*P1\b'):
+def anchor_product_heading(page,scroll,pattern=r'\bTrion\s*P1\b', *, product_breadcrumb=False):
     """One visible native heading scroll, without rewriting page content."""
     heading=page.get_by_role('heading',name=re.compile(pattern,re.I),level=1)
+    action='heading-into-view';level=1
+    if product_breadcrumb and (heading.count()!=1 or not heading.is_visible()):
+        heading=page.locator('nav.woocommerce-breadcrumb[aria-label="Breadcrumb"]')
+        action='product-breadcrumb-into-view';level=None
     if heading.count()!=1 or not heading.is_visible():raise ValueError('target-content-unconfirmed')
     text=heading.inner_text().strip()
-    if len(text)>300:raise ValueError('target-content-unconfirmed')
+    if len(text)>300 or not re.search(pattern,text,re.I):raise ValueError('target-content-unconfirmed')
     heading.scroll_into_view_if_needed(timeout=2000)
     page.wait_for_timeout(300)
     after=page.evaluate('({x:window.scrollX,y:window.scrollY,width:window.innerWidth,height:window.innerHeight})')
     box=heading.bounding_box()
     if not box or box['height']<=0 or box['y']<0 or box['y']+box['height']>after['height']+1:raise ValueError('target-content-unconfirmed')
-    scroll['anchor']={'action':'heading-into-view','level':1,'text':text,'before':scroll['after'],'after':after,'box':box}
+    scroll['anchor']={'action':action,'level':level,'text':text,'before':scroll['after'],'after':after,'box':box}
     return scroll
 
 def capture_checked(request):
@@ -83,7 +87,7 @@ def capture_checked(request):
     def framed_scroll(page,count):
         scroll=original_scroll(page,count)
         if needs_product_anchor(request['url']):
-            scroll=anchor_product_heading(page,scroll)
+            scroll=anchor_product_heading(page,scroll,product_breadcrumb=True)
         parsed=urllib.parse.urlsplit(request['url'])
         if parsed.hostname=='baby-shop.prom.ua' and parsed.path=='/ua/p3118562260-robot-konstruktor-clementoni.html':
             page.mouse.move(1300,880)

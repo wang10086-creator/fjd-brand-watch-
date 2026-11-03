@@ -2509,3 +2509,8 @@ The deny-only network namespace/SCM_RIGHTS driver-pipe/X11 probe passed on GitHu
 
 
 Prom framing review found the source's hover navigation covered its otherwise visible product H1; a normal pointer move outside that menu is added on that one exact public product path before native H1 scrolling. The first obstructed candidate was rejected visually and never uploaded. No DOM, style, image pixels or URL is edited.
+
+
+### 2026-11-03 P1 native screenshot framing
+
+The live P1 product page shows the matching product name in its visible WooCommerce breadcrumb while its H1 has zero layout height. The exact P1 path may use that unique visible breadcrumb as the native scroll target; keep model-text, bounds, address, access policy and manual visual checks. The isolated rerun is limited to the P1 record.

@@ -61,7 +61,7 @@ def capture_checked(request):
         documents,response,raw=original(url,fetch,allowed);raw_gate(url,documents,response,raw);return documents,response,raw
     def framed(page,count):
         scroll=original_scroll(page,count)
-        if needs_product_anchor(request['url']):scroll=anchor_product_heading(page,scroll)
+        if needs_product_anchor(request['url']):scroll=anchor_product_heading(page,scroll,product_breadcrumb=True)
         return scroll
     browser_window.main_document=checked;browser_window.apply_page_down=framed
     try:return browser_window.capture(request['url'],request['output'],pageDowns=page_downs_for(request['url']),recovery=recovery)
