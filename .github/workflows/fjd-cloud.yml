@@ -35,7 +35,9 @@ jobs:
     timeout-minutes: 23
     steps:
       - name: 记录作业预算起点
-        run: echo "FJD_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+        run: |
+          echo "FJD_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "FJD_JOB_TIMEOUT_MINUTES=23" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:

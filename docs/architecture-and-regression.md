@@ -2409,3 +2409,34 @@ auto/digest 跳过业务的新分支：日报/文字先行后仍按原条件执�
 已有 failed/lastError；不以额外大快照保存声明延后。文字失败不缓存成功签名，finally
 预算充足时仅补检一次，每个已确认版本最多两次，不调用业务 delivery。实际 runner
 编排 mock 覆盖白天原业务、分阶段延后、尾部状态和文字补检，不依赖替代 writer。
+
+## 2026-11-04 partial Git tree and per-workflow budget candidate
+
+After PR #36 rollout, natural evidence run 41785686844 was cancelled with a
+`git-tree` unconfirmed diagnostic. No new data-cloud commit was observed (head
+remained dd84a68a, 04:20:29Z). The log does not establish a unique cancellation
+cause or prove absence of all external effects. The evidence workflow's 8-minute
+hard limit had no shared start/budget input; runner incorrectly used a fresh
+22-minute budget.
+
+Purely local filtered-fetch fixtures reproduced an unrelated-blob lazy fetch in
+ordinary `write-tree`; `write-tree --missing-ok` produced the same tree without
+fetching historical blobs. The candidate verifies fetched parent SHA AND tree,
+writes and SHA-checks every changed blob and checks its type before modifying the
+index. Only inherited references may remain absent. The original nonforce push,
+parent guard and lost-response readback remain. Git subprocesses now run in a
+process group so timeout also kills transport helpers retaining stdout/stderr.
+Diagnostics separate pre-push failure from a possibly executed ref update.
+
+All five workflows invoking runner now pass their existing job timeout and record
+the start before checkout/setup. Runner uses the smaller of 22 minutes and hard
+limit minus one minute. No cron, concurrency, writer, hard limit, production data
+or receipt changes. This is a cooperative storage budget, not a guarantee that
+every third-party subprocess stops before the job limit. Existing external-send
+uncertainty rules are unchanged; no retry/dispatch was run for diagnosis.
+
+Regression adds a real local blob:none transport, unchanged inherited object and
+mode/tree verification, new/changed/removed files, mismatched parent tree, missing
+changed object, SHA mismatch, nonforce parent preservation, timeout helper cleanup,
+and workflow start/hard-limit coverage. This follow-up is local only until a new
+explicit release approval; PR #36's approval does not authorize this release.

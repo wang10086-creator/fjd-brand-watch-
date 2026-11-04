@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      - name: 记录含准备阶段的作业预算
+        run: |
+          echo "FJD_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "FJD_JOB_TIMEOUT_MINUTES=15" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           ref: main
