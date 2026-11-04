@@ -60,7 +60,7 @@ console.log('云端作业预算 '+JSON.stringify(budget.diagnostic()));
 const workflowBridge=createWorkflowBridge({password});
 const historyTransport=historyBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
 const probeTransport=nativeProbeBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
-let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve(),confirmedFormalFeed=null,lastTextSignature=null;
+let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve(),confirmedFormalFeed=null,lastTextSignature=null,textAttempts=new Map();
 const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,deadline:budget.deadline,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
@@ -93,9 +93,10 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
 async function publishConfirmedText(){
  if(!confirmedFormalFeed)throw Error('正式快照保存尚未确认');
  const signature=JSON.stringify(confirmedFormalFeed);if(signature===lastTextSignature)return {status:vault.runtime.textExport?.status||'unchanged'};
- lastTextSignature=signature;
- try{const result=await publishLightReports({feed:confirmedFormalFeed,store,repository:config.repository,branch:config.branch,archiveReceipts:{},archiveIndexUrl:null,fetcher:(url,options)=>{budget.require('text-read',1000);return fetch(url,{...options,signal:AbortSignal.timeout(Math.max(1,Math.min(20000,budget.remaining())))})}});vault.runtime.textExport={status:result.status,at:new Date().toISOString()};console.log('轻量日报公开输入：'+result.status);return result;}
- catch(error){process.exitCode=1;vault.runtime.textExport={status:'unconfirmed',reason:lightExportDiagnostic(error),at:new Date().toISOString()};console.warn('轻量日报公开输入未确认；原因 '+lightExportDiagnostic(error)+'；保留原索引等待补齐，Notion 与群回执不变');return {status:'unconfirmed'};}
+ const attempts=textAttempts.get(signature)||0;if(attempts>=2)return {status:'unconfirmed'};
+ textAttempts.set(signature,attempts+1);
+ try{const result=await publishLightReports({feed:confirmedFormalFeed,store,repository:config.repository,branch:config.branch,archiveReceipts:{},archiveIndexUrl:null,fetcher:(url,options)=>{budget.require('text-read',1000);return fetch(url,{...options,signal:AbortSignal.timeout(Math.max(1,Math.min(20000,budget.remaining())))})}});lastTextSignature=signature;vault.runtime.textExport={status:result.status,at:new Date().toISOString()};console.log('轻量日报公开输入：'+result.status);return result;}
+ catch(error){vault.runtime.textExport={status:'unconfirmed',reason:lightExportDiagnostic(error),at:new Date().toISOString()};console.warn('轻量日报公开输入未确认；原因 '+lightExportDiagnostic(error)+'；保留原索引等待补齐，Notion 与群回执不变');return {status:'unconfirmed'};}
 }
 async function delivery(operation,{onlyDay=null,save=checkpoint}={}){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
@@ -307,9 +308,8 @@ async function main(){
     try{await runReportCriticalPath({vault,day:publishDay,checkpoint:reportSave,deliver:()=>delivery('digest',{save:reportSave}),publish:publishConfirmedText});}
     catch(e){if(saveBlocked)throw e;vault.runtime.reportWarning=e.message;vault.lastError='日报待核实：'+e.message;}
    }
-   // Daytime recovery checks finish after the report path, without replaying the
-   // full scanner / base / archive chain. The next natural run resumes receipts.
-   if(!(op==='digest'||op==='auto'&&!due.cycle?.active)){
+   // Preserve the original business-stage eligibility after the report path.
+   // Only the remaining job budget may defer an otherwise eligible stage.
    budget.require('base-reviews');
    await deliverBaseReviews(vault,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint});
    if(['scan','site-retry','verify'].includes(op)||(['auto','schedule'].includes(op)&&due.scan)){
@@ -330,7 +330,6 @@ async function main(){
    budget.require('delivery',4*60000);vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
    await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync');
    if(vault.integrationPolicy.historyNative&&historyWriterMode(config)==='native'&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint,bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
-   }
  }catch(error){
    if(error.code==='FJD_BUDGET_DEFERRED'){process.exitCode=1;vault.runtime.deferredStage=error.stage;console.warn('作业预算不足，阶段留待自然续查：'+error.stage);return;}
    vault.lastError=error.message||'云端操作失败，原记录保留';
@@ -338,9 +337,23 @@ async function main(){
    // retain the conflict guards if another ledger writer has intervened.
    try{if(!saveBlocked&&budget.allow(4*60000))await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
- finally{vault.runtime={...vault.runtime,currentSite:null,budget:budget.diagnostic(),lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.runtime.deferredStage||vault.runtime.textExport?.status==='unconfirmed'||vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint({progressOnly:true});if(['auto','digest','sync','scan','site-retry'].includes(op)&&budget.allow(60000)){await publishConfirmedText();if(vault.runtime.textExport?.status==='unconfirmed')vault.runtime.phase='partial';await put('status.json',publicStatus());}}
+ finally{
+  vault.runtime={...vault.runtime,currentSite:null,budget:budget.diagnostic(),lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.runtime.deferredStage||vault.runtime.textExport?.status==='unconfirmed'||vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};
+  await checkpoint({progressOnly:true});
+  if(['auto','digest','sync','scan','site-retry'].includes(op)&&budget.allow(60000)){
+   await publishConfirmedText(); // at most two text-only attempts per confirmed version
+   if(vault.runtime.textExport?.status==='unconfirmed'){process.exitCode=1;if(vault.runtime.phase!=='failed')vault.runtime.phase='partial';}
+   else if(!vault.lastError&&!vault.runtime.deferredStage&&!vault.delivery.archiveError&&!vault.delivery.botError)vault.runtime.phase='ready';
+   await put('status.json',publicStatus());
+  }else if(vault.runtime.textExport?.status==='unconfirmed')process.exitCode=1;
+ }
  // Bulk public/dashboard snapshot is secondary; no external delivery in this tail.
- if(!budget.allow(3*60000)){console.warn('完整公开快照留待自然续查；已确认正式文字索引保留');return;}
+ if(!budget.allow(3*60000)){
+  process.exitCode=1;
+  vault.runtime={...vault.runtime,phase:vault.runtime.phase==='failed'?'failed':'partial',deferredStage:vault.runtime.deferredStage||'public-snapshot',deferredStages:[...new Set([...(vault.runtime.deferredStages||[]),...(vault.runtime.deferredStage?[vault.runtime.deferredStage]:[]),'public-snapshot'])],budget:budget.diagnostic()};
+  await put('status.json',publicStatus());
+  console.warn('完整公开快照留待自然续查；已确认正式文字索引保留');return;
+ }
  await checkpoint();
  try{
   const feed=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts});

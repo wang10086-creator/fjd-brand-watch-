@@ -2395,11 +2395,17 @@ Optional `historyWriterMode: cloud-ui` fences queue construction, native deliver
 见 [隔离验证记录](report-critical-path-2026-11-04.md)。正式日报使用原权威 vault 的
 progressOnly 原子 checkpoint；published 仍由原 syncFormalReceipts 决定。文字发布
 只取保存成功后的 formal-only 副本，先于辅助公开大快照，不引入第二 ledger/writer。
-Notion 暂停时不生成其专用图表；历史文件与 checksum 保留。白天自然 auto 仅完成
-日报/文字和公开快照，不串行重放全部业务。保留原 sending/sent/uncertain 协议。
+Notion 暂停时不生成其专用图表；历史文件与 checksum 保留。独立审查撤销了白天
+auto/digest 跳过业务的新分支：日报/文字先行后仍按原条件执行业务，只按预算延后。
+保留原 sending/sent/uncertain 协议。
 
 较大 checkpoint 提前使用既有 Git 通道（8 MiB），5xx/丢响应诊断为 unconfirmed；
 重试仍回读父版本且禁止 force/覆盖竞争 writer。22 分钟协作预算从 workflow 第一
 步计时，23 分钟硬限制/cron/并发组不改；不足时记录 deferredStage，保存后自然续查。
 完整快照可滞后，正式索引不得领先于其权威状态的持久化确认。测试注入各保存边界、
 索引部分失败和发送后丢回执，验证不伪造 published、不重发 uncertain。
+
+独立审查修正：公开快照预算不足只写小型 status，非零退出，合并延后原因并保留
+已有 failed/lastError；不以额外大快照保存声明延后。文字失败不缓存成功签名，finally
+预算充足时仅补检一次，每个已确认版本最多两次，不调用业务 delivery。实际 runner
+编排 mock 覆盖白天原业务、分阶段延后、尾部状态和文字补检，不依赖替代 writer。

@@ -32,8 +32,8 @@
 3. `confirmedFormalFeed` 只在原保存流程、草稿证明和可选验证全部成功后更新；导出只拿这份已确认副本，不读未确认内存状态。仅复制原公开冻结正式报告，不遍历实时 rows/图片。
 4. Notion 已暂停时不再生成只供 Notion 使用的图表。原图表文件、历史正式内容和 checksum 不删除、不改写；群卡片仍使用现有文字生成器。
 5. 正文 → 固定提交公开回读 → manifest → 回读 → index 的既有不可变发布协议保留。未保存、未发送确认、checksum 不符或需分段的报告不会制造 complete 成功。
-6. 正式文字先于辅助公开大快照；白天 auto 和 digest 不再执行扫描/图形/线索/历史业务链。其他明确操作保持其原入口；夜间 auto 仍运行原业务流程。
-7. 同次运行同一已确认正式版本只尝试导出一次；索引失败留待下次自然运行或原有单日文字补导出。保留跨运行对历史 immutable body/manifest 的完整验证，未为了节省读取而跳过历史冲突保护。
+6. 正式文字先于原有业务及辅助公开大快照；白天 auto 仍按原有条件运行 base reviews、URL 检测/状态及常规 sync。digest 也恢复原有 base reviews/sync，保留原本对 URL 检测的排除。只因剩余预算不足延后，不另设按时段跳过业务的分支。
+7. 同次运行同一已确认正式版本最多导出两次：首次失败后，最终阶段预算超过一分钟才补检一次；仅成功结果缓存签名去重，不重放 delivery。两次失败后留待下次自然运行或原有单日文字补导出。保留跨运行对历史 immutable body/manifest 的完整验证，未为了节省读取而跳过历史冲突保护。
 
 故障语义：
 
@@ -57,7 +57,7 @@
 
 待审批 workflow：`.github/workflows/fjd-cloud.yml`、`cloud/requirements-monitor.txt`。
 
-回归：`scripts/report-critical-path.test.mjs`、`scripts/github-store.test.mjs`、`scripts/git-checkpoint.test.mjs`、`scripts/runner-save-blocked.test.mjs`、`scripts/publish-light-reports.test.mjs`、`scripts/page-change-checkpoint.test.mjs`、`cloud/test_formal_delivery.py`。
+回归：`scripts/runner-business-budget.test.mjs`、`scripts/report-critical-path.test.mjs`、`scripts/github-store.test.mjs`、`scripts/git-checkpoint.test.mjs`、`scripts/runner-save-blocked.test.mjs`、`scripts/publish-light-reports.test.mjs`、`scripts/page-change-checkpoint.test.mjs`、`cloud/test_formal_delivery.py`。
 
 文档：本文件及 `docs/architecture-and-regression.md`。
 
@@ -81,9 +81,26 @@
 - 上线后只观察下一次既有自然计划：记录 setup、critical-save、文字索引及完整快照耗时；核对原 checksum、固定正文 hash、status 的 actual receipts。不要为验收手动重跑或补发业务。
 - 回滚只撤销本次代码/workflow提交；不回滚 data-cloud、不删除正文/manifest/index、不改历史回执、不重发消息。
 
-## 最终验收补记
+## 第一版验证记录（已被审查修正候选替代）
 
 - 已准备 SingleFile bundle，临时 Python 3.12 venv 中完整 Python 测试 **104/104 通过**，22.053 秒；含真实 Chromium 的合成页面资源拦截测试。
 - 全量 JavaScript **855/855 通过**（最终运行日志归档于工作区 artifacts）；重点故障注入 **60/60 通过**，最新 runner wiring 复验 **27/27 通过**。
 - 文字公开回读也服从剩余预算；文字导出未确认或阶段预算耗尽设置非零退出码，同时保留实际 partial/receipt 状态，不能把运行结束等同于业务完成。
 - `git diff --check` 通过。交付前只读确认远端 main 仍为本报告基线；原工作区仍干净。没有推送、PR、部署或外部业务写入。
+
+## 独立审查修正（本地候选，未上线）
+
+旧提交 `caf3c12e668d3aa814c66cb74fb5fa20761c0836` 的两个问题已修正，不能沿用其作为可上线版本：
+
+1. 白天跳过业务造成 URL 新鲜度回归，且没有已验证的等价独立定时续接。已删除新时段分支，恢复所有原业务 eligibility；日报持久化及文字仍先行，预算不足才延后。
+2. 完整公开快照预算不足此前只有 warning。现在非零退出，只写小型 status，保存 public-snapshot 延后标记；保留原 lastError/failed 和已有 deferredStage，并在 deferredStages 合并此前及当前原因，不额外触发 vault 或公开大快照保存。
+3. 文字导出失败不再缓存成功去重签名。原幂等发布器在 finally 有预算时可补检一次，每个确认版本最多两次；恢复成功后清除仅由文字失败产生的 partial，原业务错误/延后保持。
+
+新增测试执行 runner 的实际编排代码，所有网络和投递替换为 mock；覆盖白天 auto、digest、各阶段预算不足、尾部小状态保存及旧错误保留、文字补检成功/持续失败/预算不足。另对实际文字 helper 验证失败后第二次调用、成功缓存及两次上限。未新增 writer、未启用 Railway，未改数据或调度。
+
+本轮最终测试结果及新提交记录随交付提供；旧版测试记录仅保留过程证据。
+
+本轮最终结果：重点故障/编排回归 **71/71 通过**；全量 JavaScript **866/866 通过**
+（88.519 秒）；Python **104/104 通过**（36.399 秒）；`git diff --check` 通过。
+测试环境仍为 Node v24.19.0、临时 Python 3.12.14 venv，全部业务外部效果使用 mock。
+未运行生产、未推送、未合并、未部署；Library 网络失败按要求不再尝试。

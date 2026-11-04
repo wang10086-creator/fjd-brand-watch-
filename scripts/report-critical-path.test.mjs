@@ -65,10 +65,21 @@ test('actual runner critical checkpoint omits bulky public files; a failed save 
   publicFeed:()=>assert.fail('no full public snapshot in critical checkpoint'),publicStorageEntries:()=>assert.fail('no full snapshot'),dashboard:()=>assert.fail('no dashboard'),
   store:{write:async entries=>{writes.push(entries.map(e=>e.path));if(fail)throw Error('synthetic-504');return {sha:'a'.repeat(40)}}},
   persistDraftProofs:async()=>({}),put:async()=>{},publishLightReports:async({feed})=>{exports.push(structuredClone(feed));return {status:'verified'}},lightExportDiagnostic:()=> 'synthetic-unconfirmed',console:{log:noop,warn:noop}};
- const api=new Function(...Object.keys(deps),'let saveBlocked=null,revision=0,lastConfirmedStatus=null,draftReceipts={},confirmedFormalFeed=null,lastTextSignature=null;'+body+';return {checkpoint,publishConfirmedText};')(...Object.values(deps));
+ const api=new Function(...Object.keys(deps),'let saveBlocked=null,revision=0,lastConfirmedStatus=null,draftReceipts={},confirmedFormalFeed=null,lastTextSignature=null,textAttempts=new Map();'+body+';return {checkpoint,publishConfirmedText};')(...Object.values(deps));
  await assert.rejects(api.publishConfirmedText(),/保存尚未确认/);
  await api.checkpoint({progressOnly:true});assert.deepEqual(writes[0],['vault.json','status.json','workflow-task-index.json']);
  const checksum=vault.state.monitor.formalReports[day].checksum;vault.delivery.publicationReceipts={[day]:{status:'saved',checksum,at:now}};vault.delivery.pushes[day]={status:'sent',checksum,at:now};fail=true;
  await assert.rejects(api.checkpoint({progressOnly:true}),/synthetic-504/);assert.equal(vault.state.monitor.formalReports[day].status,'published');
  await api.publishConfirmedText();assert.equal(exports[0].monitor.formalReports[day].status,'pending'); // only the last confirmed snapshot
+});
+
+test('actual text helper retries one failed export, caches only success, and caps persistent failure at two attempts',async()=>{
+ const source=readFileSync(new URL('../cloud/runner.mjs',import.meta.url),'utf8');
+ const body=source.slice(source.indexOf('async function publishConfirmedText('),source.indexOf('async function delivery('));
+ for(const permanent of [false,true]){
+  let calls=0;const v=fixture();v.runtime={};const input=formalTextFeed(v.state),before=JSON.stringify(v),deps={vault:v,confirmedFormalFeed:input,store:{},config:{},console:{log:()=>{},warn:()=>{}},lightExportDiagnostic:()=> 'public-read-unconfirmed',publishLightReports:async()=>{calls++;if(permanent||calls===1)throw Error('partial index response lost');return {status:'verified'}}};
+  const run=new Function(...Object.keys(deps),'let lastTextSignature=null,textAttempts=new Map();'+body+';return publishConfirmedText;')(...Object.values(deps));
+  assert.equal((await run()).status,'unconfirmed');assert.equal((await run()).status,permanent?'unconfirmed':'verified');assert.equal((await run()).status,permanent?'unconfirmed':'verified');assert.equal(calls,2);
+  const after=structuredClone(v);after.runtime={};assert.equal(JSON.stringify(after),before); // no delivery/receipt mutations
+ }
 });
