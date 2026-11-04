@@ -88,7 +88,16 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  const result=verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
  confirmedFormalFeed=formalTextFeed(vault.state);
  return result;
- }catch(e){saveBlocked=e;if(!independent)vault.runtime={...vault.runtime,phase:'failed',persistence:'unconfirmed',lastError:'保存未确认，停止后续查询；下次从远端确认版本恢复'};try{await put('status.json',{...(lastConfirmedStatus||{version:3,configured:true}),updatedAt:new Date().toISOString(),runtime:vault.runtime})}catch{}throw e;}
+ }catch(e){
+  saveBlocked=e;
+  // Independent operations own their confirmed-only status projection. Never
+  // replace an existing monitor/receipt status with the generic empty fallback.
+  if(!independent){
+   vault.runtime={...vault.runtime,phase:'failed',persistence:'unconfirmed',lastError:'保存未确认，停止后续查询；下次从远端确认版本恢复'};
+   try{await put('status.json',{...(lastConfirmedStatus||{version:3,configured:true}),updatedAt:new Date().toISOString(),runtime:vault.runtime})}catch{}
+  }
+  throw e;
+ }
 
 }
 async function publishConfirmedText(){

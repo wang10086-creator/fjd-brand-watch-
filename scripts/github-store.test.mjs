@@ -211,3 +211,28 @@ test('partial/concurrent Git result cannot claim recovered or overwrite another 
   await assert.rejects(store.putJSON('vault.json',{ours:true}),/safe rejected/);assert.equal(pushes,1);assert.equal(repo.value('vault.json'),'other writer');
  }
 });
+test('readback never resurrects a retired head or falsely recovers historical matching bytes',async()=>{
+ const repo=repository({'vault.json':'{"revision":1}'}),stale=repo.head,diagnostics=[];let pushes=0;
+ const store=storeFor(repo,{gitThresholdBytes:100,retries:1,onDiagnostic:d=>diagnostics.push(d),gitPublisher:async()=>{throw Error('unused')}});
+ await store.putJSON('vault.json',{revision:2});const current=repo.head;
+ let refuse=false;repo.intercept=({method,path,response})=>{
+  if(method==='PATCH'){pushes++;refuse=true;return response(403,{})}
+  if(refuse&&path==='/git/ref/heads/data-cloud')return response(200,{object:{sha:stale}});
+ };
+ await assert.rejects(store.putJSON('vault.json',{revision:1}),/HTTP 403/);
+ assert.equal(repo.head,current);assert.equal(pushes,1);assert.equal(repo.value('vault.json'),'{"revision":2}');assert.ok(!diagnostics.some(d=>d.stage==='checkpoint-readback'&&d.confirmation==='confirmed'));
+});
+test('Git rate-limit permits readback only, never the fast mutation retry loop',async()=>{
+ const repo=repository({'vault.json':'old'}),waits=[];let pushes=0;
+ const store=storeFor(repo,{gitThresholdBytes:1,wait:async ms=>waits.push(ms),gitPublisher:async()=>{pushes++;throw Object.assign(Error('safe throttled'),{status:0,retryable:false,diagnostic:{stage:'git-push',reason:'rate-limit'}})}});
+ await assert.rejects(store.putJSON('vault.json',{new:true}),/throttled/);assert.equal(pushes,1);assert.deepEqual(waits,[]);assert.ok(repo.calls.filter(c=>c.path==='/git/ref/heads/data-cloud').length>=2);assert.equal(repo.value('vault.json'),'old');
+});
+
+test('throttled Git plus throttled readback performs no rapid GET or mutation retries',async()=>{
+ const repo=repository({'vault.json':'old'}),waits=[];let pushes=0,readbacks=0;
+ const store=storeFor(repo,{gitThresholdBytes:1,wait:async ms=>waits.push(ms),gitPublisher:async()=>{
+  pushes++;repo.intercept=({path,response})=>{if(path==='/git/ref/heads/data-cloud'){readbacks++;return response(429,{})}};
+  throw Object.assign(Error('safe throttled'),{status:0,retryable:false,diagnostic:{stage:'git-push',reason:'rate-limit'}});
+ }});
+ await assert.rejects(store.putJSON('vault.json',{new:true}),/throttled/);assert.equal(pushes,1);assert.equal(readbacks,1);assert.deepEqual(waits,[]);
+});

@@ -61,16 +61,17 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
   for(let attempt=0;;attempt++)try{return await request(path)}catch(error){if(!transient(error)||attempt>=retries)throw error;await backoff(error,attempt,'读取版本');}
  }
  async function backoff(error,attempt,stage){if(remaining()<8500)throw error;onRetry({stage,status:error.status,attempt:attempt+1});await wait(Math.min(8000,500*2**attempt)+Math.floor(Math.random()*200));}
- async function snapshot(){
+ async function snapshot({readOnce=false}={}){
+  const get=readOnce?request:read;
   let ref;
   for(let attempt=0;;attempt++){
-   ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());
-   if(!cachedSnapshot||ref.object.sha===cachedSnapshot.sha||!retiredHeads.has(ref.object.sha))break;
+   ref=await get('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());
+   if(ref.object.sha===cachedSnapshot?.sha||!retiredHeads.has(ref.object.sha))break;
    const error=Error('GitHub 返回了已过期的云端版本，保留当前台账并重试');error.status=409;
-   if(attempt>=retries)throw error;await backoff(error,attempt,'读取最新版本');
+   if(readOnce||attempt>=retries)throw error;await backoff(error,attempt,'读取最新版本');
   }
   if(cachedSnapshot?.sha===ref.object.sha)return cachedSnapshot;
-  const commit=await read('/git/commits/'+ref.object.sha),tree=await read('/git/trees/'+commit.tree.sha+'?recursive=1');
+  const commit=await get('/git/commits/'+ref.object.sha),tree=await get('/git/trees/'+commit.tree.sha+'?recursive=1');
   if(tree.truncated)throw Error('GitHub 云端目录清单不完整，停止写入以保护原记录');
   if(cachedSnapshot)retiredHeads.add(cachedSnapshot.sha);
   return cachedSnapshot={sha:ref.object.sha,tree:commit.tree.sha,files:new Map(tree.tree.filter(f=>f.type==='blob').map(f=>[f.path,f.sha]))};
@@ -154,8 +155,8 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     // outcome. Read only, once per failed attempt, before any retry decision.
     if(error.diagnostic?.stage==='git-push'||error.diagnostic?.stage==='ref-update'){
      try{
-      cachedSnapshot=null;
-      const confirmed=await snapshot();
+      // Keep the known head and retired-head fence; snapshot always re-reads ref.
+      const confirmed=await snapshot({readOnce:true});
       if(changes.every(e=>(confirmed.files.get(e.path)||null)===e.sha)){
        for(const e of changes)observed.set(e.path,e.sha);
        onDiagnostic({stage:'checkpoint-readback',confirmation:'confirmed',files:changes.length});

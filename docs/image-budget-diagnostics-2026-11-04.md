@@ -75,3 +75,41 @@ PR if authorized; never roll back data-cloud, historical checksums or receipts.
   same-parent, sent/sending/uncertain no-replay tests remain in full JS/Python suite.
 - git diff --check passed. Local fixture transports only; no production execution
   or remote mutation. Node v24.19.0 and existing temporary Python 3.12 environment.
+
+## Independent review correction (supersedes initial candidate details)
+
+- setup-python@v5's cache post hook requires success(); a deliberately partial
+  image exit can prevent cold-cache saving. Replaced built-in cache:pip with
+  explicit actions/cache/restore@v4, install, and actions/cache/save@v4 before the
+  business runner. Save runs only after installation succeeds and the exact key
+  was not hit. Key includes OS, architecture, resolved Python version and pinned
+  dependency hash; save uses restore's cache-primary-key. No save-always used.
+  Cache save is best-effort, not proof of cache-service availability or a future
+  hit. Workflow tests establish ordering/conditions, not live Actions cache I/O.
+- Recognized Git rate-limit is non-retryable without Retry-After guidance. Only
+  one readback pass is attempted; diagnostic GET failures do not use the normal
+  500ms read retry loop. No rapid write retry or expanded permissions.
+- Permission denied (publickey) is authentication evidence, with unknown HTTP
+  status; no raw stderr is emitted.
+- Reconciliation no longer clears cachedSnapshot. Fresh ref read retains known
+  current/retired-head guards. A retired ref whose historical bytes match the
+  attempted new write cannot be reported as recovery. Diagnostic readback throws
+  immediately on a retired ref; normal non-diagnostic reads retain bounded retry.
+- Independent checkpoint failure skips the old generic status fallback entirely.
+  Image helper alone projects lastConfirmedStatus or latest full public status.
+  Actual first full-save failure followed by final-status failure cannot write an
+  empty shell or erase main failure/progress, formal checksums or sent receipt.
+
+Primary action definitions reviewed read-only:
+https://github.com/actions/setup-python/blob/v5/action.yml
+https://github.com/actions/cache/blob/v4/action.yml
+https://github.com/actions/cache/blob/v4/restore/action.yml
+https://github.com/actions/cache/blob/v4/save/action.yml
+
+Final local validation after independent review corrections:
+- Full JavaScript suite: 900 tests, 900 passed, zero failed/cancelled/skipped;
+  67.056 seconds.
+- Focused fault/transport/cache/runner suites: 68/68 passed, 9.558 seconds.
+- Full Python suite: 104/104 passed, 24.662 seconds.
+- git diff --check passed. All tests used local fixtures/mocks. No live cache,
+  production workflow, delivery, deployment or permission change was performed.

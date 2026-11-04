@@ -49,3 +49,14 @@ test('small image terminal status refreshes continuation while retaining only co
  adoptMonitorStatus(vault,confirmed);vault.operationStatus.images={runId:'new-image',operation:'images',phase:'partial',completedBatches:2};
  const s=imageStatusProjection(vault,confirmed);assert.equal(s.runId,'main');assert.equal(s.automation.continuation.status,'save-unconfirmed');assert.equal(s.automation.progress.attempted,5);assert.equal(s.automation.visual.attempted,12);assert.equal(s.operations.images.completedBatches,2);assert.equal(confirmed.runtime.phase,'running');
 });
+test('actual first independent checkpoint failure plus failed final status never writes an empty monitor/receipt shell',async()=>{
+ const s=readFileSync(new URL('../cloud/runner.mjs',import.meta.url),'utf8'),body=s.slice(s.indexOf('async function checkpoint('),s.indexOf('async function publishConfirmedText('));
+ const latest={version:3,configured:true,runId:'main',runtime:{runId:'main',phase:'failed',persistence:'unconfirmed'},automation:{policy:REPORT_POLICY,enabled:true,progress:{attempted:5},bot:{lastPush:{status:'sent',attempts:1}},archive:{formalReports:[{checksum:'immutable'}]}}};
+ const vault={runtime:latest.runtime,operationStatus:{},integrationPolicy:{historyNative:false},state:{monitor:{updateChain:[],reportDrafts:{},reportPolicy:REPORT_POLICY}},delivery:{receipts:{}}};let genericWrites=0;
+ const deps={vault,password:'fixture',config:{},seal:async()=>({cipher:'fixture'}),workflowTaskIndex:()=>({}),publicStatus:()=>latest,publicFeed:()=>({}),publicStorageEntries:()=>[],dashboard:()=>({}),formalTextFeed:()=>({}),store:{write:async()=>{throw Error('first save failed')}},put:async()=>{genericWrites++}};
+ const checkpoint=new Function(...Object.keys(deps),'let saveBlocked=null,lastConfirmedStatus=null,revision=0,draftReceipts={},confirmedFormalFeed=null;'+body+';return checkpoint;')(...Object.values(deps));
+ let saved=null,writes=0;const budget=createRunBudget({clock:()=>Date.parse('2026-11-04T11:00:00Z')});
+ const op=await runImageOperation({budget,runId:'images',operationStatus:vault.operationStatus,enrich:async()=>({attempted:12,pending:10}),save:()=>checkpoint({imagesOnly:true,independent:true}),publish:()=>assert.fail('no publication after failed save'),protect:()=>{},refreshSummary:()=>{},writeStatus:async()=>{if(++writes>1)throw Error('status rejected');saved=structuredClone(imageStatusProjection(vault,latest));}});
+ assert.equal(genericWrites,0);assert.equal(op.phase,'partial');assert.equal(op.statusPersistence,'unconfirmed');assert.equal(op.completedBatches,0);
+ assert.deepEqual(saved.automation.bot,latest.automation.bot);assert.deepEqual(saved.automation.archive,latest.automation.archive);assert.equal(saved.automation.progress.attempted,5);assert.equal(saved.runtime.persistence,'unconfirmed');
+});

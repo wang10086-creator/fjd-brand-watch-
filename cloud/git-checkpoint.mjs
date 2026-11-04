@@ -39,7 +39,7 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
    const text=result.stdout+'\n'+result.stderr,error=Error('GitHub Git 保存未确认（'+stage+'）');
    error.diagnostic=gitDiagnostic(text,{stage,exitCode:result.code});
    error.status=error.diagnostic.status;
-   error.retryable=['conflict'].includes(error.diagnostic.reason)||error.diagnostic.confirmation==='unconfirmed'&&!/denied|permission/i.test(text);
+   error.retryable=error.diagnostic.reason!=='rate-limit'&&(error.diagnostic.reason==='conflict'||error.diagnostic.confirmation==='unconfirmed'&&!/denied|permission/i.test(text));
    onDiagnostic(error.diagnostic);throw error;
   }
   return result.stdout.trim();

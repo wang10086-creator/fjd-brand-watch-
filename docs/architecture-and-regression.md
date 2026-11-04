@@ -2470,7 +2470,7 @@ the last confirmed public projection, not unsaved image results. Website snapsho
 publication uses the same deadline; status/transport failure stays partial.
 If even the small status cannot persist, only logs prove the final failure;
 there is no unsafe budget extension or success claim. Python 3.12 and pinned
-existing dependency versions use setup-python's pip cache for image jobs.
+existing dependency versions use explicit pip cache restore/save steps for image jobs; cache is saved after a successful install, before the business runner can exit partial.
 
 Git diagnostics emit enumerated reason/stage/httpStatus/exitCode only. Explicit
 HTTP text is separate from authentication, permission, protection, conflict,
@@ -2483,3 +2483,10 @@ single writer, main daytime business eligibility and send-idempotency are unchan
 
 No new deployment is authorized. Tests use local fixture repositories and mocked
 business I/O; no credentials, raw stderr or private payload are logged.
+
+Follow-up independent review: pip cache saving now runs explicitly immediately
+following successful installation, not a job-success-only post hook. Git rate
+limits stop rapid retries; diagnostic ref/tree readback is a single pass retaining
+retired-head fencing. Publickey denial is authentication evidence, not a fabricated
+HTTP 403. Independent checkpoint failure never uses the generic empty-status
+fallback; combined first-save/final-status failure retains existing main receipts.
