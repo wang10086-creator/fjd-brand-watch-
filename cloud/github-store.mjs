@@ -27,17 +27,19 @@ export function safeGithubError(payload){
 // Publish all checkpoint files in one commit. Retry against the latest branch,
 // preserving unrelated browser uploads; never force-update a ref or replace
 // a checkpoint that another writer changed while this process was running.
-export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{},onDiagnostic=()=>{},gitPublisher=publishGitCheckpoint,gitThresholdBytes=32*1024*1024}){
+export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pause,retries=4,onRetry=()=>{},onDiagnostic=()=>{},gitPublisher=publishGitCheckpoint,gitThresholdBytes=8*1024*1024,deadline=Infinity,clock=Date.now}){
  const root='https://api.github.com/repos/'+repository,observed=new Map(),retiredHeads=new Set();
  let queue=Promise.resolve(),cachedSnapshot=null;
+ function remaining(){const ms=deadline-clock();if(ms<=0){const error=Error('GitHub 保存预算耗尽，结果待回读确认');error.code='FJD_STORE_BUDGET';throw error}return ms;}
  async function request(path,method='GET',body,metadata={}){
   const stage=path==='/git/blobs'?'blob-upload':path==='/git/trees'?'tree-create':path==='/git/commits'?'commit-create':path.startsWith('/git/refs/')?'ref-update':'read';
   const wire=body?JSON.stringify(body):undefined;
   const byteSize=stage==='blob-upload'?Buffer.byteLength(body.content||'',body.encoding==='base64'?'base64':'utf8'):undefined;
   const diagnostic=(status,confirmation,requestId,details)=>{const safe={stage,status,confirmation,operation:method,...metadata,...(byteSize!==undefined?{byteSize,encoding:body.encoding,requestBytes:Buffer.byteLength(wire)}:{}),...(requestId?{requestId}:{}),...details};onDiagnostic(safe);return safe};
 
+  const timeoutMs=Math.max(1,Math.min(25000,remaining()));
   let response;
-  try{response=await fetcher(root+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Cache-Control':'no-cache',...(body?{'Content-Type':'application/json'}:{})},cache:'no-store',body:wire,signal:AbortSignal.timeout(25000)});}
+  try{response=await fetcher(root+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Cache-Control':'no-cache',...(body?{'Content-Type':'application/json'}:{})},cache:'no-store',body:wire,signal:AbortSignal.timeout(timeoutMs)});}
   catch{const error=Error(`GitHub 云端台账网络响应未确认（${method} ${path.split('?')[0]}）`);error.status=0;error.diagnostic=diagnostic(0,'unconfirmed');throw error;}
   if(!response.ok){
    const error=Error(`GitHub 云端台账 HTTP ${response.status}（${method} ${path.split('?')[0]}）`);
@@ -47,16 +49,18 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
    const safeId=id&&/^[a-z0-9:-]{1,100}$/i.test(id)?id:undefined;
    if(safeId)error.message+='；请求编号 '+safeId;
    let details={machineCode:'unclassified'};try{details=safeGithubError(await response.json())}catch{}
-   error.diagnostic=diagnostic(response.status,'rejected',safeId,details);
-   if(stage==='blob-upload')error.message+='；阶段 blob-upload；字节 '+byteSize+'；请求已拒绝，未确认提交';
+   const confirmation=response.status>=500?'unconfirmed':'rejected';
+   error.diagnostic=diagnostic(response.status,confirmation,safeId,details);
+   if(stage==='blob-upload')error.message+='；阶段 blob-upload；字节 '+byteSize+(confirmation==='unconfirmed'?'；响应未确认，须回读提交状态':'；请求已拒绝，未确认提交');
    throw error;
   }
-  return response.status===204?null:response.json();
+  if(response.status===204)return null;
+  try{return await response.json()}catch{const error=Error('GitHub 云端台账响应内容未确认');error.status=0;error.diagnostic=diagnostic(0,'unconfirmed');throw error;}
  }
  async function read(path){
   for(let attempt=0;;attempt++)try{return await request(path)}catch(error){if(!transient(error)||attempt>=retries)throw error;await backoff(error,attempt,'读取版本');}
  }
- async function backoff(error,attempt,stage){onRetry({stage,status:error.status,attempt:attempt+1});await wait(Math.min(8000,500*2**attempt)+Math.floor(Math.random()*200));}
+ async function backoff(error,attempt,stage){if(remaining()<8500)throw error;onRetry({stage,status:error.status,attempt:attempt+1});await wait(Math.min(8000,500*2**attempt)+Math.floor(Math.random()*200));}
  async function snapshot(){
   let ref;
   for(let attempt=0;;attempt++){
@@ -115,7 +119,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
   for(let attempt=0;;attempt++){
    let current;
    try{
-    current=await snapshot();
+    remaining();current=await snapshot();
     if(!expected)expected=new Map(changes.map(e=>[e.path,observed.has(e.path)?observed.get(e.path):(current.files.get(e.path)||null)]));
     // Handles lost successful responses without making a duplicate commit.
     if(changes.every(e=>(current.files.get(e.path)||null)===e.sha)){for(const e of changes)observed.set(e.path,e.sha);return {sha:current.sha,recovered:attempt>0};}
@@ -126,7 +130,7 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     // Publish the entire checkpoint through Git; preserve the same guarded parent
     // and ordinary non-force branch update rather than splitting public snapshots.
     if(changes.some(e=>e.bytes?.length>gitThresholdBytes)){
-     const next=await gitPublisher({repository,branch,token,current,changes,message,onDiagnostic});
+     const next=await gitPublisher({repository,branch,token,current,changes,message,onDiagnostic,deadline,clock});
      const files=new Map(current.files);for(const e of changes){if(e.remove)files.delete(e.path);else files.set(e.path,e.sha);observed.set(e.path,e.sha);}
      retiredHeads.add(current.sha);cachedSnapshot={sha:next.sha,tree:next.tree,files};
      return {sha:next.sha,recovered:attempt>0,transport:'git'};

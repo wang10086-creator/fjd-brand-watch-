@@ -58,8 +58,12 @@ test('pending/history source writes nothing; light output stays intact above lim
  const m=memory(),r=report();r.status='pending';await run(m,feed([r,report('2026-10-27')]));assert.equal(m.writes.length,0);
  const large=report();large.report.cohort[0].snapshot.title='🧭'.repeat(10000);sign(large);const a=buildLightExport(large,{maxCharacters:10});assert.equal(a.manifest.status,'requires_segmentation');assert.ok(a.body.includes('🧭'.repeat(10000)));
 });
-test('runner wiring is after final formal checkpoint and isolated from original website publication',async()=>{
- const s=await readFile(new URL('../cloud/runner.mjs',import.meta.url),'utf8');const final=s.indexOf('finally{vault.runtime=');const call=s.indexOf('await publishLightReports(');assert.ok(call>final);assert.match(s.slice(final,call),/await checkpoint\(\)/);assert.match(s.slice(call),/catch\(error\)\{console.warn\('轻量日报/);assert.match(s.slice(call),/await publishWebSnapshot/);
+test('runner exports only confirmed formal snapshots before unrelated delivery and bulk public save',async()=>{
+ const s=await readFile(new URL('../cloud/runner.mjs',import.meta.url),'utf8');
+ assert.ok(s.indexOf('confirmedFormalFeed=formalTextFeed(vault.state)')>s.indexOf('const checkpointResult=await store.write(entries)'));
+ const critical=s.indexOf('await runReportCriticalPath('),base=s.indexOf('await deliverBaseReviews(',critical),bulk=s.indexOf('// Bulk public/dashboard');
+ assert.ok(critical>0&&base>critical&&bulk>base);assert.match(s,/reportSave=\(\)=>checkpoint\(\{progressOnly:true\}\)/);
+ assert.match(s,/delivery\('digest',\{save:reportSave\}\)/);assert.match(s,/env.FJD_NOTION_PAUSED!=='true'/);
 });
 
 test('frozen pending-only category reconciles without double counting successful or failed pending rows',()=>{

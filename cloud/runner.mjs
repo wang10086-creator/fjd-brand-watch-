@@ -1,3 +1,5 @@
+import {createRunBudget} from './run-budget.mjs';
+import {runReportCriticalPath,formalTextFeed} from './report-critical-path.mjs';
 import {historyWriterMode,historyIntegrationPolicy,assertHistoryOperation} from './history-writer-policy.mjs';
 import {prepareHistoryCampaign,historyPlansForCycle,historyCampaignSummary} from './market-history.mjs';
 import {resolveOperation} from './operation.mjs';
@@ -53,11 +55,13 @@ const env={...process.env},password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEI
 env.FJD_NOTION_PAUSED='true';
 delete env.NOTION_TOKEN;
 env.FJD_NOTION_EVIDENCE_ENABLED='false';
+const budget=createRunBudget({startedAt:env.FJD_JOB_STARTED_AT});
+console.log('云端作业预算 '+JSON.stringify(budget.diagnostic()));
 const workflowBridge=createWorkflowBridge({password});
 const historyTransport=historyBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
 const probeTransport=nativeProbeBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});
-let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve();
-const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
+let vault,draftReceipts={},saveBlocked=null,lastConfirmedStatus=null,revision=0,child,checkpointChain=Promise.resolve(),confirmedFormalFeed=null,lastTextSignature=null,textAttempts=new Map();
+const store=createGithubStore({repository:config.repository,branch:config.branch,token:env.GITHUB_TOKEN,deadline:budget.deadline,onDiagnostic:info=>console.warn('GitHub 安全诊断 '+JSON.stringify(info)),onRetry:({stage,status,attempt})=>console.warn(`GitHub ${stage}重试 ${attempt}/4（${status||'网络响应未确认'}），重新核对云端版本`)});
 const github=store.request,file=store.readJSON,put=store.putJSON;
 async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(e){if(e.status!==404)throw e;const main=await github('/git/ref/heads/main');await github('/git/refs','POST',{ref:'refs/heads/'+config.branch,sha:main.object.sha})}}
 function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,automation:{history:historySummary(vault),sourceHealth:['primary','rss','web'].map(source=>{const h=vault.state.searchProviders?.health?.[source]||{};return {source,lastSuccessAt:h.global?.lastSuccessAt||null,consecutive:h.global?.consecutive||0,errorKind:h.global?.kind||null,cooldownUntil:vault.state.searchProviders?.[source+'Until']||0,scopeCooling:Object.values(h.domains||{}).filter(d=>d.until>Date.now()).length}}),coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,urlChecks:vault.state.urlCheckSummary||null,baseUpdates:baseStatusSummary(vault,env.FEISHU_BASE_STATUS_WEBHOOK),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{paused:true,provider:'feishu',removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:false,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},base:{...baseReviewStatus(vault,env.FEISHU_BASE_REVIEW_WEBHOOK||false),nativeWorkflow:{protocol:'fjd-workflow-v1',enabled:workflowBridge.state()},attachmentConfigured:!!(baseAppCredentials(env).appId&&baseAppCredentials(env).appSecret),previewMode:env.FEISHU_BASE_PREVIEW_MODE==='url'?'url':null,receipts:baseReviewReceipts(vault)},bot:{enabled:config.feishuNotifications!==false,kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
@@ -80,11 +84,21 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  entries.push(...publicStorageEntries(publicSnapshot),{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')});}
  const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
  if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
- return verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
+ const result=verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
+ confirmedFormalFeed=formalTextFeed(vault.state);
+ return result;
  }catch(e){saveBlocked=e;vault.runtime={...vault.runtime,phase:'failed',persistence:'unconfirmed',lastError:'保存未确认，停止后续查询；下次从远端确认版本恢复'};try{await put('status.json',{...(lastConfirmedStatus||{version:3,configured:true}),updatedAt:new Date().toISOString(),runtime:vault.runtime})}catch{}throw e;}
 
 }
-async function delivery(operation,{onlyDay=null}={}){
+async function publishConfirmedText(){
+ if(!confirmedFormalFeed)throw Error('正式快照保存尚未确认');
+ const signature=JSON.stringify(confirmedFormalFeed);if(signature===lastTextSignature)return {status:vault.runtime.textExport?.status||'unchanged'};
+ const attempts=textAttempts.get(signature)||0;if(attempts>=2)return {status:'unconfirmed'};
+ textAttempts.set(signature,attempts+1);
+ try{const result=await publishLightReports({feed:confirmedFormalFeed,store,repository:config.repository,branch:config.branch,archiveReceipts:{},archiveIndexUrl:null,fetcher:(url,options)=>{budget.require('text-read',1000);return fetch(url,{...options,signal:AbortSignal.timeout(Math.max(1,Math.min(20000,budget.remaining())))})}});lastTextSignature=signature;vault.runtime.textExport={status:result.status,at:new Date().toISOString()};console.log('轻量日报公开输入：'+result.status);return result;}
+ catch(error){vault.runtime.textExport={status:'unconfirmed',reason:lightExportDiagnostic(error),at:new Date().toISOString()};console.warn('轻量日报公开输入未确认；原因 '+lightExportDiagnostic(error)+'；保留原索引等待补齐，Notion 与群回执不变');return {status:'unconfirmed'};}
+}
+async function delivery(operation,{onlyDay=null,save=checkpoint}={}){
  const root=join(tmpdir(),'fjd-cloud-'+(env.GITHUB_RUN_ID||crypto.randomUUID()));await mkdir(root,{recursive:true,mode:0o700});const path=join(root,'delivery.json');
  vault.delivery.reportPolicy=vault.state.monitor.reportPolicy;
  vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
@@ -101,7 +115,8 @@ async function delivery(operation,{onlyDay=null}={}){
  }
  // Recover the immutable checksum used by old partially archived records.
  for(const e of vault.delivery.events)if(e.cumulative&&e.at<='2026-10-14T01:25:00.000Z'){const d=createHash('sha256').update(JSON.stringify({day:e.day,at:e.at,cumulative:e.cumulative})).digest('hex').slice(0,24);e.chartUrl='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/reports/'+e.day+'/'+d+'.png';}vault.delivery.publicUrl=config.notionPublicUrl;vault.delivery.parentId=config.notionParentId;
- if(operation!=='check'){
+ // Notion is the only consumer of these archived charts; the bot card is text.
+ if(operation!=='check'&&env.FJD_NOTION_PAUSED!=='true'){
  for(const event of vault.delivery.reportOverviews)try{
   if(event.formalChecksum&&vault.delivery.formalCharts?.[event.day]){event.reportCharts=vault.delivery.formalCharts[event.day];continue;}
   if(!event.formalChecksum&&vault.delivery.reportLayouts?.[event.day]===event.reportVersion)continue;
@@ -112,13 +127,13 @@ async function delivery(operation,{onlyDay=null}={}){
    if(!existing)await store.putBytes(name,await readFile(join(output,kind+'.png')));
    event.reportCharts[kind]='https://raw.githubusercontent.com/'+config.repository+'/'+config.branch+'/'+name;
   }
-  if(event.formalChecksum){vault.delivery.formalCharts||={};vault.delivery.formalCharts[event.day]=event.reportCharts;await checkpoint();}
+  if(event.formalChecksum){vault.delivery.formalCharts||={};vault.delivery.formalCharts[event.day]=event.reportCharts;await save();}
  }catch(error){if(event.formalChecksum)throw Error('正式日报图表生成尚未完成，保留同版等待补同步');console.warn('部分日报图表生成失败，保留文字概括和原始明细'+(error.message?.startsWith('GitHub')?'；'+error.message:''));}
  }
  await writeFile(path,JSON.stringify(vault.delivery),{mode:0o600});
  const processDone=new Promise((resolve,reject)=>{
   child=spawn('python3',[new URL('./delivery.py',import.meta.url).pathname,path,operation],{stdio:['pipe','pipe','pipe'],env});let buffer='';
-  child.stdout.on('data',bytes=>{buffer+=bytes;const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines)if(line.trim()==='CHECKPOINT')checkpointChain=checkpointChain.then(async()=>{vault.delivery=JSON.parse(await readFile(path,'utf8'));await checkpoint();child.stdin.write('ACK\n')}).catch(error=>{child.kill('SIGTERM');reject(error)})});
+  child.stdout.on('data',bytes=>{buffer+=bytes;const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines)if(line.trim()==='CHECKPOINT')checkpointChain=checkpointChain.then(async()=>{vault.delivery=JSON.parse(await readFile(path,'utf8'));await save();child.stdin.write('ACK\n')}).catch(error=>{child.kill('SIGTERM');reject(error)})});
   child.stderr.on('data',()=>{});child.once('error',reject);child.once('exit',code=>code===0?resolve():reject(Error('归档执行端中断，已确认的记录保留')));
  });
  await processDone;await checkpointChain;vault.delivery=JSON.parse(await readFile(path,'utf8'));delete vault.delivery.events;
@@ -281,47 +296,67 @@ async function main(){
  if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms','platformTerritory'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config={...payload.config,platformTerritory:payload.config.platformTerritory??vault.state.config.platformTerritory??'all',brandOwnership:mergeOwnership(vault.state.config.brandOwnership,payload.config.brandOwnership)};vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
  upgradeGlobalScope(vault.state);await configure(vault.state);
  vault.lastError='';
- vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null};await checkpoint();
+ vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,budget:budget.diagnostic()};await checkpoint({progressOnly:true});
  try{
+   const due=dueActions(vault),publishDay=due.digestDay;
+   const reportSave=()=>checkpoint({progressOnly:true});
+   // Existing sent reports can repair only their text index on natural re-entry.
+   // This precedes all unrelated business delivery and public bulk snapshots.
+   if(['auto','digest','sync'].includes(op)){
+    budget.require('formal-report',4*60000);
+    vault.runtime.reportTiming={dueAt:publishDay?cycleForDay(publishDay,vault.state.monitor.reportPolicy).pushAt:null,checkedAt:new Date().toISOString(),lateByMs:publishDay?Math.max(0,Date.now()-Date.parse(cycleForDay(publishDay,vault.state.monitor.reportPolicy).pushAt)):0};
+    try{await runReportCriticalPath({vault,day:publishDay,checkpoint:reportSave,deliver:()=>delivery('digest',{save:reportSave}),publish:publishConfirmedText});}
+    catch(e){if(saveBlocked)throw e;vault.runtime.reportWarning=e.message;vault.lastError='日报待核实：'+e.message;}
+   }
+   // Preserve the original business-stage eligibility after the report path.
+   // Only the remaining job budget may defer an otherwise eligible stage.
+   budget.require('base-reviews');
    await deliverBaseReviews(vault,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint});
-   const due=dueActions(vault);
-   // Freeze and durably checkpoint before charts or external mutations.
-   const publishDay=due.digestDay;
-   if(publishDay&&['auto','digest','sync'].includes(op)){try{freezeReport(vault.state,publishDay,new Date().toISOString());vault.delivery.digestDay=publishDay;await checkpoint();await delivery('digest');}catch(e){if(saveBlocked)throw e;vault.runtime.reportWarning=e.message;vault.lastError='日报待核实：'+e.message;}}
-   else if(op==='digest')console.log('当前没有到期且允许发送的正式日报；保留已有回执');
    if(['scan','site-retry','verify'].includes(op)||(['auto','schedule'].includes(op)&&due.scan)){
     const already=false;
-    if(op!=='schedule'||!already){const run=await scan(vault.state,{budget:['auto','schedule'].includes(op)?due.budget:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
+    if(op!=='schedule'||!already){budget.require('scan',4*60000);const run=await scan(vault.state,{budget:['auto','schedule'].includes(op)?due.budget:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,maxDurationMs:budget.slice(10*60000),checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
    }
    if(!['check','authorize','digest','test-digest'].includes(op)&&!(op==='auto'&&(!due.scan||Date.now()>Date.parse(due.cycle.cutoffAt)-4*60000))){
-    vault.runtime.currentSite=null;vault.runtime.stage='images';await checkpoint();
-    const visual=await enrichPictures(vault.state);console.log('图形核查：'+visual.attempted+' 个页面；已比对 '+visual.compared+' 页；相似候选 '+visual.matched+' 页；访问受限 '+visual.unavailable+' 页');
+    budget.require('images',5*60000);vault.runtime.currentSite=null;vault.runtime.stage='images';await checkpoint();
+    const visual=await enrichPictures(vault.state,{maxDurationMs:budget.slice(90000)});console.log('图形核查：'+visual.attempted+' 个页面；已比对 '+visual.compared+' 页；相似候选 '+visual.matched+' 页；访问受限 '+visual.unavailable+' 页');
    }
    const minute=(new Date().getUTCHours()*60+new Date().getUTCMinutes()+480)%1440;
    const urlDeadline=op==='auto'&&due.scan?Math.min(Date.now()+30000,Date.parse(due.cycle.cutoffAt)-60000):Date.now()+30000;
    if(!['check','authorize','digest','test-digest','verify'].includes(op)&&!(minute>=550&&minute<585)&&urlDeadline>Date.now()+1000){
-    vault.runtime.stage='url-check';const result=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),deadline:urlDeadline,limit:8,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});enqueueBaseStatus(vault);await checkpoint();
+    budget.require('url-check');vault.runtime.stage='url-check';const result=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),deadline:urlDeadline,limit:8,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});enqueueBaseStatus(vault);await checkpoint();
     console.log('网址核查：'+JSON.stringify(result));
     try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint,deadline:urlDeadline})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，原归档与推送流程保留'}
    }
-   vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
+   budget.require('delivery',4*60000);vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint();
    await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync');
    if(vault.integrationPolicy.historyNative&&historyWriterMode(config)==='native'&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint,bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
  }catch(error){
+   if(error.code==='FJD_BUDGET_DEFERRED'){process.exitCode=1;vault.runtime.deferredStage=error.stage;console.warn('作业预算不足，阶段留待自然续查：'+error.stage);return;}
    vault.lastError=error.message||'云端操作失败，原记录保留';
    // Saved results can still be archived after a search failure. Atomic checkpoints
    // retain the conflict guards if another ledger writer has intervened.
-   try{if(!saveBlocked)await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
+   try{if(!saveBlocked&&budget.allow(4*60000))await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
- finally{vault.runtime={...vault.runtime,currentSite:null,lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};await checkpoint();}
+ finally{
+  vault.runtime={...vault.runtime,currentSite:null,budget:budget.diagnostic(),lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.runtime.deferredStage||vault.runtime.textExport?.status==='unconfirmed'||vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};
+  await checkpoint({progressOnly:true});
+  if(['auto','digest','sync','scan','site-retry'].includes(op)&&budget.allow(60000)){
+   await publishConfirmedText(); // at most two text-only attempts per confirmed version
+   if(vault.runtime.textExport?.status==='unconfirmed'){process.exitCode=1;if(vault.runtime.phase!=='failed')vault.runtime.phase='partial';}
+   else if(!vault.lastError&&!vault.runtime.deferredStage&&!vault.delivery.archiveError&&!vault.delivery.botError)vault.runtime.phase='ready';
+   await put('status.json',publicStatus());
+  }else if(vault.runtime.textExport?.status==='unconfirmed')process.exitCode=1;
+ }
+ // Bulk public/dashboard snapshot is secondary; no external delivery in this tail.
+ if(!budget.allow(3*60000)){
+  process.exitCode=1;
+  vault.runtime={...vault.runtime,phase:vault.runtime.phase==='failed'?'failed':'partial',deferredStage:vault.runtime.deferredStage||'public-snapshot',deferredStages:[...new Set([...(vault.runtime.deferredStages||[]),...(vault.runtime.deferredStage?[vault.runtime.deferredStage]:[]),'public-snapshot'])],budget:budget.diagnostic()};
+  await put('status.json',publicStatus());
+  console.warn('完整公开快照留待自然续查；已确认正式文字索引保留');return;
+ }
+ await checkpoint();
  try{
   const feed=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts});
-  // Final checkpoint above has synchronized and saved the formal publication status.
-  // Secondary public text export never replays Notion, bot or business-table writes.
-  if(['auto','digest','sync','scan','site-retry'].includes(op)){
-   try{const result=await publishLightReports({feed,store,repository:config.repository,branch:config.branch,archiveReceipts:{},archiveIndexUrl:null});console.log('轻量日报公开输入：'+result.status);}
-   catch(error){console.warn('轻量日报公开输入未确认；原因 '+lightExportDiagnostic(error)+'；保留原索引等待补齐，Notion 与群回执不变');}
-  }
   await publishWebSnapshot({repository:config.repository,token:env.GITHUB_TOKEN,feed,status:publicStatus()});console.log('网站公开快照已发布；等待 Pages 更新生效');
  }catch(error){console.warn('网站快照发布待重试；云端原台账与 Notion 归档保留：'+(error.status?'HTTP '+error.status:'网络或版本响应未确认'));}
  if(uploadName&&!vault.lastError)await store.remove(uploadName);
