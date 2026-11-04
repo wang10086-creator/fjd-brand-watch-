@@ -160,3 +160,30 @@ test('an absent byte read protects against a concurrent create; corrupt blob byt
  const bad=repository({'body.md':'valid'}),reader=storeFor(bad);bad.intercept=({path,method,response})=>method==='GET'&&path.startsWith('/git/blobs/')?response(200,{content:Buffer.from('wrong').toString('base64')}):null;
  await assert.rejects(reader.readBytes('body.md'),/字节校验失败/);
 });
+
+test('today-sized encrypted JSON uses existing guarded Git transport, without REST blob upload',async()=>{
+ const repo=repository({'vault.json':'old'});let size=0;
+ const store=storeFor(repo,{gitPublisher:async({changes})=>{size=changes[0].bytes.length;repo.external('vault.json',changes[0].bytes);return {sha:repo.head,tree:'f'.repeat(40)}}});
+ await store.putJSON('vault.json',{ciphertext:'x'.repeat(30684661)});assert.ok(size>30684661);assert.equal(repo.calls.filter(c=>c.method!=='GET').length,0);
+});
+test('504 and timeout after a successful ref update reconcile once without duplicate commit',async()=>{
+ for(const status of [504,0]){const repo=repository(),diagnostics=[],underlying=repo.fetcher;let once=true;
+  const store=storeFor(repo,{onDiagnostic:d=>diagnostics.push(d),fetcher:async(...args)=>{const r=await underlying(...args);if(args[1].method==='PATCH'&&once){once=false;if(!status)throw Error('timeout');return repo.response(status,{message:'PRIVATE'})}return r}});
+  const result=await store.putJSON('vault.json',{x:1});assert.equal(result.recovered,true);assert.equal(diagnostics[0].confirmation,'unconfirmed');assert.equal(repo.calls.filter(c=>c.path==='/git/commits'&&c.method==='POST').length,1);assert.doesNotMatch(JSON.stringify(diagnostics),/PRIVATE/);
+ }
+});
+test('blob 504 stays unconfirmed, bounded retries never publish partial checkpoint',async()=>{
+ const repo=repository({'vault.json':'old'}),diagnostics=[],store=storeFor(repo,{onDiagnostic:d=>diagnostics.push(d),retries:1});
+ repo.intercept=({path,response})=>path==='/git/blobs'?response(504,{message:'PRIVATE'}):null;
+ await assert.rejects(store.putJSON('vault.json',{x:'x'.repeat(600000)}),/响应未确认/);assert.equal(repo.value('vault.json'),'old');assert.equal(repo.calls.filter(c=>c.path==='/git/blobs').length,2);assert.ok(diagnostics.every(d=>d.confirmation==='unconfirmed'));
+});
+test('expired shared budget starts no upload; Git lost response re-entry recovers the same commit',async()=>{
+ const repo=repository({'vault.json':'old'}),expired=storeFor(repo,{deadline:100,clock:()=>101});await assert.rejects(expired.putJSON('vault.json',{x:1}),/预算/);assert.equal(repo.calls.length,0);
+ let sends=0;const store=storeFor(repo,{gitThresholdBytes:1,gitPublisher:async({changes})=>{sends++;repo.external('vault.json',changes[0].bytes);throw Object.assign(Error('lost push response'),{status:0})}});
+ assert.equal((await store.putJSON('vault.json',{x:2})).recovered,true);assert.equal(sends,1);
+});
+test('successful HTTP with lost JSON response remains unconfirmed and reconciles ref before retry',async()=>{
+ const repo=repository(),underlying=repo.fetcher,diagnostics=[];let once=true;
+ const store=storeFor(repo,{onDiagnostic:d=>diagnostics.push(d),fetcher:async(...args)=>{const r=await underlying(...args);if(args[1].method==='PATCH'&&once){once=false;r.json=async()=>{throw Error('PRIVATE body aborted')}}return r}});
+ assert.equal((await store.putJSON('vault.json',{x:1})).recovered,true);assert.equal(repo.calls.filter(c=>c.path==='/git/commits'&&c.method==='POST').length,1);assert.equal(diagnostics[0].confirmation,'unconfirmed');
+});

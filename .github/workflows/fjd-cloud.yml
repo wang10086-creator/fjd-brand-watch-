@@ -34,12 +34,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 23
     steps:
+      - name: 记录作业预算起点
+        run: echo "FJD_JOB_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: cloud/requirements-monitor.txt
       - name: 准备日报图表
-        run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+        run: python3 -m pip install --quiet -r cloud/requirements-monitor.txt
       - uses: actions/cache@v4
         with:
           path: .cache/fjd-images

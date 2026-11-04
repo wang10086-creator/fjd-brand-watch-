@@ -5,17 +5,17 @@ import {join} from 'node:path';
 
 // Stage objects locally for the SAME production branch; only the final ordinary
 // push changes its ref. No auxiliary remote repository or branch is created.
-function execute(args,{cwd,env,input}={}){
+function execute(args,{cwd,env,input,timeoutMs=180000}={}){
  return new Promise((resolve,reject)=>{
   const p=spawn('git',args,{cwd,env,stdio:['pipe','pipe','pipe']}),out=[],err=[];let count=0;
-  const timer=setTimeout(()=>p.kill('SIGTERM'),180000);
+  const timer=setTimeout(()=>p.kill('SIGKILL'),timeoutMs);
   for(const [stream,list] of [[p.stdout,out],[p.stderr,err]])stream.on('data',b=>{count+=b.length;if(count<262144)list.push(b)});
   p.on('error',()=>{clearTimeout(timer);reject(Error('GitHub Git 执行器不可用'))});
   p.on('close',code=>{clearTimeout(timer);resolve({code,stdout:Buffer.concat(out).toString(),stderr:Buffer.concat(err).toString()})});
   p.stdin.on('error',()=>{});p.stdin.end(input);
  });
 }
-export async function publishGitCheckpoint({repository,branch,token,current,changes,message,run=execute,onDiagnostic=()=>{}}){
+export async function publishGitCheckpoint({repository,branch,token,current,changes,message,run=execute,onDiagnostic=()=>{},deadline=Infinity,clock=Date.now}){
  if(!/^[\w.-]+\/[\w.-]+$/.test(repository)||!/^[-\w./]+$/.test(branch)||!(/^[a-f0-9]{40}$/.test(current.sha)))throw Error('GitHub Git 保存目标无效');
  for(const e of changes){
   if(!e.path||e.path.startsWith('/')||e.path.split('/').some(p=>['','..','.'].includes(p))||/[\x00-\x1f]/.test(e.path))throw Error('GitHub Git 保存文件路径无效');
@@ -28,7 +28,9 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
  const dir=await mkdtemp(join(tmpdir(),'fjd-checkpoint-'));
  const env={...process.env,GIT_TERMINAL_PROMPT:'0',GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_CONFIG_COUNT:'2',GIT_CONFIG_KEY_0:'http.https://github.com/.extraheader',GIT_CONFIG_VALUE_0:'AUTHORIZATION: basic '+Buffer.from('x-access-token:'+token).toString('base64'),GIT_CONFIG_KEY_1:'credential.helper',GIT_CONFIG_VALUE_1:'',GIT_TRACE:'0',GIT_TRACE_CURL:'0',GIT_CURL_VERBOSE:'0',GIT_INDEX_FILE:join(dir,'checkpoint-index'),GIT_AUTHOR_NAME:'FJD cloud monitor',GIT_AUTHOR_EMAIL:'41898282+github-actions[bot]@users.noreply.github.com',GIT_COMMITTER_NAME:'FJD cloud monitor',GIT_COMMITTER_EMAIL:'41898282+github-actions[bot]@users.noreply.github.com'};
  async function git(args,stage,input){
-  const result=await run(args,{cwd:dir,env,input});
+  const timeoutMs=Math.min(180000,deadline-clock());
+  if(timeoutMs<=0)throw Object.assign(Error('GitHub Git 保存预算耗尽，结果待回读确认'),{code:'FJD_STORE_BUDGET'});
+  const result=await run(args,{cwd:dir,env,input,timeoutMs});
   if(result.code!==0){
    const text=result.stdout+'\n'+result.stderr,error=Error('GitHub Git 保存未确认（'+stage+'）');
    error.status=/(?:non-fast-forward|fetch first|stale info)/i.test(text)?409:/(?:protected branch|GH006|GH013|permission|403|denied)/i.test(text)?403:0;

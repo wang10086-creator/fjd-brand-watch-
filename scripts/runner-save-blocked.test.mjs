@@ -1,12 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
+import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawnSync} from 'node:child_process';import {createHash,randomBytes} from 'node:crypto';
 import {initialState} from '../cloud/scan.mjs';import {seal} from '../cloud/crypto.js';import {REPORT_POLICY} from '../report-cycle.js';
 test('runner blob 422 blocks sealing, queries and delivery processes',async()=>{
  const root=await mkdtemp(join(tmpdir(),'fjd-save-blocked-'));
  try{
   const state=await initialState();state.rows=[];state.monitor.reportPolicy={...REPORT_POLICY,firstDay:'2026-10-22'};
-  // Large public row guarantees the full snapshot uses the blob endpoint.
-  state.rows=[{url:'https://fixture.example/item',title:'FJDynamics AT2',snippet:'中文 fixture '.repeat(70000),platform:'dealer',country:'US'}];
+  // Incompressible synthetic row makes even the critical encrypted vault use blobs.
+  state.rows=[{url:'https://fixture.example/item',title:'FJDynamics AT2',snippet:randomBytes(900000).toString('base64'),platform:'dealer',country:'US'}];
   const cipher=await seal({state,delivery:{receipts:{},pages:{},pushes:{}},runtime:{}},'fixture-password-12345','vault');cipher.keyScheme='data-password-v2';
   const bytes=Buffer.from(JSON.stringify(cipher)),sha=createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
   await writeFile(join(root,'fixture.json'),JSON.stringify({sha,content:bytes.toString('base64')}));

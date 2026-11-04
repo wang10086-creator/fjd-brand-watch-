@@ -33,3 +33,7 @@ test('oversized preflight reports category and bytes without payload, path or cr
  assert.deepEqual(diagnostics,[{stage:'git-preflight',fileCategory:'other',bytes:length,limitBytes:100*1024*1024,confirmation:'not-sent'}]);
  assert.ok(!JSON.stringify(diagnostics).includes('SECRET'));
 });
+test('shared job budget bounds Git subprocess time and expiry starts no push',async()=>{
+ const e=executor();await publishGitCheckpoint({...options,run:e.run,deadline:2000,clock:()=>1000});assert.ok(e.calls.every(c=>c.timeoutMs===1000));
+ const blocked=executor();await assert.rejects(publishGitCheckpoint({...options,run:blocked.run,deadline:1000,clock:()=>1001}),/预算/);assert.equal(blocked.calls.length,0);
+});

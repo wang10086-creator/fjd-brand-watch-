@@ -55,3 +55,33 @@ class FormalTests(unittest.TestCase):
         pid=s['pages'][DAY]['id'];self.assertEqual(before[pid],store.blocks[pid]);self.assertEqual(s['archiveError'],'')
         sink=NotionReports(store.request,'parent',s['pages'],s['layoutBlocks']);e=dict(EVENT,day=DAY,at=DAY+'T15:00:00Z');sink.sync(e);sink.overview(e);sink.repair_history_presentation(DAY)
         self.assertEqual(before[pid],store.blocks[pid])
+
+class CriticalPersistenceTests(unittest.TestCase):
+    def test_paused_archive_save_failure_before_send_or_after_response_does_not_duplicate(self):
+        env = dict(ENV, FJD_NOTION_PAUSED='true')
+        for fail_after_send in (False, True):
+            state = fixture()
+            saved = copy.deepcopy(state)
+            sent = []
+            def checkpoint():
+                nonlocal saved
+                status = state.get('pushes', {}).get(DAY, {}).get('status')
+                if status == ('sent' if fail_after_send else 'sending'):
+                    raise RuntimeError('synthetic durable store failure')
+                saved = copy.deepcopy(state)
+            def post(*args):
+                self.assertEqual(saved['pushes'][DAY]['status'], 'sending')
+                sent.append(True)
+                return {'code': 0}
+            with self.assertRaises(RuntimeError):
+                deliver(state, 'digest', checkpoint, env=env,
+                        request=lambda *a: self.fail('paused Notion called'), bot_request=post, now=NOW)
+            self.assertEqual(len(sent), 1 if fail_after_send else 0)
+            # Restart from the durable record, never from unconfirmed RAM receipts.
+            if fail_after_send:
+                self.assertEqual(saved['pushes'][DAY]['status'], 'sending')
+                deliver(saved, 'digest', lambda: None, env=env,
+                        request=lambda *a: self.fail('paused Notion called'),
+                        bot_request=lambda *a: self.fail('uncertain send repeated'),
+                        now=NOW+dt.timedelta(hours=1))
+                self.assertEqual(saved['pushes'][DAY]['status'], 'uncertain')

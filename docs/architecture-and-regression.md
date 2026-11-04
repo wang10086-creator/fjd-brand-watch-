@@ -2389,3 +2389,17 @@ Export task references retain separate `history_ids` and `record_ids` provenance
 ### Cloud-UI dispatcher retirement
 
 Optional `historyWriterMode: cloud-ui` fences queue construction, native delivery and manual history-sync before transport calls. The runner rejects history-sync before reading vault, skips native queue/delivery during unrelated jobs, and keeps historyNative isolation true to avoid reviving legacy baseReview/baseStatus writers. Missing mode retains current native behavior; invalid modes fail closed. The repository config enables cloud-ui mode. This changes future runners only; old checked-out jobs must still be settled by the operator. Existing native instances and gateway/Feishu direct triggers must be retired independently before activation; this fence is not quiescence proof. UI receipts must live in approved private persistent storage, never this public repository.
+
+## 2026-11-04 日报保存与文字关键路径（本地候选，未上线）
+
+见 [隔离验证记录](report-critical-path-2026-11-04.md)。正式日报使用原权威 vault 的
+progressOnly 原子 checkpoint；published 仍由原 syncFormalReceipts 决定。文字发布
+只取保存成功后的 formal-only 副本，先于辅助公开大快照，不引入第二 ledger/writer。
+Notion 暂停时不生成其专用图表；历史文件与 checksum 保留。白天自然 auto 仅完成
+日报/文字和公开快照，不串行重放全部业务。保留原 sending/sent/uncertain 协议。
+
+较大 checkpoint 提前使用既有 Git 通道（8 MiB），5xx/丢响应诊断为 unconfirmed；
+重试仍回读父版本且禁止 force/覆盖竞争 writer。22 分钟协作预算从 workflow 第一
+步计时，23 分钟硬限制/cron/并发组不改；不足时记录 deferredStage，保存后自然续查。
+完整快照可滞后，正式索引不得领先于其权威状态的持久化确认。测试注入各保存边界、
+索引部分失败和发送后丢回执，验证不伪造 published、不重发 uncertain。
