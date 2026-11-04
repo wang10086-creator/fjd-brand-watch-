@@ -3,7 +3,12 @@
 export class BudgetDeferred extends Error {
  constructor(stage){super('Cloud stage deferred by job budget');this.code='FJD_BUDGET_DEFERRED';this.stage=stage;}
 }
-export function createRunBudget({startedAt,clock=Date.now,totalMs=22*60000,reserveMs=3*60000}={}){
+export function createRunBudget({startedAt,jobTimeoutMinutes,clock=Date.now,totalMs=22*60000,reserveMs=3*60000}={}){
+ if(jobTimeoutMinutes!==undefined){
+  const minutes=Number(jobTimeoutMinutes);
+  if(!Number.isFinite(minutes)||minutes<2)throw Error('云端作业硬时限配置无效');
+  totalMs=Math.min(totalMs,(minutes-1)*60000);
+ }
  const now=clock(),parsed=Date.parse(startedAt||'');
  const start=Number.isFinite(parsed)&&parsed<=now?parsed:now,deadline=start+totalMs;
  return {deadline,remaining:()=>Math.max(0,deadline-clock()),

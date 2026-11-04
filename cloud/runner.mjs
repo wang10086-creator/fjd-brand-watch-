@@ -55,7 +55,7 @@ const env={...process.env},password=env.MONITOR_CLOUD_PASSWORD,appSecret=env.FEI
 env.FJD_NOTION_PAUSED='true';
 delete env.NOTION_TOKEN;
 env.FJD_NOTION_EVIDENCE_ENABLED='false';
-const budget=createRunBudget({startedAt:env.FJD_JOB_STARTED_AT});
+const budget=createRunBudget({startedAt:env.FJD_JOB_STARTED_AT,jobTimeoutMinutes:env.FJD_JOB_TIMEOUT_MINUTES});
 console.log('云端作业预算 '+JSON.stringify(budget.diagnostic()));
 const workflowBridge=createWorkflowBridge({password});
 const historyTransport=historyBridge({password,origin:new URL(JSON.parse(await readFile(new URL('./service-config.json',import.meta.url))).endpoint).origin});

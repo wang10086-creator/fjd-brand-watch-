@@ -5,18 +5,21 @@ import {join} from 'node:path';
 
 // Stage objects locally for the SAME production branch; only the final ordinary
 // push changes its ref. No auxiliary remote repository or branch is created.
-function execute(args,{cwd,env,input,timeoutMs=180000}={}){
+export function executeGit(args,{cwd,env,input,timeoutMs=180000}={}){
  return new Promise((resolve,reject)=>{
-  const p=spawn('git',args,{cwd,env,stdio:['pipe','pipe','pipe']}),out=[],err=[];let count=0;
-  const timer=setTimeout(()=>p.kill('SIGKILL'),timeoutMs);
+  const grouped=process.platform!=='win32';
+  const p=spawn('git',args,{cwd,env,detached:grouped,stdio:['pipe','pipe','pipe']}),out=[],err=[];let count=0;
+  // Lazy fetch/pack helpers inherit pipes. Killing only git can leave helpers
+  // alive and prevent close from settling until the workflow itself is killed.
+  const timer=setTimeout(()=>{try{if(grouped)process.kill(-p.pid,'SIGKILL');else p.kill('SIGKILL')}catch{}},timeoutMs);
   for(const [stream,list] of [[p.stdout,out],[p.stderr,err]])stream.on('data',b=>{count+=b.length;if(count<262144)list.push(b)});
   p.on('error',()=>{clearTimeout(timer);reject(Error('GitHub Git 执行器不可用'))});
   p.on('close',code=>{clearTimeout(timer);resolve({code,stdout:Buffer.concat(out).toString(),stderr:Buffer.concat(err).toString()})});
   p.stdin.on('error',()=>{});p.stdin.end(input);
  });
 }
-export async function publishGitCheckpoint({repository,branch,token,current,changes,message,run=execute,onDiagnostic=()=>{},deadline=Infinity,clock=Date.now}){
- if(!/^[\w.-]+\/[\w.-]+$/.test(repository)||!/^[-\w./]+$/.test(branch)||!(/^[a-f0-9]{40}$/.test(current.sha)))throw Error('GitHub Git 保存目标无效');
+export async function publishGitCheckpoint({repository,branch,token,current,changes,message,run=executeGit,onDiagnostic=()=>{},deadline=Infinity,clock=Date.now}){
+ if(!/^[\w.-]+\/[\w.-]+$/.test(repository)||!/^[-\w./]+$/.test(branch)||![current.sha,current.tree].every(s=>/^[a-f0-9]{40}$/.test(s||'')))throw Error('GitHub Git 保存目标无效');
  for(const e of changes){
   if(!e.path||e.path.startsWith('/')||e.path.split('/').some(p=>['','..','.'].includes(p))||/[\x00-\x1f]/.test(e.path))throw Error('GitHub Git 保存文件路径无效');
   if(e.bytes?.length>100*1024*1024){
@@ -34,7 +37,7 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
   if(result.code!==0){
    const text=result.stdout+'\n'+result.stderr,error=Error('GitHub Git 保存未确认（'+stage+'）');
    error.status=/(?:non-fast-forward|fetch first|stale info)/i.test(text)?409:/(?:protected branch|GH006|GH013|permission|403|denied)/i.test(text)?403:0;
-   error.diagnostic={stage:'git-'+stage,status:error.status,confirmation:error.status?'rejected':'unconfirmed'};onDiagnostic(error.diagnostic);throw error;
+   error.diagnostic={stage:'git-'+stage,status:error.status,confirmation:error.status?'rejected':'unconfirmed',refUpdate:stage==='push'?(error.status?'rejected':'unconfirmed'):'not-attempted'};onDiagnostic(error.diagnostic);throw error;
   }
   return result.stdout.trim();
  }
@@ -43,11 +46,18 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
   await git(['remote','add','origin','https://github.com/'+repository+'.git'],'remote');
   await git(['fetch','--no-tags','--depth=1','--filter=blob:none','origin','refs/heads/'+branch],'fetch');
   if(await git(['rev-parse','FETCH_HEAD'],'read-head')!==current.sha){const e=Error('GitHub Git 保存期间分支已更新，重新核对台账');e.status=409;throw e;}
+  if(await git(['rev-parse','FETCH_HEAD^{tree}'],'read-parent-tree')!==current.tree)throw Error('GitHub Git 父目录校验失败，停止提交');
   await git(['read-tree',current.sha],'read-tree');
-  for(const e of changes)if(!e.remove){const sha=await git(['hash-object','-w','--stdin'],'hash',e.bytes);if(sha!==e.sha)throw Error('GitHub Git 文件字节校验失败，停止提交');}
+  for(const e of changes)if(!e.remove){
+   const sha=await git(['hash-object','-w','--stdin'],'hash',e.bytes);if(sha!==e.sha)throw Error('GitHub Git 文件字节校验失败，停止提交');
+   if(await git(['cat-file','-t',sha],'verify-blob')!=='blob')throw Error('GitHub Git 改动对象未确认，停止提交');
+  }
   const index=changes.map(e=>(e.remove?'0 '+'0'.repeat(40):'100644 '+e.sha)+'\t'+e.path+'\0').join('');
   await git(['update-index','-z','--index-info'],'index',index);
-  const tree=await git(['write-tree'],'tree'),sha=await git(['commit-tree',tree,'-p',current.sha], 'commit',message+'\n');
+  // Only inherited objects may be absent in this blob:none checkout: read-tree
+  // starts from the verified parent, and EVERY changed blob above is written
+  // locally and SHA-checked before update-index. Avoid fetching unrelated blobs.
+  const tree=await git(['write-tree','--missing-ok'],'tree'),sha=await git(['commit-tree',tree,'-p',current.sha], 'commit',message+'\n');
   if(!/^[a-f0-9]{40}$/.test(sha))throw Error('GitHub Git 提交编号校验失败');
   await git(['push','--porcelain','origin',sha+':refs/heads/'+branch],'push');
   onDiagnostic({stage:'git-push',status:200,confirmation:'confirmed',files:changes.length});
