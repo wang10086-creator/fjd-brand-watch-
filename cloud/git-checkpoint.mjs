@@ -1,3 +1,4 @@
+import {gitDiagnostic} from './git-diagnostic.mjs';
 import {spawn} from 'node:child_process';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -36,8 +37,10 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
   const result=await run(args,{cwd:dir,env,input,timeoutMs});
   if(result.code!==0){
    const text=result.stdout+'\n'+result.stderr,error=Error('GitHub Git 保存未确认（'+stage+'）');
-   error.status=/(?:non-fast-forward|fetch first|stale info)/i.test(text)?409:/(?:protected branch|GH006|GH013|permission|403|denied)/i.test(text)?403:0;
-   error.diagnostic={stage:'git-'+stage,status:error.status,confirmation:error.status?'rejected':'unconfirmed',refUpdate:stage==='push'?(error.status?'rejected':'unconfirmed'):'not-attempted'};onDiagnostic(error.diagnostic);throw error;
+   error.diagnostic=gitDiagnostic(text,{stage,exitCode:result.code});
+   error.status=error.diagnostic.status;
+   error.retryable=['conflict'].includes(error.diagnostic.reason)||error.diagnostic.confirmation==='unconfirmed'&&!/denied|permission/i.test(text);
+   onDiagnostic(error.diagnostic);throw error;
   }
   return result.stdout.trim();
  }

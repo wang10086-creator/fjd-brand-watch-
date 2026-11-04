@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 import {publishGitCheckpoint} from './git-checkpoint.mjs';
 
 const blobSha=bytes=>createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
-const transient=error=>error.status===0||error.status===409||[429,500,502,503,504].includes(error.status);
+const transient=error=>error.retryable??(error.status===0||error.status===409||[429,500,502,503,504].includes(error.status));
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 // Emit only enumerated labels, never server text (which may echo uploaded data).
@@ -150,6 +150,20 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     for(const e of changes)observed.set(e.path,e.sha);
     return {sha:next.sha,recovered:attempt>0};
    }catch(error){
+    // A push/ref response (even a rejection label) is not the authoritative
+    // outcome. Read only, once per failed attempt, before any retry decision.
+    if(error.diagnostic?.stage==='git-push'||error.diagnostic?.stage==='ref-update'){
+     try{
+      cachedSnapshot=null;
+      const confirmed=await snapshot();
+      if(changes.every(e=>(confirmed.files.get(e.path)||null)===e.sha)){
+       for(const e of changes)observed.set(e.path,e.sha);
+       onDiagnostic({stage:'checkpoint-readback',confirmation:'confirmed',files:changes.length});
+       return {sha:confirmed.sha,recovered:true};
+      }
+      onDiagnostic({stage:'checkpoint-readback',confirmation:'unconfirmed',files:changes.length});
+     }catch{onDiagnostic({stage:'checkpoint-readback',confirmation:'unconfirmed',files:changes.length});}
+    }
     // GitHub uses 422 for a non-fast-forward ref update, but also for invalid
     // requests. Only retry 422 when the branch really moved in the meantime.
     let retry=transient(error);
