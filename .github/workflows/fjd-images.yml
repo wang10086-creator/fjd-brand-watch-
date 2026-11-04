@@ -33,7 +33,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: python3 -m pip install --quiet Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.12.0.88 lxml==6.0.2
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12'
+      - name: 定位 pip 下载缓存
+        id: pip_dir
+        run: echo "path=$(python3 -m pip cache dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: pip_cache
+        with:
+          path: ${{ steps.pip_dir.outputs.path }}
+          key: images-pip-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('cloud/requirements-images.txt') }}
+      - name: 安装图片核验依赖
+        id: install_images
+        run: python3 -m pip install --quiet -r cloud/requirements-images.txt
+      # Save now: a later partial image run deliberately exits nonzero.
+      - name: 安装成功后立即保存 pip 缓存
+        if: ${{ steps.install_images.outcome == 'success' && steps.pip_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.pip_dir.outputs.path }}
+          key: ${{ steps.pip_cache.outputs.cache-primary-key }}
       - uses: actions/cache@v4
         with:
           path: .cache/fjd-images

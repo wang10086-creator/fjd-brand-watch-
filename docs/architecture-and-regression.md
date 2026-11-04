@@ -2440,3 +2440,53 @@ mode/tree verification, new/changed/removed files, mismatched parent tree, missi
 changed object, SHA mismatch, nonforce parent preservation, timeout helper cleanup,
 and workflow start/hard-limit coverage. This follow-up is local only until a new
 explicit release approval; PR #36's approval does not authorize this release.
+
+## 2026-11-04 image budget/status and Git diagnostic candidate
+
+Read-only diagnosis of natural runs 41816346963 and 41819329109 established:
+Git stderr was reduced to a synthetic 403 label, so neither an actual HTTP 403
+nor permission/rate-limit root cause is proven. Main vault progress stopped at
+5/60 despite a later status-only 9/60. Failure status was saved separately, then
+image checkpoints inherited stale main runtime and overwrote that failure.
+Two image batches (24 attempts) were committed before the image loop exhausted
+its shared deadline. No business resend or production retry is appropriate.
+
+Image operations now preserve the latest public main runtime (fail closed for
+legacy mixed run IDs) and write independent `operations.images` state, keeping
+legacy top-level runtime/continuation consumers on main monitor state. All runner
+entries merge the latest independent status so a subsequent main run cannot
+resurrect an old image-running record from the vault. Image-only saves do not
+replace main runtime with an image persistence error. Actual publicStatus and
+continuationInfo tests verify main save-unconfirmed remains visible even when
+images finish. Formal report checksums, receipt semantics and writer selection
+are unchanged.
+
+Each image batch is capped by both the existing four-minute local window and
+shared remaining budget minus 180 seconds for preparation/encryption/save and
+15 seconds for final status. If less than five seconds of useful work remains,
+no next batch starts. Saved batches remain counted; failed saves do not count.
+Pending queue/budget deferral is partial, never ready. Final small status uses
+the last confirmed public projection, not unsaved image results. Website snapshot
+publication uses the same deadline; status/transport failure stays partial.
+If even the small status cannot persist, only logs prove the final failure;
+there is no unsafe budget extension or success claim. Python 3.12 and pinned
+existing dependency versions use explicit pip cache restore/save steps for image jobs; cache is saved after a successful install, before the business runner can exit partial.
+
+Git diagnostics emit enumerated reason/stage/httpStatus/exitCode only. Explicit
+HTTP text is separate from authentication, permission, protection, conflict,
+rate-limit and unknown hints; bare denied is not proof of HTTP 403. Ambiguous
+denial does not gain retry permission. After push/ref failure the original store
+performs bounded read-only ref/tree reconciliation against every changed file
+SHA. Exact match recovers without duplicate write; no match/readback failure
+retains failure and existing retry limits/conflict guards. Nonforce publication,
+single writer, main daytime business eligibility and send-idempotency are unchanged.
+
+No new deployment is authorized. Tests use local fixture repositories and mocked
+business I/O; no credentials, raw stderr or private payload are logged.
+
+Follow-up independent review: pip cache saving now runs explicitly immediately
+following successful installation, not a job-success-only post hook. Git rate
+limits stop rapid retries; diagnostic ref/tree readback is a single pass retaining
+retired-head fencing. Publickey denial is authentication evidence, not a fabricated
+HTTP 403. Independent checkpoint failure never uses the generic empty-status
+fallback; combined first-save/final-status failure retains existing main receipts.

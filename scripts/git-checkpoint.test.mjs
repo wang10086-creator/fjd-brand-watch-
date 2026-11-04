@@ -28,7 +28,7 @@ test('missing changed blob or mismatched parent tree cannot reach write-tree or 
 test('moved parent, incorrect bytes and protected branch stop; staging directory is always cleaned',async()=>{
  for(const f of [{moved:true},{badHash:true},{fail:'push'}]){const e=executor(f),diagnostics=[];
   await assert.rejects(publishGitCheckpoint({...options,run:e.run,onDiagnostic:d=>diagnostics.push(d)}));
-  if(f.fail)assert.equal(diagnostics[0].status,403);else assert.ok(!e.calls.some(c=>c.args[0]==='push'));
+  if(f.fail){assert.equal(diagnostics[0].reason,'protection');assert.equal(diagnostics[0].httpStatus,null);assert.equal(diagnostics[0].confirmation,'rejected');}else assert.ok(!e.calls.some(c=>c.args[0]==='push'));
   assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE'));await assert.rejects(access(e.calls[0].cwd));
  }
 });
@@ -51,5 +51,12 @@ test('local tree failure never claims ref attempted; lost push response stays un
   await assert.rejects(publishGitCheckpoint({...options,onDiagnostic:d=>diagnostics.push(d),run:async(args,opt)=>args[0]===stage?{code:null,stdout:'',stderr:''}:e.run(args,opt)}));
   assert.equal(diagnostics[0].confirmation,'unconfirmed');
   assert.equal(diagnostics[0].refUpdate,stage==='push'?'unconfirmed':'not-attempted');
+ }
+});
+test('recognized Git throttling and publickey refusal are non-retryable with safe evidence',async()=>{
+ for(const [stderr,reason] of [['remote: secondary rate limit PRIVATE','rate-limit'],['fatal: requested URL returned error: 429','rate-limit'],['Permission denied (publickey). PRIVATE','authentication']]){
+  const e=executor();await assert.rejects(publishGitCheckpoint({...options,run:async(args,opt)=>args[0]==='push'?{code:128,stdout:'',stderr}:e.run(args,opt)}),error=>{
+   assert.equal(error.retryable,false);assert.equal(error.diagnostic.reason,reason);assert.doesNotMatch(JSON.stringify(error.diagnostic),/PRIVATE|publickey/);return true;
+  });
  }
 });
