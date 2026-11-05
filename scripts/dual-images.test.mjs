@@ -1,10 +1,11 @@
+import {enrolled} from './fixtures/image-policy.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {gunzipSync} from 'node:zlib';
 import {confirmedImageMatch,imageMatches,matchesImageFilter,mergeImageResult,mergeImageEvidence,publicImageResult,publicImageEvidence,queueImageCheck,robotsAllowImages} from '../image-evidence.js';
 import {imageMatchBadges,imageMatchEvidence} from '../image-match-view.js';
 import {mergeRows,mergeBackup} from '../core.js';import {mergeWorkspace} from '../cloud/state.js';
 import {publicFeed,applyPublicFeed} from '../cloud/public-feed.js';import {initialState} from '../cloud/scan.mjs';import {migrationState,seal,unseal} from '../cloud/crypto.js';
-import {pendingImageUpdates,applyImageUpdates} from '../cloud/image-updates.js';
-import {enrichPictures} from '../cloud/visual-enrichment.mjs';
+import {pendingImageUpdates,applyImageUpdates as rawApplyImageUpdates} from '../cloud/image-updates.js';
+import {enrichPictures as rawEnrichPictures} from '../cloud/visual-enrichment.mjs';
 import {dualImageRows,exactMatch,result,trademark,product} from './fixtures/dual-images.mjs';
 
 test('independent list badges: trademark only, product only, both on different or identical actual material',()=>{
@@ -84,3 +85,7 @@ test('explicit cloud-pending retry is processed before unattended historical bac
  await enrichPictures(state,{limit:1,collector:async rows=>{urls=rows.map(r=>r.url);return rows.map(r=>({url:r.url,trademarkImageMatch:{at:'2026-10-20',status:'unavailable',matches:[]},productImageMatch:{at:'2026-10-20',status:'unavailable',matches:[]},imageEvidence:{at:'2026-10-20',images:[],complete:false,pageError:'HTTP 403'}}))}});
  assert.deepEqual(urls,['https://manual.example/a']);assert.equal(state.rows[1].imageEvidence.cloudPending,false);assert.equal(state.rows[0].imageEvidence,undefined);
 });
+
+function enrichPictures(state,options){return rawEnrichPictures(enrolled(state),options)}
+
+function applyImageUpdates(state,updates){return rawApplyImageUpdates(enrolled(state),updates)}

@@ -1,3 +1,5 @@
+import {activateImagePolicy} from './image-policy.js';
+import {imageNotesOverlay} from './image-notes.mjs';
 import {adoptMonitorStatus,imageStatusProjection,runImageOperation} from './image-operation.mjs';
 import {createRunBudget} from './run-budget.mjs';
 import {runReportCriticalPath,formalTextFeed} from './report-critical-path.mjs';
@@ -37,7 +39,7 @@ import {upgradeGlobalScope,nextDailyTime} from '../monitor-policy.js';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {seal,unseal,migrationState} from './crypto.js';
 import {initialState,configure,scan,mergeState} from './scan.mjs';
 import {dayOf,recordRun} from '../monitor.js';
@@ -79,9 +81,10 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
- const entries=[{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
+ const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[]),{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
  entries.push({path:'workflow-task-index.json',value:await seal(workflowTaskIndex(vault),password,'workflow-task-index')});
  if(!progressOnly){const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
+ entries.push({path:'image-notes/latest.json',value:imageNotesOverlay(vault.state,{revision:vault.revision})});
  entries.push(...publicStorageEntries(publicSnapshot),{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')});}
  const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
  if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
@@ -174,12 +177,17 @@ async function main(){
    vault.delivery={receipts:{},pages:{},pushes:vault.feishu?.pushes||{}};delete vault.feishu;
   }
  }else vault={version:2,state:await initialState(),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
+ const savedImagePolicy=(await file('image-policy.json'))?.value;
+ if(savedImagePolicy&&(savedImagePolicy.id!==vault.state.imagePolicy?.id||savedImagePolicy.activatedAt!==vault.state.imagePolicy?.activatedAt))throw Error('图片资格切换边界与持久台账不一致，停止执行');
+ const imagePolicyActivated=activateImagePolicy(vault.state,{runId:env.GITHUB_RUN_ID||null,commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()});
  const publicRunStatus=(await file('status.json'))?.value;
  vault.operationStatus={...(vault.operationStatus||{}),...(publicRunStatus?.operations||{})};
  vault.integrationPolicy=historyIntegrationPolicy(config,vault.integrationPolicy);
  vault.version=2;if(!['images','url-check','history-sync','market-history'].includes(op))upgradeGlobalScope(vault.state);vault.state.monitor.updateChain||=[];vault.delivery||={receipts:{},pages:{},pushes:{}};vault.delivery.notificationsEnabled=config.feishuNotifications!==false;
  // One-time policy activation starts the next complete evening cycle; no historical rebucketing.
  if(op!=='history-sync'){activateReportCycles(vault);draftReceipts=(await file('cycle-draft-receipts.json'))?.value||{};restoreCycleDrafts(vault.state,draftReceipts);}
+ if(imagePolicyActivated&&op==='images')adoptMonitorStatus(vault,publicRunStatus);
+ if(imagePolicyActivated)await checkpoint({imagesOnly:true,progressOnly:true,verify:true});
  if(['save-only','recover-digest'].includes(op)){
   const request=JSON.parse(await readFile(new URL('./recovery-request.json',import.meta.url),'utf8'));
   const source=await store.readJSONAt('vault.json',request.checkpointSha);

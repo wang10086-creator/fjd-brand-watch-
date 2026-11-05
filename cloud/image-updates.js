@@ -1,3 +1,4 @@
+import {imageEligible} from './image-policy.js';
 import {canonical} from '../core.js?v=20261023-url-r1';
 import {imageCategories,mergeImageEvidence,mergeImageResult,publicImageEvidence,publicImageResult} from '../image-evidence.js?v=20261021-first-pass';
 const time=v=>Date.parse(v||'')||0;
@@ -8,7 +9,7 @@ export function pendingImageUpdates(local,remote){
 export function applyImageUpdates(state,updates){
  const rows=new Map((state.rows||[]).map(r=>[canonical(r.url),r]));let applied=0;
  for(const update of (Array.isArray(updates)?updates:[]).slice(0,24)){
-  const row=rows.get(canonical(update.url));if(!row)continue;
+  const row=rows.get(canonical(update.url));if(!row||!imageEligible(state,row))continue;
   for(const key of imageCategories)if(update[key])row[key]=mergeImageResult(row[key],publicImageResult(update[key]));
   if(update.imageEvidence)row.imageEvidence=mergeImageEvidence(row.imageEvidence,publicImageEvidence(update.imageEvidence));
   applied++;

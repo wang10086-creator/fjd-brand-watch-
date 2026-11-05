@@ -2490,3 +2490,9 @@ limits stop rapid retries; diagnostic ref/tree readback is a single pass retaini
 retired-head fencing. Publickey denial is authentication evidence, not a fabricated
 HTTP 403. Independent checkpoint failure never uses the generic empty-status
 fallback; combined first-save/final-status failure retains existing main receipts.
+
+## 2026-11-05: new-source-only image eligibility and Feishu notes overlay
+
+Discovery → trusted persisted enrollment → quick/deep image gate → encrypted checkpoint + `image-notes/latest.json` → existing single cloud UI task's note reconciliation. No new writer, no Railway, no changes to screenshot completion or formal checksums. Cutover is first verified policy/vault checkpoint under existing monitor concurrency; old identity registry and image history stay intact. See `docs/image-notes-contract.md` for public URLs, checksum binding, stable per-result version, late same-row updates and exact-block/manual-edit conflict handling.
+
+Regression fixtures cover old forced/priority/quick work exclusion, product aliases, stable activation, enrolled new work, stale merge/updates, independent statuses, asynchronous result versions, immutable formal bytes/hash, idempotent notes and human-edit conflicts. Existing matcher tests now explicitly mark their synthetic leads as enrolled instead of assuming every legacy lead is eligible. Full npm/Python suites required; production discovery and Feishu writes are not fabricated for acceptance.

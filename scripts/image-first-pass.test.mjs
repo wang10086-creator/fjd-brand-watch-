@@ -1,6 +1,7 @@
+import {enrolled} from './fixtures/image-policy.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {firstImagePass} from '../cloud/first-images.mjs';
-import {enrichPictures} from '../cloud/visual-enrichment.mjs';
+import {firstImagePass as rawFirstImagePass} from '../cloud/first-images.mjs';
+import {enrichPictures as rawEnrichPictures} from '../cloud/visual-enrichment.mjs';
 import {publicFeed,applyPublicFeed} from '../cloud/public-feed.js';
 import {imageInputFingerprint,imageMatches,deferImageCheck} from '../image-evidence.js';
 import {normalizeResults} from '../model.js';
@@ -38,3 +39,7 @@ test('explicit target outranks legacy tier and deferred work clears stale comple
  await enrichPictures(state,{limit:1,priorityUrls:[target.url],collector:async items=>{urls=items.map(r=>r.url);return []}});
  assert.deepEqual(urls,[target.url]);assert.equal(target.imageEvidence.complete,false);assert.ok(target.imageEvidence.requestedAt);assert.equal(target.imageEvidence.cloudPending,true);assert.equal(imageMatches(target,'productImageMatch').length,1);
 });
+
+function enrichPictures(state,options){return rawEnrichPictures(enrolled(state),options)}
+
+function firstImagePass(rows,state,options){return rawFirstImagePass(rows,enrolled(state,[...state.rows,...rows]),options)}

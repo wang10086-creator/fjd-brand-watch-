@@ -1,10 +1,11 @@
+import {imageEligible} from './image-policy.js';
 import {enrichPictures} from './visual-enrichment.mjs';
 import {imageCategories,imageInputFingerprint,deferImageCheck} from '../image-evidence.js';
 import {canonical} from '../core.js';
 // Operates on not-yet-published search rows, using only independent image fields.
 export async function firstImagePass(rows,state,{maxDurationMs=20000,collector,now=Date.now()}={}){
  const existing=new Map(state.rows.map(r=>[canonical(r.url),r]));const pending=[];
- for(const row of rows){const old=existing.get(canonical(row.url));
+ for(const row of rows){if(!imageEligible(state,row))continue;const old=existing.get(canonical(row.url));
   if(old?.imageEvidence?.fingerprint===imageInputFingerprint(row)){
    for(const k of [...imageCategories,'imageEvidence'])if(old[k])row[k]=structuredClone(old[k]);
    if(old.imageEvidence.complete||old.imageEvidence.firstPass)continue;

@@ -1,7 +1,8 @@
+import {enrolled} from './fixtures/image-policy.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {imageMatchBadges,imageMatchEvidence} from '../image-match-view.js';
-import {enrichPictures} from '../cloud/visual-enrichment.mjs';
+import {enrichPictures as rawEnrichPictures} from '../cloud/visual-enrichment.mjs';
 import {dualImageRows} from './fixtures/dual-images.mjs';
 test('list pending and failed categories are distinct from confirmed evidence',()=>{
  assert.match(imageMatchBadges({}),/尚无图片核验记录/);
@@ -20,3 +21,5 @@ test('historical batch rotates past a repeatedly failing recent row',async()=>{
  await enrichPictures(state,{limit:1,now:Date.parse('2026-10-21T04:00Z'),collector});
  assert.deepEqual(seen,[['https://a.example/new'],['https://a.example/old']]);assert.equal(state.rows[0].imageEvidence.complete,false);
 });
+
+function enrichPictures(state,options){return rawEnrichPictures(enrolled(state),options)}

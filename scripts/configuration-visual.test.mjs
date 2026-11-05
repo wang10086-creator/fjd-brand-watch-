@@ -1,10 +1,11 @@
+import {enrolled} from './fixtures/image-policy.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
 import {scopeReferences,scopedBrandGroups,aliasTerritories,platformChoices,territoryAllows} from '../territory.js';
 import {marketData,platforms,normalizeConfig,buildPlans,mergeRows} from '../model.js';
 import {continuationInfo,nextAutomaticSlot} from '../execution-progress.js';
 import {executiveReport} from '../report-executive.js';
 import {shapeSignature,shapeSimilarity,comparePictures} from '../visual-match.js';
-import {enrichPictures} from '../cloud/visual-enrichment.mjs';
+import {enrichPictures as rawEnrichPictures} from '../cloud/visual-enrichment.mjs';
 import {initMonitor} from '../monitor.js';
 import {publicFeed} from '../cloud/public-feed.js';
 import {initialState,scan} from '../cloud/scan.mjs';
@@ -89,3 +90,5 @@ test('configuration reuses territory scope rather than recomputing it for every 
  const html=configurationSections({config,selectedBrandIds:ids,customAliases:[]},catalog);
  assert.ok(html.includes('territory-applied'));assert.ok(reads<250000,'scope access must not scale with the number of platform cards: '+reads);
 });
+
+function enrichPictures(state,options){return rawEnrichPictures(enrolled(state),options)}
