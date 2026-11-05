@@ -39,3 +39,18 @@ test('same row note updates are idempotent, preserve manual text, and refuse edi
  r.productImageMatch={status:'no_images',at:later};e=imageNotesOverlay(s).payload.entries[0];const b=mergeImageNote(a.value+'\n人工补充',e,{previousBlock:a.block});assert.match(b.value,/^人工备注/);assert.ok(b.value.endsWith('人工补充'));
  assert.equal(mergeImageNote(a.value.replace('待核验','人工修改'),e,{previousBlock:a.block}).status,'conflict');assert.equal(mergeImageNote(a.value,e).status,'conflict');
 });
+
+test('same-batch and later aliases cannot enroll the same market identity twice even before rows are saved',()=>{
+ const s=fixture(),a={url:'https://example.test/new-a',marketEvidence:{identity:'new-product'}},b={url:'https://example.test/new-b',marketEvidence:{identity:'new-product'}};
+ enrollNewImages(s,[a,b],later);assert.equal(imageEligible(s,a),true);assert.equal(imageEligible(s,b),false);
+ const c={url:'https://example.test/new-c',marketEvidence:{identity:'new-product'}};enrollNewImages(s,[c],later);assert.equal(imageEligible(s,c),false);
+ assert.equal(Object.keys(s.imagePolicy.enrolled).length,1);
+});
+test('duplicate exact blocks and additional unknown or malformed markers are conflicts without changing human text',()=>{
+ const s=fixture(),r=fresh(s);formal(s,r);const e=imageNotesOverlay(s).payload.entries[0],a=mergeImageNote('人工备注',e);
+ for(const text of [a.value+'\n'+a.block,a.value+'\n【自动图片核验 unknown】\n其他内容\n【/自动图片核验】',a.value+'\n【自动图片核验 malformed',a.value+'\n【/自动图片核验】']){
+  for(const options of [{},{previousBlock:a.block}]){const result=mergeImageNote(text,e,options);assert.equal(result.status,'conflict');assert.equal(result.value,text);}
+ }
+ const changed={...e,resultVersion:'changed',note:'new result'},extra=a.value+'\n【自动图片核验 unknown】\n其他内容\n【/自动图片核验】';
+ assert.equal(mergeImageNote(extra,changed,{previousBlock:a.block}).status,'conflict');assert.equal(mergeImageNote(a.value+'\n人工补充',changed,{previousBlock:a.block}).status,'update');
+});

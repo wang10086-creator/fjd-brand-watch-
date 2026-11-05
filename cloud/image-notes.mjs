@@ -35,8 +35,10 @@ export function imageNotesOverlay(state,{revision,generatedAt=new Date().toISOSt
 export function mergeImageNote(current,entry,{previousBlock=null}={}){
  const start=`【自动图片核验 ${entry.source_id}】`,end='【/自动图片核验】';
  const block=`${start}\n${entry.note}\n版本：${entry.resultVersion}\n${end}`;
+ const starts=current.split('【自动图片核验 ').length-1,ends=current.split(end).length-1;
+ if(starts>1||ends>1||starts!==ends)return {status:'conflict',value:current};
  if(current.includes(block))return {status:'unchanged',value:current,block};
- if(previousBlock){if(!previousBlock.startsWith(start+'\n')||!previousBlock.endsWith('\n'+end)||!current.includes(previousBlock)||current.indexOf(previousBlock)!==current.lastIndexOf(previousBlock))return {status:'conflict',value:current};return {status:'update',value:current.replace(previousBlock,block),block};}
+ if(previousBlock){if(starts!==1||ends!==1||!previousBlock.startsWith(start+'\n')||!previousBlock.endsWith('\n'+end)||!current.includes(previousBlock)||current.indexOf(previousBlock)!==current.lastIndexOf(previousBlock))return {status:'conflict',value:current};return {status:'update',value:current.replace(previousBlock,block),block};}
  if(current.includes(start)||current.includes(end))return {status:'conflict',value:current};
  return {status:'update',value:current+(current&&!current.endsWith('\n')?'\n':'')+block,block};
 }

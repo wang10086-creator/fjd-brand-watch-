@@ -15,9 +15,9 @@ export function imageEligible(state,row){
 }
 export function enrollNewImages(state,rows,at){
  const p=state.imagePolicy;if(!p)return;
- const known=new Set([...Object.keys(state.monitor?.known||{}),...(state.removedRecordKeys||[]),...(state.rows||[]).flatMap(imageKeys)]);
+ const known=new Set([...Object.keys(state.monitor?.known||{}),...(state.removedRecordKeys||[]),...(state.rows||[]).flatMap(imageKeys),...Object.values(p.enrolled).flatMap(e=>e.keys||[])]);
  for(const row of rows){const keys=imageKeys(row),key=canonical(row.url);
   if(p.enrolled[key]||keys.some(k=>known.has(k)||p.blocked.includes(k)))continue;
-  p.enrolled[key]={createdAt:at,keys};
+  p.enrolled[key]={createdAt:at,keys};for(const identity of keys)known.add(identity);
  }
 }
