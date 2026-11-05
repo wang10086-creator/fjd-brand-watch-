@@ -1,5 +1,10 @@
 name: 独立图片核验
 on:
+  push:
+    branches: [main]
+    paths:
+      - cloud/image-policy.js
+      - .github/workflows/fjd-images.yml
   workflow_dispatch:
     inputs:
       priority_url:
