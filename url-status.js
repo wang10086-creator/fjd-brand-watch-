@@ -8,7 +8,9 @@ export function mergeUrlChecks(a,b){
  const records=new Map();for(const r of [...(a.history||[]),a.current,...(b.history||[]),b.current].filter(valid)){const old=records.get(r.id);if(!old||JSON.stringify(r).length>JSON.stringify(old).length)records.set(r.id,structuredClone(r))}
  const history=[...records.values()].sort(compare),current=history.at(-1)||null;
  const snapshots={...a.snapshots};for(const [key,value]of Object.entries(b.snapshots||{})){const old=snapshots[key];if(!old||(Date.parse(value.at)||Infinity)<(Date.parse(old.at)||Infinity))snapshots[key]=structuredClone(value)}
- const task=[a.task,b.task].filter(Boolean).sort((x,y)=>compare({at:x.updatedAt||x.requestedAt,id:x.phase},{at:y.updatedAt||y.requestedAt,id:y.phase})).at(-1);
+ // A check starts and completes with the same observation time. Completion
+ // must retain its retry schedule; a genuinely newer task still takes priority.
+ const task=[a.task,b.task].filter(Boolean).sort((x,y)=>compare({at:x.updatedAt||x.requestedAt},{at:y.updatedAt||y.requestedAt})||Number(x.phase==='done')-Number(y.phase==='done')||String(x.phase||'').localeCompare(String(y.phase||''))).at(-1);
  return {version:1,current,history,snapshots,task:task?structuredClone(task):undefined};
 }
 export function urlStatusOf(row){return valid(row?.urlCheck?.current)?row.urlCheck.current:null}

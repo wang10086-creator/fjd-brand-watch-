@@ -74,3 +74,44 @@ test('same revision public repair can restore missing or newer URL checks withou
 
 test('all67 real catalog aliases, including SVEA EST.1911, can inspect accessible content without a parser exception',async()=>{const {readFile}=await import('node:fs/promises'),{targetPresent}=await import('../cloud/url-check.mjs'),catalog=JSON.parse(await readFile(new URL('../brand-catalog.json',import.meta.url),'utf8')),aliases=[...new Set(catalog.entries.flatMap(e=>e.searchTerms||[]))];assert.ok(aliases.includes('SVEA EST.1911'));const r={...row(),title:'FJDynamics AT2'},snapshot={title:r.title,body:'FJDynamics AT2 navigation equipment for sale with publicly visible product information.'};for(const alias of aliases)assert.doesNotThrow(()=>targetPresent(r,snapshot,[alias]),alias);const actual=await inspect(r,{}, {aliases});assert.equal(actual.result.status,'normal');assert.equal(targetPresent({title:'.',keywords:['....']},{title:'Other title',body:'Public material about a completely unrelated shop and equipment.'}),false)});
 test('inherited property names cannot become a sixth URL state',()=>{assert.equal(urlStatusOf({urlCheck:{current:{id:'bad',at,status:'constructor'}}}),null)});
+
+test('equal-time completion wins in both merge orders and retains the complete task',()=>{
+ const done={phase:'done',updatedAt:at,nextAt:later,attempts:2,lastError:'HTTP 403'},running={phase:'running',updatedAt:at,attempts:1,lastError:'old'};
+ for(const pending of [running,{...running,phase:'queued'}])for(const [a,b] of [[pending,done],[done,pending]]){
+  const merged=mergeUrlChecks({task:a},{task:b});assert.deepEqual(merged.task,done);assert.deepEqual(mergeUrlChecks(merged,merged),merged);
+ }
+ const newer={phase:'queued',requestedAt:later};
+ for(const [a,b] of [[done,newer],[newer,done]])assert.deepEqual(mergeUrlChecks({task:a},{task:b}).task,newer);
+ const newerRunning={...running,updatedAt:later};
+ for(const [a,b] of [[done,newerRunning],[newerRunning,done]])assert.deepEqual(mergeUrlChecks({task:a},{task:b}).task,newerRunning);
+ assert.equal(mergeUrlChecks({task:{phase:'queued',updatedAt:at}},{task:running}).task.phase,'running');
+});
+
+test('completed successful and unavailable checks wait for nextAt after host cooldown',async()=>{
+ for(const status of ['normal','unavailable']){
+  const r=row(),state={rows:[r]},time=Date.parse(at);
+  const detector=async(_r,o)=>({id:status,url:r.url,at:o.at,status,...(status==='unavailable'?{errorKind:'http',reason:'HTTP 403'}:{})});
+  assert.equal((await checkUrlBatch(state,{now:()=>time,detector})).checked,1);
+  assert.equal(r.urlCheck.task.phase,'done');assert.equal(r.urlCheck.task.attempts,status==='unavailable'?1:0);
+  assert.equal(r.urlCheck.task.lastError,status==='unavailable'?'HTTP 403':'');
+  assert.equal(Date.parse(r.urlCheck.task.nextAt),time+(status==='unavailable'?30*60000:3*86400000));
+  assert.equal((await checkUrlBatch(state,{now:()=>time+31000,detector:()=>assert.fail('checked before nextAt')})).attempted,0);
+  assert.equal((await checkUrlBatch(state,{now:()=>Date.parse(r.urlCheck.task.nextAt),detector})).checked,1);
+ }
+});
+
+test('deferred and malformed results keep systemErrors finite including mixed batches',async()=>{
+ const cases=[
+  [{deferred:true},0], [{deferred:true,systemFailure:false},0], [{deferred:true,systemFailure:true},1],
+  [null,1], [{status:'invalid'},1],
+  [{id:'ok',at,status:'normal'},0], [{id:'blocked',at,status:'unavailable',errorKind:'http'},0]
+ ];
+ for(const [value,expected] of cases){
+  const summary=await checkUrlBatch({rows:[row()]},{now:()=>Date.parse(at),detector:async()=>value});
+  assert.equal(summary.systemErrors,expected);assert.equal(JSON.parse(JSON.stringify(summary)).systemErrors,expected);
+ }
+ const rows=cases.map((_,i)=>({...row(),id:String(i),url:`https://host${i}.example/item`}));
+ const summary=await checkUrlBatch({rows},{now:()=>Date.parse(at),detector:async r=>cases[Number(r.id)][0]});
+ assert.equal(summary.attempted,7);assert.equal(summary.checked,2);assert.equal(summary.failed,1);assert.equal(summary.systemErrors,3);
+ assert.equal(JSON.parse(JSON.stringify(summary)).systemErrors,3);
+});

@@ -126,7 +126,7 @@ export async function checkUrlBatch(state,{now=Date.now,deadline,limit=8,detecto
      const baselineSnapshot=(state.monitor?.observations||[]).filter(e=>e.key===row.url||e.snapshot?.url===row.url).map(e=>({...e.snapshot,at:e.at})).filter(s=>s.verification==='page-fetched'&&Date.parse(s.at)<Date.parse(when)).sort((a,b)=>(Date.parse(a.at)||0)-(Date.parse(b.at)||0)).at(-1);
      result=await detector(row,{at:when,timeoutMs:Math.min(9000,deadline-clock()),aliases:state.config?.aliases||[],robotsCache,requestBudget,baselineSnapshot});
     }catch{result={deferred:true,reason:'检测任务异常中断，已保留原有记录并安排重试'}}
-    if(!Object.hasOwn(urlStatusLabels,result?.status)||!result.id||!Number.isFinite(Date.parse(result.at))){systemErrors+=Number(!result?.deferred||result?.systemFailure);result={deferred:true,reason:result?.reason||'检测结果结构未通过校验，已安排续查'}}
+    if(!Object.hasOwn(urlStatusLabels,result?.status)||!result.id||!Number.isFinite(Date.parse(result.at))){systemErrors+=Number(!result?.deferred||!!result?.systemFailure);result={deferred:true,reason:result?.reason||'检测结果结构未通过校验，已安排续查'}}
     if(result?.deferred){row.urlCheck.task={...row.urlCheck.task,phase:'queued',updatedAt:when,nextAt:new Date(clock()+5*60000).toISOString(),lastError:result.reason};continue}
     saveUrlCheck(row,result,priorityContext);pageChanges+=Number(!!recordPageObservation(state.monitor,row,result));checked++;failed+=Number(result.status==='unavailable');
    }finally{if(host){queue.hosts[host]=clock()+hostDelayMs;activeHosts.delete(host)}}
