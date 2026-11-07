@@ -1,3 +1,4 @@
+import {checkpointDiagnostic} from './checkpoint-diagnostic.mjs';
 import {activateImagePolicy} from './image-policy.js';
 import {imageNotesOverlay} from './image-notes.mjs';
 import {adoptMonitorStatus,imageStatusProjection,runImageOperation} from './image-operation.mjs';
@@ -70,8 +71,9 @@ async function branch(){try{await github('/git/ref/heads/'+config.branch)}catch(
 function publicStatus(){const runs=vault.state.monitor.runs||[],last=runs.filter(r=>!r.running).at(-1),push=Object.entries(vault.delivery.pushes||{}).sort((a,b)=>b[0].localeCompare(a[0]))[0];const continuation=continuationInfo({enabled:true,policy:vault.state.monitor.reportPolicy,queryBudget:720,cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,todayScheduled:runs.filter(r=>r.trigger==='schedule')},vault.runtime);return {version:3,configured:true,browserPermissionCheck:vault.browserPermissionCheck||null,runtime:vault.runtime,updatedAt:new Date().toISOString(),runId:operation()==='images'?(vault.runtime?.runId||null):(env.GITHUB_RUN_ID||null),operations:vault.operationStatus||{},automation:{history:historySummary(vault),sourceHealth:['primary','rss','web'].map(source=>{const h=vault.state.searchProviders?.health?.[source]||{};return {source,lastSuccessAt:h.global?.lastSuccessAt||null,consecutive:h.global?.consecutive||0,errorKind:h.global?.kind||null,cooldownUntil:vault.state.searchProviders?.[source+'Until']||0,scopeCooling:Object.values(h.domains||{}).filter(d=>d.until>Date.now()).length}}),coverage:siteCoverage(vault.state.monitor.coverageScopes?.[continuation.day]||[],vault.state.monitor,continuation.day),cooldownUntil:retryAfterAt(vault.state)?new Date(retryAfterAt(vault.state)).toISOString():null,progress:progressSnapshot(vault.state),visual:vault.state.visualSummary||null,urlChecks:vault.state.urlCheckSummary||null,baseUpdates:baseStatusSummary(vault,env.FEISHU_BASE_STATUS_WEBHOOK),lastSuccessAt:vault.state.lastSuccess||null,todayScheduled:(vault.state.monitor.runs||[]).filter(r=>r.trigger==='schedule'&&r.reportDay===continuation.day).map(r=>({reportDay:r.reportDay,startedAt:r.startedAt,endedAt:r.endedAt,attempted:r.attempted,planned:r.planned,cancelled:!!r.cancelled})),enabled:true,engine:'github-actions',timezone:'Asia/Shanghai',policy:vault.state.monitor.reportPolicy,cycle:cycleAt(),searchTime:'18:00',cutoffTime:'09:20',pushTime:'09:30',nextSearchAt:continuation.nextAttemptAt,continuation,nextPushAt:nextDailyTime(9.5),queryBudget:720,batchBudget:60,platformCount:vault.state.config.platforms.length,marketCount:vault.state.config.regions.length,lastRun:last?{at:last.startedAt,trigger:last.trigger,success:last.success,failed:last.failed,attempted:last.attempted}:null,archive:{paused:true,provider:'feishu',removedDays:Object.keys(vault.delivery.removedReportPages||{}),configured:false,checkedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,error:vault.delivery.archiveError||'',synced:Object.values(vault.delivery.receipts||{}).filter(r=>r.status==='synced').length,formalReports:Object.entries(vault.state.monitor.formalReports||{}).map(([day,r])=>({day,status:r.status,checksum:r.checksum,publishedAt:r.publishedAt,generatedAt:r.generatedAt}))},base:{...baseReviewStatus(vault,env.FEISHU_BASE_REVIEW_WEBHOOK||false),nativeWorkflow:{protocol:'fjd-workflow-v1',enabled:workflowBridge.state()},attachmentConfigured:!!(baseAppCredentials(env).appId&&baseAppCredentials(env).appSecret),previewMode:env.FEISHU_BASE_PREVIEW_MODE==='url'?'url':null,receipts:baseReviewReceipts(vault)},bot:{enabled:config.feishuNotifications!==false,kind:'custom-webhook',canReceive:false,canReply:false,configured:!!vault.delivery.botConfigured,error:vault.delivery.botError||'',lastPush:push?{day:push[0],...push[1]}:null,lastTest:vault.delivery.lastTest||null}}};}
 function baseDeliveryOptions(){return {workflowBridge,baseApi:feishuBaseApi(baseAppCredentials(env)),evidenceLoader:evidenceStore(vault,{password,read:file,write:put}).load,previewMode:'url',displayPolicy:'single-image-link',deferUpload:false}}
 function dashboard(){return {version:2,baseReviewReceipts:baseReviewReceipts(vault),state:migrationState(vault.state),ready:true,publicUrl:config.notionPublicUrl,lastError:vault.lastError||'',archiveError:vault.delivery.archiveError||'',notionConfigured:vault.delivery.notionConfigured,notionCheckedAt:vault.delivery.notionCheckedAt,lastSyncedAt:vault.delivery.lastSyncedAt,botConfigured:vault.delivery.botConfigured,botError:vault.delivery.botError||'',pushes:vault.delivery.pushes||{},pushStatus:vault.delivery.pushStatus||'',runtime:vault.runtime,revision:vault.revision}}
-async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,historyOnly=false,pageEvidence=false,independent=false}={}){
+async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,historyOnly=false,pageEvidence=false,independent=false,caller='other'}={}){
  if(saveBlocked)throw saveBlocked;
+ let stage='prepare',primarySave='not-attempted';
  try{
  if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
  if(imagesOnly&&pageEvidence)updateCycleDraft(vault.state);
@@ -79,20 +81,31 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
+ stage='draft-copy';
  const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
+ stage='vault-seal';
  const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
+ stage='status-project';
  const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[]),{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
+ stage='task-index-seal';
  entries.push({path:'workflow-task-index.json',value:await seal(workflowTaskIndex(vault),password,'workflow-task-index')});
+ stage='public-project';
  if(!progressOnly){const publicSnapshot=publicFeed(vault.state,{revision:vault.revision,receipts:vault.delivery.receipts,refresh:!imagesOnly});
  entries.push({path:'image-notes/latest.json',value:imageNotesOverlay(vault.state,{revision:vault.revision})});
  entries.push(...publicStorageEntries(publicSnapshot),{path:'dashboard.json',value:await seal(dashboard(),password,'dashboard')});}
- const checkpointResult=await store.write(entries);lastConfirmedStatus=structuredClone(publicStatus());
+ stage='primary-write';primarySave='unconfirmed';
+ const checkpointResult=await store.write(entries);primarySave='confirmed';
+ stage='confirmed-status';lastConfirmedStatus=structuredClone(publicStatus());
+ stage='draft-proof';
  if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
+ stage='verify';
  const result=verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
+ stage='formal-copy';
  confirmedFormalFeed=formalTextFeed(vault.state);
  return result;
  }catch(e){
   saveBlocked=e;
+  try{console.error('Checkpoint diagnostic '+JSON.stringify(checkpointDiagnostic({caller,stage,primarySave,error:e})))}catch{}
   // Independent operations own their confirmed-only status projection. Never
   // replace an existing monitor/receipt status with the generic empty fallback.
   if(!independent){
@@ -146,7 +159,7 @@ async function delivery(operation,{onlyDay=null,save=checkpoint}={}){
  await writeFile(path,JSON.stringify(vault.delivery),{mode:0o600});
  const processDone=new Promise((resolve,reject)=>{
   child=spawn('python3',[new URL('./delivery.py',import.meta.url).pathname,path,operation],{stdio:['pipe','pipe','pipe'],env});let buffer='';
-  child.stdout.on('data',bytes=>{buffer+=bytes;const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines)if(line.trim()==='CHECKPOINT')checkpointChain=checkpointChain.then(async()=>{vault.delivery=JSON.parse(await readFile(path,'utf8'));await save();child.stdin.write('ACK\n')}).catch(error=>{child.kill('SIGTERM');reject(error)})});
+  child.stdout.on('data',bytes=>{buffer+=bytes;const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines)if(line.trim()==='CHECKPOINT')checkpointChain=checkpointChain.then(async()=>{vault.delivery=JSON.parse(await readFile(path,'utf8'));await save({caller:'python-ack'});child.stdin.write('ACK\n')}).catch(error=>{child.kill('SIGTERM');reject(error)})});
   child.stderr.on('data',()=>{});child.once('error',reject);child.once('exit',code=>code===0?resolve():reject(Error('归档执行端中断，已确认的记录保留')));
  });
  await processDone;await checkpointChain;vault.delivery=JSON.parse(await readFile(path,'utf8'));delete vault.delivery.events;
@@ -320,10 +333,10 @@ async function main(){
  if(payload.config){const scope=value=>JSON.stringify({config:Object.fromEntries(['regions','platforms','intent','models','exclude','broad','languageTerms','platformTerritory'].map(k=>[k,value.config?.[k]])),selectedBrandIds:value.selectedBrandIds,customAliases:value.customAliases});if(scope(vault.state)!==scope(payload)){vault.state.cursor=0;vault.state.completed=[];}vault.state.config={...payload.config,platformTerritory:payload.config.platformTerritory??vault.state.config.platformTerritory??'all',brandOwnership:mergeOwnership(vault.state.config.brandOwnership,payload.config.brandOwnership)};vault.state.selectedBrandIds=payload.selectedBrandIds;vault.state.customAliases=payload.customAliases;}
  upgradeGlobalScope(vault.state);await configure(vault.state);
  vault.lastError='';
- vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,budget:budget.diagnostic()};await checkpoint({progressOnly:true});
+ vault.runtime={phase:'running',operation:op,currentSite:payload.site||null,startedAt:new Date().toISOString(),runId:env.GITHUB_RUN_ID||null,budget:budget.diagnostic()};await checkpoint({progressOnly:true,caller:'startup'});
  try{
    const due=dueActions(vault),publishDay=due.digestDay;
-   const reportSave=()=>checkpoint({progressOnly:true});
+   const reportSave=({caller='other'}={})=>checkpoint({progressOnly:true,caller});
    // Existing sent reports can repair only their text index on natural re-entry.
    // This precedes all unrelated business delivery and public bulk snapshots.
    if(['auto','digest','sync'].includes(op)){
@@ -363,7 +376,7 @@ async function main(){
  }
  finally{
   vault.runtime={...vault.runtime,currentSite:null,budget:budget.diagnostic(),lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.runtime.deferredStage||vault.runtime.textExport?.status==='unconfirmed'||vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};
-  await checkpoint({progressOnly:true});
+  await checkpoint({progressOnly:true,caller:'finalize'});
   if(['auto','digest','sync','scan','site-retry'].includes(op)&&budget.allow(60000)){
    await publishConfirmedText(); // at most two text-only attempts per confirmed version
    if(vault.runtime.textExport?.status==='unconfirmed'){process.exitCode=1;if(vault.runtime.phase!=='failed')vault.runtime.phase='partial';}
@@ -393,4 +406,5 @@ async function main(){
  console.log(vault.lastError?'云端运行未全部成功，请在归档与推送设置查看详情。':'云端操作完成；Notion 归档与飞书推送状态分别显示，以实际回执为准。');
  if(vault.lastError||vault.delivery.archiveError||vault.delivery.botError)process.exitCode=1;
 }
-main().catch(error=>{console.error(error.message&&/^(GitHub|缺少|不支持|云端|目标|尚未|受控)/.test(error.message)?error.message:'云端持久化或数据校验失败，未继续执行；请核对密码和受保护配置');process.exitCode=1});
+main().catch(error=>{console.error(saveBlocked?'检查点失败，已停止后续执行；请查看安全诊断':error.message&&/^(GitHub|缺少|不支持|云端|目标|尚未|受控)/.test(error.message)?error.message:'云端持久化或数据校验失败，未继续执行；请核对密码和受保护配置');process.exitCode=1});
+

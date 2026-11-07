@@ -2498,3 +2498,38 @@ Discovery → trusted persisted enrollment → quick/deep image gate → encrypt
 Regression fixtures cover old forced/priority/quick work exclusion, product aliases, stable activation, enrolled new work, stale merge/updates, independent statuses, asynchronous result versions, immutable formal bytes/hash, idempotent notes and human-edit conflicts. Existing matcher tests now explicitly mark their synthetic leads as enrolled instead of assuming every legacy lead is eligible. Full npm/Python suites required; production discovery and Feishu writes are not fabricated for acceptance.
 
 Independent review hardening: batch enrollment remembers all previously enrolled product keys before rows are merged, so same-batch and later URL aliases cannot acquire another eligibility. Note reconciliation counts all automatic start/end markers before its unchanged shortcut; duplicate exact blocks, unknown additional blocks and malformed markers conflict without modifying human text.
+
+
+## 2026-11-08 checkpoint outcome preservation and safe diagnostics
+
+The existing Git publisher's finally cleanup could replace a confirmed push
+result or the original push failure. Catch cleanup failure separately and emit
+only {stage: git-cleanup, reason: cleanup-failed}. Protect the warning callback
+so it cannot replace either outcome. Branch guards, non-force push, reconciliation,
+retries, credentials, receipts, workflow triggers and schedules are unchanged.
+Cleanup failure can still leave temporary Git objects/index in the existing
+restricted-access temporary directory. Confirmed push does not mean local deletion
+succeeded; retain the fixed warning for operator attention.
+
+Checkpoint failure diagnostics contain only closed-enum caller, stage, errorClass
+and primarySave. No exception message, stack, cause, input fragment, path, payload
+or secret is logged. Error name is read once with a guard. Logging failure must
+not replace the original exception or alter saveBlocked/fallback behavior. Outer
+checkpoint failures use a fixed error rather than forwarding exception text.
+
+Callers distinguish startup, report-before-delivery, actual Python CHECKPOINT ACK,
+report-after-delivery and finalize. Other callers remain other; pre-Python chart
+saves must not be labelled python-ack. The original save options are preserved.
+primarySave confirmed means store.write returned, not that draft proofs, optional
+verification or the complete checkpoint succeeded. Later failures remain visible.
+
+Regression covers pre/post-write failures, original exception/latch preservation,
+independent failure projection, hostile error properties, logger failure, caller
+wiring, and Python ACK only after save. Cleanup tests retain success and original
+failures with cleanup/logger failure. Existing local Git transport tests cover
+parent/tree guards, non-force publication and timeout process cleanup.
+
+These changes fix a demonstrated cleanup defect and improve diagnosis. They do
+not establish the unique cause of a past production failure or authorize replaying
+uncertain sends. Production recovery and schedule restoration are separate from
+regression CI. No new recovery operation or workflow is introduced.

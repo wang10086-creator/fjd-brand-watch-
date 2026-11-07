@@ -1,3 +1,4 @@
+import {checkpointDiagnostic} from '../cloud/checkpoint-diagnostic.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {snapshotPayload,syncFormalReceipts} from '../cloud/formal-reports.mjs';
 import {runReportCriticalPath,formalTextFeed} from '../cloud/report-critical-path.mjs';
@@ -59,12 +60,12 @@ test('actual runner critical checkpoint omits bulky public files; a failed save 
  const body=source.slice(source.indexOf('async function checkpoint('),source.indexOf('async function delivery('));
  const vault=fixture();vault.state.monitor.updateChain=[];vault.runtime={};vault.integrationPolicy={historyNative:false};
  const writes=[],exports=[];let fail=false;
- const noop=()=>{},deps={vault,config:{},password:'synthetic',formalTextFeed,syncFormalReceipts,applyRecordPolicy:noop,refreshPriorities:noop,updateCycleDraft:noop,
+ const noop=()=>{},deps={checkpointDiagnostic,vault,config:{},password:'synthetic',formalTextFeed,syncFormalReceipts,applyRecordPolicy:noop,refreshPriorities:noop,updateCycleDraft:noop,
   queueHistory:()=>assert.fail('no native writer'),historyWriterMode:()=>assert.fail('no native writer'),
   publicStatus:()=>({}),workflowTaskIndex:()=>({}),seal:async()=>({cipher:'synthetic'}),
   publicFeed:()=>assert.fail('no full public snapshot in critical checkpoint'),publicStorageEntries:()=>assert.fail('no full snapshot'),dashboard:()=>assert.fail('no dashboard'),
   store:{write:async entries=>{writes.push(entries.map(e=>e.path));if(fail)throw Error('synthetic-504');return {sha:'a'.repeat(40)}}},
-  persistDraftProofs:async()=>({}),put:async()=>{},publishLightReports:async({feed})=>{exports.push(structuredClone(feed));return {status:'verified'}},lightExportDiagnostic:()=> 'synthetic-unconfirmed',console:{log:noop,warn:noop}};
+  persistDraftProofs:async()=>({}),put:async()=>{},publishLightReports:async({feed})=>{exports.push(structuredClone(feed));return {status:'verified'}},lightExportDiagnostic:()=> 'synthetic-unconfirmed',console:{log:noop,warn:noop,error:noop}};
  const api=new Function(...Object.keys(deps),'let saveBlocked=null,revision=0,lastConfirmedStatus=null,draftReceipts={},confirmedFormalFeed=null,lastTextSignature=null,textAttempts=new Map();'+body+';return {checkpoint,publishConfirmedText};')(...Object.values(deps));
  await assert.rejects(api.publishConfirmedText(),/保存尚未确认/);
  await api.checkpoint({progressOnly:true});assert.deepEqual(writes[0],['vault.json','status.json','workflow-task-index.json']);
@@ -83,3 +84,4 @@ test('actual text helper retries one failed export, caches only success, and cap
   const after=structuredClone(v);after.runtime={};assert.equal(JSON.stringify(after),before); // no delivery/receipt mutations
  }
 });
+

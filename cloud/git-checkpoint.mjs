@@ -65,5 +65,11 @@ export async function publishGitCheckpoint({repository,branch,token,current,chan
   await git(['push','--porcelain','origin',sha+':refs/heads/'+branch],'push');
   onDiagnostic({stage:'git-push',status:200,confirmation:'confirmed',files:changes.length});
   return {sha,tree};
- }finally{await rm(dir,{recursive:true,force:true});}
+ }finally{
+  // Temporary-file cleanup must not replace the push result or its original
+  // failure. Report only a fixed category; never log paths or the raw error.
+  try{await rm(dir,{recursive:true,force:true});}
+  catch{try{onDiagnostic({stage:'git-cleanup',reason:'cleanup-failed'});}catch{}}
+ }
 }
+
