@@ -84,7 +84,10 @@ async function checkpoint({imagesOnly=false,progressOnly=false,verify=false,hist
  stage='draft-copy';
  const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
  stage='vault-seal';
- const cipher=await seal(vault,password,'vault');cipher.keyScheme='data-password-v2';
+ // Persist canonical bodies once; leave live delivery and every receipt intact.
+ const persistedDelivery={...vault.delivery};
+ for(const key of ['formalReports','events','reportOverviews','testOverviews'])delete persistedDelivery[key];
+ const cipher=await seal({...vault,delivery:persistedDelivery},password,'vault');cipher.keyScheme='data-password-v2';
  stage='status-project';
  const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[]),{path:'vault.json',value:cipher},{path:'status.json',value:publicStatus()}];
  stage='task-index-seal';
