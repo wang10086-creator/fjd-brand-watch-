@@ -2533,3 +2533,32 @@ These changes fix a demonstrated cleanup defect and improve diagnosis. They do
 not establish the unique cause of a past production failure or authorize replaying
 uncertain sends. Production recovery and schedule restoration are separate from
 regression CI. No new recovery operation or workflow is introduced.
+
+
+## 2026-11-08 persist canonical delivery bodies only
+
+Each runner delivery invocation rebuilds formalReports, events, reportOverviews
+and testOverviews from canonical monitor state before the Python input is written.
+Python checkpoints return the whole delivery object, so serializing the vault
+again previously duplicated those report bodies. JSON.stringify does not deduplicate
+shared references; sufficiently large repeated inputs exceed the engine's string
+limit before encryption. An offline synthetic fixture reproduces that RangeError
+with the original seal function and successfully seals/reloads with this projection.
+The production vault-seal diagnostic narrows the failing stage but does not identify
+the exact internal allocation that threw; no production data was decrypted to infer it.
+
+Only the input to seal is projected: shallow-copy delivery and omit the four exact
+rebuildable body keys. Live vault, Python input, canonical state, unknown fields,
+all publication/archive/send receipts and cryptographic format remain unchanged.
+No new writer, recovery operation, workflow, trigger or message action is introduced.
+This reduces serialized input, not every live-process memory peak, and cannot
+promise that every future RangeError is eliminated.
+
+Compatibility review includes formal, legacy non-formal and test-digest paths,
+plus root/cloud/gateway/bridge/tools consumers. Reload tests execute actual encryption,
+decryption and runner input reconstruction. Send-safety tests cover sent, sending,
+uncertain and recent-failed states and ordinary/test-mode POST success, lost response
+or rejection followed by final checkpoint failure. The durable pre-POST sending
+receipt remains sending after reload, then becomes uncertain without another POST.
+Never clear or downgrade such receipts to retry. These tests are not evidence that
+any particular production message was or was not sent.
