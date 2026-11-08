@@ -15,7 +15,7 @@
       "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
       "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJDTrionV4eGo_2.png?v=1787624166&width=2000",
       "collectedAt": "2026-10-20T14:47:30.081824Z",
-      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
       "sources": [
         {
           "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
@@ -45,7 +45,7 @@
       "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
       "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_1.jpg?v=1788417005&width=2048",
       "collectedAt": "2026-10-20T14:47:30.081824Z",
-      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
       "sources": [
         {
           "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
@@ -75,7 +75,7 @@
       "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
       "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/V4E_GO_2048X2048px_4.png?v=1788252931&width=2048",
       "collectedAt": "2026-10-20T14:47:30.081824Z",
-      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
       "sources": [
         {
           "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
@@ -105,7 +105,7 @@
       "sourcePage": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
       "imageUrl": "https://store.fjdtrion.com/cdn/shop/files/FJD_TRION_V4E_GO_2.jpg?v=1788417006&width=2048",
       "collectedAt": "2026-10-20T14:47:30.081824Z",
-      "updatedAt": "2026-10-20T14:47:30.081824Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
       "sources": [
         {
           "pageUrl": "https://store.fjdtrion.com/products/fjd-trion-v4e-go",
@@ -1420,6 +1420,486 @@
         }
       ],
       "previewFile": "assets/products/6eb6e1a4ba228ab5fb23e223-thumb.jpg"
+    },
+    {
+      "id": "product-f1e27e45956170fccbe92ec6",
+      "sha256": "f1e27e45956170fccbe92ec692eb1e2bb760da05568e0f9ac53c037e6cb5fbf5",
+      "pixelSha256": "90817fd8e671f751a72e79170b7b407ffd681f0b6648fb9388fe89974bc63222",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1290,
+      "height": 725,
+      "format": "PNG",
+      "phash": "7666999368996666",
+      "file": "assets/products/f1e27e45956170fccbe92ec6.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10i",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_picture_default_image",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+          "pageTitle": "FJD Trion V10i",
+          "pageSha256": "55a481870b2495ea8a07bbfe78b4a0e3a52f7ce0aa532c05cf8583e4d08e4e1d",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_picture_default_image",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_picture_default_image",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/f1e27e45956170fccbe92ec6-thumb.jpg"
+    },
+    {
+      "id": "product-f6268e734cbdee67509f4803",
+      "sha256": "f6268e734cbdee67509f4803f4d47095650fa48f94c9f2630a5f382b960e6a54",
+      "pixelSha256": "cb6a1e0bb9ed028a412261bdcd1ddf0ddfe86982d1d4110ea76e2a668c51467f",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "JPEG",
+      "phash": "7237dce83e439c03",
+      "file": "assets/products/f6268e734cbdee67509f4803.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10i",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/18289-a226acbd/DSC08279_1_%E5%89%AF%E6%9C%AC.jpg",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+          "pageTitle": "FJD Trion V10i",
+          "pageSha256": "55a481870b2495ea8a07bbfe78b4a0e3a52f7ce0aa532c05cf8583e4d08e4e1d",
+          "imageUrl": "https://www.fjdtrion.com/web/image/18289-a226acbd/DSC08279_1_%E5%89%AF%E6%9C%AC.jpg",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/18289-a226acbd/DSC08279_1_%E5%89%AF%E6%9C%AC.jpg",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/f6268e734cbdee67509f4803-thumb.jpg"
+    },
+    {
+      "id": "product-2d8329bf70a4fd7fa8c2dc00",
+      "sha256": "2d8329bf70a4fd7fa8c2dc0049bb9e77d980e2f4dcc74a753f66460ae86d4433",
+      "pixelSha256": "fa3ecdff5b8eceeedf8b86b81d2a13faa0297d6491dd322a23476f6e8dd22d58",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "PNG",
+      "phash": "19c6c73d684b92c7",
+      "file": "assets/products/2d8329bf70a4fd7fa8c2dc00.png",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10i",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/16231-a3e4df75/%E6%89%8B%E7%B0%BF%E5%AE%A3%E4%BC%A0%E5%9B%BE%EF%BC%883%E4%B8%AA%EF%BC%89.png",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+          "pageTitle": "FJD Trion V10i",
+          "pageSha256": "55a481870b2495ea8a07bbfe78b4a0e3a52f7ce0aa532c05cf8583e4d08e4e1d",
+          "imageUrl": "https://www.fjdtrion.com/web/image/16231-a3e4df75/%E6%89%8B%E7%B0%BF%E5%AE%A3%E4%BC%A0%E5%9B%BE%EF%BC%883%E4%B8%AA%EF%BC%89.png",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/16231-a3e4df75/%E6%89%8B%E7%B0%BF%E5%AE%A3%E4%BC%A0%E5%9B%BE%EF%BC%883%E4%B8%AA%EF%BC%89.png",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/2d8329bf70a4fd7fa8c2dc00-thumb.jpg"
+    },
+    {
+      "id": "product-2428fd1caec1e117b6c84904",
+      "sha256": "2428fd1caec1e117b6c8490405979923d8187e0d20d2fec5cdd9f08869782c78",
+      "pixelSha256": "8de6da139a58fa2da85ac219d076df0888359412211731f611c4ee014154888b",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 784,
+      "height": 490,
+      "format": "JPEG",
+      "phash": "b9f981b30b8b0f16",
+      "file": "assets/products/2428fd1caec1e117b6c84904.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V10i",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_three_columns_image_1",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system",
+          "pageTitle": "FJD Trion V10i",
+          "pageSha256": "55a481870b2495ea8a07bbfe78b4a0e3a52f7ce0aa532c05cf8583e4d08e4e1d",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_three_columns_image_1",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v10i_three_columns_image_1",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/2428fd1caec1e117b6c84904-thumb.jpg"
+    },
+    {
+      "id": "product-13ccd5183533e4f8990ef210",
+      "sha256": "13ccd5183533e4f8990ef210c5bb8923850035306e258f7d143555e90eeb4b96",
+      "pixelSha256": "897b88d6b892ce67e32a7a10c5fdad02eef486b9500dff6bc79cd53ea6755945",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "WEBP",
+      "phash": "b2929d6da4965369",
+      "file": "assets/products/13ccd5183533e4f8990ef210.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS-P \n             Precision Planting Control Kit",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/29696-238c0245fb16359395e1a54daf1448972b620402/kv-v5-pc.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+          "pageTitle": "FJD APS-P \n             Precision Planting Control Kit",
+          "pageSha256": "51605594e1bc5e56bf0bea42e34f8b8eb7e892d77a8d6cebd46d1c0b5f779169",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/29696-238c0245fb16359395e1a54daf1448972b620402/kv-v5-pc.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/29696-238c0245fb16359395e1a54daf1448972b620402/kv-v5-pc.webp",
+          "alt": "Tractor operating a multi-row precision planter in a prepared field",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/13ccd5183533e4f8990ef210-thumb.jpg"
+    },
+    {
+      "id": "product-8c9ba49f8397336c28c4d4f8",
+      "sha256": "8c9ba49f8397336c28c4d4f8fd72e73dcef8025c5cd77d900d351f0e3328cdbc",
+      "pixelSha256": "275d23a5acd463a439ef30eeb63ceef9d025394fe7332ffa170653bbe31d5e2d",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "WEBP",
+      "phash": "36332ead8f4a431b",
+      "file": "assets/products/8c9ba49f8397336c28c4d4f8.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS-P \n             Precision Planting Control Kit",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/29510-6f64fd65/planting-a-seed-in-the-golden-light-2.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+          "pageTitle": "FJD APS-P \n             Precision Planting Control Kit",
+          "pageSha256": "51605594e1bc5e56bf0bea42e34f8b8eb7e892d77a8d6cebd46d1c0b5f779169",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/29510-6f64fd65/planting-a-seed-in-the-golden-light-2.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/29510-6f64fd65/planting-a-seed-in-the-golden-light-2.webp",
+          "alt": "A seed being placed into a prepared furrow",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/8c9ba49f8397336c28c4d4f8-thumb.jpg"
+    },
+    {
+      "id": "product-c98e3d0d37d6508ff5806204",
+      "sha256": "c98e3d0d37d6508ff5806204b7dfdc11edfe33175bb4e3c70aac7675f9ce2788",
+      "pixelSha256": "582bb920f672c2df3b3e64149512f14d654351338dfb1cdb751abc2d3d2e372b",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 696,
+      "height": 391,
+      "format": "WEBP",
+      "phash": "da94966189d34df1",
+      "file": "assets/products/c98e3d0d37d6508ff5806204.webp",
+      "brand": "FJDynamics",
+      "productName": "FJD APS-P \n             Precision Planting Control Kit",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/29497-bc13c4ca/a6ymxXuXKZgA.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+          "pageTitle": "FJD APS-P \n             Precision Planting Control Kit",
+          "pageSha256": "51605594e1bc5e56bf0bea42e34f8b8eb7e892d77a8d6cebd46d1c0b5f779169",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/29497-bc13c4ca/a6ymxXuXKZgA.webp",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/29497-bc13c4ca/a6ymxXuXKZgA.webp",
+          "alt": "Automatic row control avoiding planted and unplanted field areas",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/c98e3d0d37d6508ff5806204-thumb.jpg"
+    },
+    {
+      "id": "product-2a719997474889d2ea1badcf",
+      "sha256": "2a719997474889d2ea1badcf3c60e5b7571997e057c92dfe59cc300d3ba6aa93",
+      "pixelSha256": "ca6b49989a89e141b99015b70ba39320d70d79cde9fa473119d0d05ff2330227",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 500,
+      "height": 500,
+      "format": "PNG",
+      "phash": "dc893bc0336633bc",
+      "file": "assets/products/2a719997474889d2ea1badcf.png",
+      "brand": "FJDynamics",
+      "productName": "FJD APS-P \n             Precision Planting Control Kit",
+      "sourcePage": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+      "imageUrl": "https://agriculture.fjdynamics.com/web/image/29691-51db142f05c07937ac32fc83be2640bf4da5b7f8/aps-p-200w-motor.png",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit",
+          "pageTitle": "FJD APS-P \n             Precision Planting Control Kit",
+          "pageSha256": "51605594e1bc5e56bf0bea42e34f8b8eb7e892d77a8d6cebd46d1c0b5f779169",
+          "imageUrl": "https://agriculture.fjdynamics.com/web/image/29691-51db142f05c07937ac32fc83be2640bf4da5b7f8/aps-p-200w-motor.png",
+          "finalImageUrl": "https://agriculture.fjdynamics.com/web/image/29691-51db142f05c07937ac32fc83be2640bf4da5b7f8/aps-p-200w-motor.png",
+          "alt": "FJD APS-P 200W motor",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/2a719997474889d2ea1badcf-thumb.jpg"
+    },
+    {
+      "id": "product-71f2979b60a65fa50c92c728",
+      "sha256": "71f2979b60a65fa50c92c72849bf307249f6d6e8dc7ec51efac4adb3c16770f9",
+      "pixelSha256": "8ff708cd97360a1c5ef23e61e5a49bfe5450dbecee63b03b6a4dbe0a08939865",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 800,
+      "format": "JPEG",
+      "phash": "597b6954d69a2961",
+      "file": "assets/products/71f2979b60a65fa50c92c728.jpg",
+      "brand": "FJDynamics",
+      "productName": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/31951-2e06b1ff/EN_20250508_S100%20Pro%20M_KV_2-1.jpg",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+          "pageTitle": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+          "pageSha256": "90e83c48b10d72db03f4c464dad8858bff20f55851e89cba5b39c9592449885b",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/31951-2e06b1ff/EN_20250508_S100%20Pro%20M_KV_2-1.jpg",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/31951-2e06b1ff/EN_20250508_S100%20Pro%20M_KV_2-1.jpg",
+          "alt": "FJD PaintMaster Mini line marking robot on a lawn",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/71f2979b60a65fa50c92c728-thumb.jpg"
+    },
+    {
+      "id": "product-fec8605b95b92db098dffe30",
+      "sha256": "fec8605b95b92db098dffe302ba4b1ae9ee9c8de7060e7b4c875097f20647e19",
+      "pixelSha256": "ddb54da43b50f74599cd2f694c8fd4750d290e77efb27039710a04f43a0998d4",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1079,
+      "height": 1920,
+      "format": "PNG",
+      "phash": "55eb23bce2333cc0",
+      "file": "assets/products/fec8605b95b92db098dffe30.png",
+      "brand": "FJDynamics",
+      "productName": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/33515-5b8444ad/EN_20250508_S100%20PRO%20M_H5-1.png",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+          "pageTitle": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+          "pageSha256": "90e83c48b10d72db03f4c464dad8858bff20f55851e89cba5b39c9592449885b",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/33515-5b8444ad/EN_20250508_S100%20PRO%20M_H5-1.png",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/33515-5b8444ad/EN_20250508_S100%20PRO%20M_H5-1.png",
+          "alt": "FJD landscaping featured media",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/fec8605b95b92db098dffe30-thumb.jpg"
+    },
+    {
+      "id": "product-387daf4217b5cd98e4abb650",
+      "sha256": "387daf4217b5cd98e4abb650aa64c0b530fb43beb3e16a4b24cc6d54f8d00e7a",
+      "pixelSha256": "76e1d12dd5e8ff2199b337cce5b8ef2ee9652f0de5f6086fcf49ba5bb0d57af3",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1080,
+      "format": "WEBP",
+      "phash": "5c999166339ccc5b",
+      "file": "assets/products/387daf4217b5cd98e4abb650.webp",
+      "brand": "FJDynamics",
+      "productName": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/31867-8c964d5c/S100%20Pro%20M%20cleaning%20robot%20with%203D%20and%20AI%20for%20precise%20navigation.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+          "pageTitle": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+          "pageSha256": "90e83c48b10d72db03f4c464dad8858bff20f55851e89cba5b39c9592449885b",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/31867-8c964d5c/S100%20Pro%20M%20cleaning%20robot%20with%203D%20and%20AI%20for%20precise%20navigation.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/31867-8c964d5c/S100%20Pro%20M%20cleaning%20robot%20with%203D%20and%20AI%20for%20precise%20navigation.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/387daf4217b5cd98e4abb650-thumb.jpg"
+    },
+    {
+      "id": "product-e6445d73fd9f74052635d44a",
+      "sha256": "e6445d73fd9f74052635d44a770fef5667ff9d72922ec914cba63d7642c1da34",
+      "pixelSha256": "ce22644f4ac1bc65f03135cffdd0046631fc442d6b67459cd8cc59bcac7be78d",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 1920,
+      "height": 1081,
+      "format": "WEBP",
+      "phash": "7a624b983d3f16c4",
+      "file": "assets/products/e6445d73fd9f74052635d44a.webp",
+      "brand": "FJDynamics",
+      "productName": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+      "sourcePage": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+      "imageUrl": "https://landscaping.fjdynamics.com/web/image/31866-4cdffd85/S100%20Pro%20M%20cleaning%20robot%20avoiding%20small%20obstacles.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot",
+          "pageTitle": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+          "pageSha256": "90e83c48b10d72db03f4c464dad8858bff20f55851e89cba5b39c9592449885b",
+          "imageUrl": "https://landscaping.fjdynamics.com/web/image/31866-4cdffd85/S100%20Pro%20M%20cleaning%20robot%20avoiding%20small%20obstacles.webp",
+          "finalImageUrl": "https://landscaping.fjdynamics.com/web/image/31866-4cdffd85/S100%20Pro%20M%20cleaning%20robot%20avoiding%20small%20obstacles.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdynamics.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/e6445d73fd9f74052635d44a-thumb.jpg"
+    },
+    {
+      "id": "product-51c0434a91da2f6f38c61ff4",
+      "sha256": "51c0434a91da2f6f38c61ff4a80e21e53a33bbce2def7c05e8bfd0e7e7daa29a",
+      "pixelSha256": "3a954897219fe5dafd99e966c8e3ee245c9b769f67222bc120886b37d74b62e9",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 459,
+      "format": "WEBP",
+      "phash": "7784739a8d6b928a",
+      "file": "assets/products/51c0434a91da2f6f38c61ff4.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V1t",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+      "imageUrl": "https://www.fjdtrion.com/web/image/15825-05d42e11/p30.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+          "pageTitle": "FJD Trion V1t",
+          "pageSha256": "a884462819246dd4d3c72348ed0697fed4b57174de235a61339c608857fd79b0",
+          "imageUrl": "https://www.fjdtrion.com/web/image/15825-05d42e11/p30.webp",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/15825-05d42e11/p30.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/51c0434a91da2f6f38c61ff4-thumb.jpg"
+    },
+    {
+      "id": "product-926590998d6d372c05afa245",
+      "sha256": "926590998d6d372c05afa2453b6a784c8c706255b2d23f27bbbb985cfc1515ca",
+      "pixelSha256": "5465e0338326dbac9c52f0fc96b4a09cb118017161f33376ccfe973763f20f80",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 598,
+      "height": 448,
+      "format": "WEBP",
+      "phash": "79e6798271c89e29",
+      "file": "assets/products/926590998d6d372c05afa245.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V1t",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+      "imageUrl": "https://www.fjdtrion.com/web/image/15826-77b13765/400a_%E5%89%AF%E6%9C%AC.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+          "pageTitle": "FJD Trion V1t",
+          "pageSha256": "a884462819246dd4d3c72348ed0697fed4b57174de235a61339c608857fd79b0",
+          "imageUrl": "https://www.fjdtrion.com/web/image/15826-77b13765/400a_%E5%89%AF%E6%9C%AC.webp",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/15826-77b13765/400a_%E5%89%AF%E6%9C%AC.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/926590998d6d372c05afa245-thumb.jpg"
+    },
+    {
+      "id": "product-72a0d1093f28e34ec19db8e0",
+      "sha256": "72a0d1093f28e34ec19db8e059e4d90a2c20ee46381073057f01ef4ed5e7b3f3",
+      "pixelSha256": "a8d29b057ceb4b616954e49e1ed786f23d0e2be364cbfa95dce82c12ef69117d",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 388,
+      "format": "WEBP",
+      "phash": "11a3e7e2f89db380",
+      "file": "assets/products/72a0d1093f28e34ec19db8e0.webp",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V1t",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+      "imageUrl": "https://www.fjdtrion.com/web/image/16896-e1cb8696/bridge_%E5%89%AF%E6%9C%AC.webp",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+          "pageTitle": "FJD Trion V1t",
+          "pageSha256": "a884462819246dd4d3c72348ed0697fed4b57174de235a61339c608857fd79b0",
+          "imageUrl": "https://www.fjdtrion.com/web/image/16896-e1cb8696/bridge_%E5%89%AF%E6%9C%AC.webp",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/16896-e1cb8696/bridge_%E5%89%AF%E6%9C%AC.webp",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/72a0d1093f28e34ec19db8e0-thumb.jpg"
+    },
+    {
+      "id": "product-eb266281fa9a7109ba6f2399",
+      "sha256": "eb266281fa9a7109ba6f2399b685a3f05fd61f2b9a2a5245582fe9713db49df8",
+      "pixelSha256": "3ec69d30ff45407229c10ddc96d863df8cda036273f90003a5fd58e9698ef86b",
+      "pixelEncoding": "rgba-exif-v1",
+      "width": 690,
+      "height": 851,
+      "format": "JPEG",
+      "phash": "d6752892664de93c",
+      "file": "assets/products/eb266281fa9a7109ba6f2399.jpg",
+      "brand": "FJD Trion",
+      "productName": "FJD Trion V1t",
+      "sourcePage": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+      "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v1_rtk_three_columns_image_2",
+      "collectedAt": "2026-11-08T16:46:51.974443Z",
+      "updatedAt": "2026-11-08T16:46:51.974443Z",
+      "sources": [
+        {
+          "pageUrl": "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover",
+          "pageTitle": "FJD Trion V1t",
+          "pageSha256": "a884462819246dd4d3c72348ed0697fed4b57174de235a61339c608857fd79b0",
+          "imageUrl": "https://www.fjdtrion.com/web/image/website.s_v1_rtk_three_columns_image_2",
+          "finalImageUrl": "https://www.fjdtrion.com/web/image/website.s_v1_rtk_three_columns_image_2",
+          "alt": "",
+          "officialDomainProof": "https://www.fjdtrion.com/",
+          "collectedAt": "2026-11-08T16:46:51.974443Z"
+        }
+      ],
+      "previewFile": "assets/products/eb266281fa9a7109ba6f2399-thumb.jpg"
     }
   ],
   "pages": {
@@ -1512,11 +1992,11 @@
       "candidateCount": 18
     },
     "https://store.fjdtrion.com/products/fjd-trion-v4e-go": {
-      "checkedAt": "2026-10-20T14:47:30.081824Z",
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
       "images": 4,
       "failures": [],
-      "title": "FJD Trion V4e Go FJD Trion V4e Go",
-      "htmlSha256": "aee6f2b0e95cf448104ce50ab4ae9205e7b2fe05ffc81502e952232b858933d5",
+      "title": "FJD Trion V4e Go",
+      "htmlSha256": "f95ddc145985904a4404c742eeb53f9554382b52f2263c94ecb99ac0b45bef41",
       "candidateCount": 70
     },
     "https://agriculture.fjdynamics.com/product/fjd-at2-ultra-auto-steer-system": {
@@ -2691,7 +3171,7 @@
       "candidateCount": 13
     },
     "https://shop.fjdynamics.com/products/fjd-trion-p2-scanner": {
-      "checkedAt": "2026-10-20T15:04:26.491232Z",
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
       "images": 0,
       "failures": [],
       "error": "HTTP 404"
@@ -3096,9 +3576,71 @@
       "title": "FJD Trion V10a",
       "htmlSha256": "8e5033b47534a6ec6ed60b99dda9372562a8b1a418147a3106b5948436ebfede",
       "candidateCount": 17
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v10i-rtk-system": {
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_1",
+          "reason": "网络响应未确认或图片暂不可读取"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_2",
+          "reason": "网络响应未确认或图片暂不可读取"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_3",
+          "reason": "网络响应未确认或图片暂不可读取"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_4",
+          "reason": "网络响应未确认或图片暂不可读取"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_5",
+          "reason": "网络响应未确认或图片暂不可读取"
+        },
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_v10i_feature_image_6",
+          "reason": "网络响应未确认或图片暂不可读取"
+        }
+      ],
+      "title": "FJD Trion V10i",
+      "htmlSha256": "55a481870b2495ea8a07bbfe78b4a0e3a52f7ce0aa532c05cf8583e4d08e4e1d",
+      "candidateCount": 16
+    },
+    "https://agriculture.fjdynamics.com/products/aps-p-precision-planting-control-kit": {
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
+      "images": 4,
+      "failures": [],
+      "title": "FJD APS-P \n             Precision Planting Control Kit",
+      "htmlSha256": "51605594e1bc5e56bf0bea42e34f8b8eb7e892d77a8d6cebd46d1c0b5f779169",
+      "candidateCount": 13
+    },
+    "https://landscaping.fjdynamics.com/product/s100-pro-m-commercial-cleaning-robot": {
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
+      "images": 4,
+      "failures": [],
+      "title": "Sveabot S100 Pro M | Commercial Sweeping & Mopping Robot",
+      "htmlSha256": "90e83c48b10d72db03f4c464dad8858bff20f55851e89cba5b39c9592449885b",
+      "candidateCount": 36
+    },
+    "https://www.fjdtrion.com/product/fjd-trion-v1t-rtk-rover": {
+      "checkedAt": "2026-11-08T16:46:51.974443Z",
+      "images": 4,
+      "failures": [
+        {
+          "url": "https://www.fjdtrion.com/web/image/website.s_p1_feature_image_2",
+          "reason": "网络响应未确认或图片暂不可读取"
+        }
+      ],
+      "title": "FJD Trion V1t",
+      "htmlSha256": "a884462819246dd4d3c72348ed0697fed4b57174de235a61339c608857fd79b0",
+      "candidateCount": 15
     }
   },
-  "updatedAt": "2026-11-01T16:59:18.982774Z",
+  "updatedAt": "2026-11-08T16:46:51.974443Z",
   "algorithmVersion": "dual-images-2.1",
   "officialDomains": {
     "www.fjdynamics.com": "https://www.fjdynamics.com/",
@@ -3110,12 +3652,12 @@
   },
   "discoveredPages": 97,
   "lastBatch": {
-    "at": "2026-11-01T16:59:18.982774Z",
+    "at": "2026-11-08T16:46:51.974443Z",
     "checkedPages": 6,
-    "newImages": 20,
+    "newImages": 16,
     "errors": []
   },
-  "libraryVersion": "f0cb13e25dbe9049",
+  "libraryVersion": "d055025d63166647",
   "excludedNonProductResources": [
     {
       "url": "https://landscaping.fjdynamics.com/theme_fjd/static/src/img/custom_snippets_v3/s_fjd_landscaping_kv_v3/kv-residential-slope.webp",
