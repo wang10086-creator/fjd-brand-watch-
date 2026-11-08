@@ -1,3 +1,4 @@
+import {retryAfterMs} from '../search-retry.js';
 import {publicHtmlSearch} from './html-search.mjs';
 import {searchPlan,simplifiedQuery} from '../search-engine.js';
 import {normalizeResults} from '../model.js';
@@ -5,9 +6,41 @@ import {searchResultUrl,inTarget} from '../search-links.js';
 import {sourceNames,healthState,cooling,recordHealth,networkKind,withSourceBudget} from './search-health.mjs';
 const xmlDecode=s=>s.replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/,'$1').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v<=0x10ffff?String.fromCodePoint(v):''}).replace(/&(amp|lt|gt|quot|apos);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[n]));
 export function parseRss(text){
- if(!/<rss[\s>]/i.test(text)||!/<channel[\s>]/i.test(text))throw Error('备用来源没有返回 RSS 搜索结果');
+ // Validate the envelope and item boundaries before accepting an empty feed.
+ // Attributes may contain >; comments and CDATA must not create fake items.
+ const invalid=()=>{throw Error('备用来源没有返回可确认的 RSS 搜索结果')};
+ const stack=[],items=[];let end=0,roots=0,channels=0,currentItem=null,field=null;
+ const tokens=/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<\/?[A-Za-z_](?:[^<>"']|"[^"]*"|'[^']*')*>/g;
+ for(const match of text.matchAll(tokens)){
+  const gap=text.slice(end,match.index),token=match[0];if(gap.includes('<')||!stack.length&&gap.trim())invalid();end=match.index+token.length;
+  if(field)field.parts.push(xmlDecode(gap));
+  if(token.startsWith('<!--')||token.startsWith('<?'))continue;
+  if(token.startsWith('<![CDATA[')){if(!stack.length)invalid();if(field)field.parts.push(token.slice(9,-3));continue;}
+  if(token.startsWith('</')){
+   const close=token.match(/^<\/([A-Za-z_][\w.:-]*)\s*>$/);if(!close||stack.at(-1)!==close[1].toLowerCase())invalid();
+   if(field&&stack.length===field.depth){currentItem[field.name]=field.parts.join('').trim();field=null;}
+   stack.pop();if(close[1].toLowerCase()==='item'){items.push(currentItem);currentItem=null;}continue;
+  }
+  const open=token.match(/^<([A-Za-z_][\w.:-]*)(?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"]*"|'[^']*'))*\s*(\/?)>$/);if(!open)invalid();
+  const name=open[1].toLowerCase(),parent=stack.at(-1);
+  if(!stack.length){if(name!=='rss'||++roots!==1)invalid();}
+  if(name==='channel'){if(parent!=='rss'||++channels!==1)invalid();}
+  if(name.split(':').at(-1)==='item'){
+   if(name!=='item'||parent!=='channel'||currentItem!==null)invalid();
+   if(open[2])items.push({});else currentItem={};
+  }
+  // Extract only direct item children. Never rescan raw XML for a link inside
+  // a comment, description, extension, or CDATA payload.
+  if(field){if(field.name==='link')invalid();field.parts.push(' ');}
+  if(parent==='item'&&['link','title','description'].includes(name)){
+   if(Object.hasOwn(currentItem,name))invalid();
+   if(open[2])currentItem[name]='';else field={name,depth:stack.length+1,parts:[]};
+  }
+  if(!open[2])stack.push(name);
+ }
+ if(stack.length||roots!==1||channels!==1||text.slice(end).trim())invalid();
  const results=[];let rejected=0;
- for(const [,item] of text.matchAll(/<item>([\s\S]*?)<\/item>/gi)){const get=k=>xmlDecode(item.match(new RegExp('<'+k+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+k+'>','i'))?.[1]||'');try{results.push({url:searchResultUrl(get('link')),title:get('title'),content:get('description').replace(/<[^>]+>/g,' ')})}catch{rejected++}}
+ for(const item of items){try{results.push({url:searchResultUrl(item.link||''),title:item.title||'',content:(item.description||'').replace(/<[^>]+>/g,' ')})}catch{rejected++}}
  if(rejected&&!results.length)throw Object.assign(Error('搜索结果链接未能安全还原，目标范围待核实'),{code:'scope-unverified',linkError:'wrapper-unverified'});
  return results;
 }
@@ -27,7 +60,7 @@ export async function cloudSearch(plan,{state={},fetcher=fetch,wait,signal,now=D
     if(name==='primary')return {...await searchPlan(plan,{fetcher,wait,signal:child,retries:0}),provider:'Tavily 公开索引'};
     if(name==='web'){const {attempt,...rest}=await publicHtmlSearch(plan,{fetcher,signal:child,query});return {...rest,rawCount:attempt.raw,attempts:[attempt]}}
     const url='https://www.bing.com/search?'+new URLSearchParams({q:query,format:'rss',count:'10'}),r=await fetcher(url,{signal:child,headers:{Accept:'application/rss+xml, application/xml;q=0.9'}});
-    if(!r.ok)throw Object.assign(Error('备用公开索引 HTTP '+r.status),{code:r.status,retryAfter:Number(r.headers?.get('Retry-After')||0)*1000});
+    if(!r.ok)throw Object.assign(Error('备用公开索引 HTTP '+r.status),{code:r.status,retryAfter:retryAfterMs(r.headers?.get('Retry-After'))});
     return {results:parseRss(await r.text()),provider:'Bing 公开 RSS 索引',effectivePlan:{...plan,query,searchUrl:url.replace('format=rss','format=html')}};
    },signal,Math.min(sourceBudgets[name],totalMs-(Date.now()-began)));
    const raw=data.results,scoped=raw.filter(r=>inTarget(r.url,plan.domain));
@@ -40,7 +73,7 @@ export async function cloudSearch(plan,{state={},fetcher=fetch,wait,signal,now=D
    return {...data,results:scoped,effectivePlan:data.effectivePlan||plan,attempts,sourceTrace,outcome:trace.outcome};
   }catch(e){
    const kind=e.code==='scope-unverified'?'scope-unverified':/要求验证/.test(e.message)?'access-challenge':typeof e.code==='number'||/格式|RSS 搜索结果/.test(e.message)||e.name==='SyntaxError'?'source-unavailable':networkKind(e);
-   trace.outcome=kind;trace.code=e.code||kind;trace.raw=e.raw||0;trace.retained=0;
+   trace.outcome=kind;trace.httpStatus=Number.isInteger(e.code)&&e.code>=400&&e.code<=599?([401,403,429,503].includes(e.code)?'http-'+e.code:'http-other'):'none';trace.code=e.code||kind;trace.raw=e.raw||0;trace.retained=0;
    const safeMessage=kind.startsWith('network-')?'搜索来源异常：'+kind:/^(备用|索引|公开|搜索结果|来源返回格式|HTTP )/.test(e.message)?e.message:'搜索响应格式未确认';
    recordHealth(providers,name,plan.domain,kind,now,e);
    attempts.push(...(e.attempts||[]).map(a=>({...a,...(a.status==='失败'?{message:safeMessage}:{})})),{query,at,status:'失败',message:safeMessage,code:e.code||kind,stage:name,raw:trace.raw,retained:0});
@@ -51,3 +84,4 @@ export async function cloudSearch(plan,{state={},fetcher=fetch,wait,signal,now=D
  // Domain-specific failures never stop unrelated sites.
  e.stop=sourceNames.every(n=>(providers[n+'Until']||0)>now);e.retryAfter=e.stop?Math.min(...sourceNames.map(n=>providers[n+'Until']))-now:0;throw e;
 }
+

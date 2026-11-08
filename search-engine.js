@@ -1,3 +1,4 @@
+import {retryAfterMs} from './search-retry.js';
 import {normalizeResults,canonical} from './model.js?v=20261023-url-r1';
 const endpoint='https://api.tavily.com/search';
 const quote=s=>'"'+String(s).replaceAll('"','')+'"';
@@ -10,8 +11,8 @@ export async function searchPlan(plan,{signal,fetcher=fetch,onStage=()=>{},wait=
   const effective={...plan,query:q.query,searchUrl:'https://www.google.com/search?'+new URLSearchParams({q:[plan.domain&&!q.query.includes('site:'+plan.domain)?'site:'+plan.domain:'',q.query].filter(Boolean).join(' '),hl:plan.language,gl:plan.country.toLowerCase()})};
   for(let retry=0;retry<=retries;retry++){
    if(signal?.aborted)throw Error('请求已停止');onStage(q.stage+(retry?' · 自动重试 '+retry:''));const at=new Date().toISOString();
-   try{const response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Tavily-Access-Mode':'keyless','X-Client-Source':'fjd-brand-watch'},body:JSON.stringify({query:q.query,max_results:5,search_depth:'basic',...(plan.domain?{include_domains:[plan.domain],include_domains_mode:'filter'}:{})}),signal});
-    if(!response.ok){const e=Error('HTTP '+response.status+(response.status===429?' · 共享来源限流，稍后重试':response.status===401||response.status===403?' · 来源访问受限':' · 来源暂时异常'));e.code=response.status;const ra=response.headers?.get('Retry-After');e.retryAfter=ra?(/^[0-9.]+$/.test(ra)?+ra*1000:Math.max(0,Date.parse(ra)-Date.now())):null;e.stop=[401,403,429].includes(response.status);throw e;}
+   try{const response=await fetcher(endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Tavily-Access-Mode':'keyless','X-Client-Source':'fjd-brand-watch'},body:JSON.stringify({query:q.query,max_results:5,search_depth:'basic',...(plan.domain?{include_domains:[plan.domain],include_domains_mode:'restrict'}:{})}),signal});
+    if(!response.ok){const e=Error('HTTP '+response.status+(response.status===429?' · 共享来源限流，稍后重试':response.status===401||response.status===403?' · 来源访问受限':' · 来源暂时异常'));e.code=response.status;const ra=response.headers?.get('Retry-After');e.retryAfter=ra?retryAfterMs(ra):null;e.stop=[401,403,429].includes(response.status);throw e;}
     const data=await response.json();if(!Array.isArray(data.results))throw Error('来源返回格式无效');const rows=plan.watchUrl?data.results.filter(x=>canonical(x.url)===canonical(plan.watchUrl)):normalizeResults(data.results,effective,at);
     attempts.push({query:q.query,stage:q.stage,at,status:'成功',raw:data.results.length,retained:rows.length,searchUrl:effective.searchUrl});
     final={...data,effectivePlan:effective,attempts};if(rows.length||plan.watchUrl)return final;break;
@@ -20,3 +21,4 @@ export async function searchPlan(plan,{signal,fetcher=fetch,onStage=()=>{},wait=
  }
  return final;
 }
+

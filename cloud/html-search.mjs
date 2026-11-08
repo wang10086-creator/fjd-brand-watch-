@@ -1,3 +1,4 @@
+import {retryAfterMs} from '../search-retry.js';
 import {searchResultUrl,inTarget} from '../search-links.js';
 // Normal public HTML results only. A challenge/login or unexpected response is
 // rejected; it is never counted as an empty successful search.
@@ -18,8 +19,9 @@ export function parsePublicHtml(text){
 export async function publicHtmlSearch(plan,{fetcher=fetch,signal,query}){
  const url='https://html.duckduckgo.com/html/?'+new URLSearchParams({q:query});
  const r=await fetcher(url,{signal,headers:{Accept:'text/html'}});
- if(!r.ok){const error=Error('备用网页索引 HTTP '+r.status);error.code=r.status;const ra=r.headers?.get('Retry-After');error.retryAfter=ra&&/^\d+$/.test(ra)?+ra*1000:20*60000;throw error;}
+ if(!r.ok){const error=Error('备用网页索引 HTTP '+r.status);error.code=r.status;const ra=r.headers?.get('Retry-After');error.retryAfter=Math.max(20*60000,retryAfterMs(ra));throw error;}
  const results=parsePublicHtml(await r.text()),inScope=results.filter(x=>{return inTarget(x.url,plan.domain)});
  if(results.length&&!inScope.length){const e=Error('备用网页索引未返回目标站点结果');e.code='scope-unverified';e.raw=results.length;throw e;}
  return {results:inScope,provider:'DuckDuckGo 公开网页索引',effectivePlan:{...plan,query,searchUrl:url},attempt:{query,at:new Date().toISOString(),status:'成功',stage:'第三方公开网页索引',raw:results.length,retained:inScope.length,searchUrl:url}};
 }
+
