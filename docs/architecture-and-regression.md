@@ -2562,3 +2562,8 @@ or rejection followed by final checkpoint failure. The durable pre-POST sending
 receipt remains sending after reload, then becomes uncertain without another POST.
 Never clear or downgrade such receipts to retry. These tests are not evidence that
 any particular production message was or was not sent.
+
+
+## Bounded scan diagnostics and deadline markers
+
+Both pre-task and post-throttle budget exits now mark the same cancellation/continuation reason, without starting another query. Source summaries expose only fixed source/outcome names and integer counts, never queries, domains, URLs, messages or arbitrary error fields. Unknown outcomes map to `other`; dynamic fields are read once before validation. Logging is best-effort after successful persistence and cannot change scan results; exceptions or failed persistence may omit the summary. No scheduling, delivery, sealed report, credentials or workflow changes. Synthetic tests cover both deadline checks, normal completion, log failures, malformed/legacy traces and sensitive sentinel/getter exclusions. This improves visibility, not search coverage or upstream availability.
