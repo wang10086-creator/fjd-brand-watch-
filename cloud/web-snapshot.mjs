@@ -1,10 +1,49 @@
+import {createHash} from 'node:crypto';
 import {requestPagesBuild} from './pages-publish.mjs';
 import {gzipSync} from 'node:zlib';
 import {createGithubStore} from './github-store.mjs';
+export const WEB_SNAPSHOT_META_PATH='public-snapshot-meta.json';
+function stableRowForDigest(row){
+ if(!row?.priorityV2?.auto||!('evaluatedAt' in row.priorityV2.auto))return row;
+ const {evaluatedAt:_ignored,...auto}=row.priorityV2.auto;
+ return {...row,priorityV2:{...row.priorityV2,auto}};
+}
+export function snapshotBusinessDigest(feed){
+ if(feed?.version!==1||!Array.isArray(feed.rows))throw Error('公开快照数据不完整');
+ const m=feed.monitor||{};
+ const stable={
+  version:feed.version,
+  brandOwnership:feed.brandOwnership||null,
+  removedRecordKeys:feed.removedRecordKeys||[],
+  rows:feed.rows.map(stableRowForDigest),
+  receipts:feed.receipts||{},
+  monitor:{
+   reportPolicy:m.reportPolicy||null,
+   formalReports:m.formalReports||{},
+   observations:m.observations||[],
+   reviews:m.reviews||[],
+   updateChain:m.updateChain||[]
+  }
+ };
+ return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
 export function snapshotBytes(feed,status){if(feed?.version!==1||!Array.isArray(feed.rows)||!status?.runtime)throw Error('公开快照数据不完整');return gzipSync(Buffer.from(JSON.stringify({version:1,feed,status,updatedAt:feed.updatedAt})));}
-export async function publishWebSnapshot({repository,token,feed,status,deadline=Infinity}){
- const store=createGithubStore({repository,branch:'main',token,deadline});
- await store.write([{path:'public-snapshot.json.gz',bytes:snapshotBytes(feed,status),bytesInput:true}],'Refresh public monitoring snapshot');
+export async function publishWebSnapshot({repository,token,feed,status,deadline=Infinity,store=null,pagesBuilder=requestPagesBuild,force=false}){
+ const target=store||createGithubStore({repository,branch:'main',token,deadline});
+ const feedDigest=snapshotBusinessDigest(feed);
+ if(!force){
+  const existing=(await target.readJSON(WEB_SNAPSHOT_META_PATH))?.value;
+  if(existing?.version===1&&existing.feedDigest===feedDigest){
+   return {skipped:true,reason:'unchanged-feed',feedDigest};
+  }
+ }
+ const bytes=snapshotBytes(feed,status);
+ const meta={version:1,feedDigest,revision:feed.revision??null,updatedAt:feed.updatedAt??null,byteLength:bytes.length};
+ const saved=await target.write([
+  {path:'public-snapshot.json.gz',bytes,bytesInput:true},
+  {path:WEB_SNAPSHOT_META_PATH,value:meta}
+ ],'Refresh public monitoring snapshot');
  // GITHUB_TOKEN commits do not themselves trigger Pages; explicitly request a build.
- await requestPagesBuild(store);
+ await pagesBuilder(target);
+ return {skipped:false,feedDigest,sha:saved?.sha||null,byteLength:bytes.length};
 }
