@@ -289,7 +289,7 @@ test('delivered Feishu and formal report receipts survive incremental replay and
  const vault={
   version:2,revision:10,state:baseState,
   delivery:{receipts:{'ev-1':{status:'synced',at:'2026-11-14T01:31:00Z'}},pages:{},pushes:{}},
-  baseReview:{items:{'rev-1':{status:'accepted',recordId:'rec_001'}}},
+  baseReview:{items:{'rev-1':{status:'queued'}}},
   runtime:{phase:'running'}
  };
  const baseline=captureCheckpointBaseline(vault);
@@ -300,11 +300,12 @@ test('delivered Feishu and formal report receipts survive incremental replay and
  vault.state.monitor.formalReports['2026-11-14'].publishedAt='2026-11-14T01:32:00Z';
  vault.delivery.pushes['2026-11-14']={status:'sent',checksum,at:'2026-11-14T01:32:00Z',sentAt:'2026-11-14T01:32:00Z',attempts:1};
  vault.delivery.pushes['2026-11-15']={status:'sending',checksum:'b'.repeat(64),at:'2026-11-15T01:30:00Z',attempts:1};
+ vault.baseReview.items['rev-1']={status:'accepted',recordId:'rec_001'};
  const delta=buildIncrementalCheckpoint(vault,{baseline,caller:'report-after-delivery'});
  const cipher=await sealIncrementalCheckpoint(delta,PASSWORD);
 
  // Cold reload old base vault (before push), replay delta
- const restored={version:2,revision:10,state:structuredClone(baseState),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
+ const restored={version:2,revision:10,state:structuredClone(baseState),delivery:{receipts:{},pages:{},pushes:{}},baseReview:{items:{'rev-1':{status:'queued'}}},runtime:{phase:'ready'}};
  restored.state.monitor.formalReports['2026-11-14'].status='pending';
  applyIncrementalCheckpoint(restored,await unsealIncrementalCheckpoint(cipher,PASSWORD));
 
@@ -684,4 +685,98 @@ test('formal report critical path persists newly frozen day via checkpoint-delta
  assert.equal(restored.state.monitor.formalReports['2026-11-15'].status,'published');
  assert.equal(restored.delivery.pushes['2026-11-15'].status,'sent');
 });
+
+test('sparse baseline diff omits unchanged cursors, delivery maps, and 977 workflow items while replaying deltas and removals losslessly',async()=>{
+ const baseState=await initialState();
+ baseState.rows=[];
+ baseState.completed=Array.from({length:1000},(_,i)=>`plan-${i}`);
+ baseState.queryRotation=Object.fromEntries(Array.from({length:2000},(_,i)=>[`rot-${i}`,{day:'2026-11-14',status:'completed',at:'2026-11-14T00:00:00Z'}]));
+ baseState.marketDiscovery=Object.fromEntries(Array.from({length:500},(_,i)=>[`mkt-${i}`,{applied:true,pending:[],complete:true,notes:'M'.repeat(200)}]));
+ const baseVault={
+  version:2,revision:300,state:baseState,
+  delivery:{
+   receipts:Object.fromEntries(Array.from({length:300},(_,i)=>[`ev-${i}`,{status:'synced',at:'2026-11-14T00:00:00Z'}])),
+   layoutBlocks:Object.fromEntries(Array.from({length:300},(_,i)=>[`blk-${i}`,{id:`blk-${i}`,hash:'h'.repeat(64)}])),
+   pages:{'2026-11-14':{id:'page-14'}},
+   pushes:{'2026-11-14':{status:'sent',at:'2026-11-14T02:50:00Z'}}
+  },
+  baseStatus:{
+   lastAttemptAt:'2026-11-14T00:00:00Z',
+   items:Object.fromEntries(Array.from({length:977},(_,i)=>[`st-${i}`,{status:'queued',url:`https://shop.example/item-${i}`,payload:{k:'P'.repeat(120)}}]))
+  },
+  baseReview:{
+   items:Object.fromEntries(Array.from({length:30},(_,i)=>[`rv-${i}`,{status:'waiting-url',payload:{summary:'R'.repeat(300)}}]))
+  },
+  runtime:{phase:'running'}
+ };
+ const baseline=captureCheckpointBaseline(baseVault);
+
+ // 1. Unchanged startup checkpoint must omit all bulky maps -> tiny ciphertext (< 6 KB!)
+ const live=structuredClone(baseVault);
+ live.revision=301;
+ const startupDelta=buildIncrementalCheckpoint(live,{baseline,caller:'startup',includeDrafts:false});
+ assert.equal(Object.keys(startupDelta.cursors).length,0);
+ assert.equal(startupDelta.cursorMapDeltas,undefined);
+ assert.equal(startupDelta.completedAdded,undefined);
+ assert.equal(Object.keys(startupDelta.deliveryReceipts).length,0);
+ assert.equal(Object.keys(startupDelta.workflowReceipts).length,0);
+ const startupCipher=await sealIncrementalCheckpoint(startupDelta,PASSWORD);
+ assert.ok(Buffer.byteLength(JSON.stringify(startupCipher))<6000,`expected tiny startup delta, got ${Buffer.byteLength(JSON.stringify(startupCipher))}`);
+
+ // 2. Mutate 1 rotation key, remove 1 marketDiscovery key, append 2 completed IDs, update 1 of 977 baseStatus items
+ live.revision=302;
+ live.state.cursor=42;
+ live.state.completed.push('plan-1000','plan-1001');
+ live.state.queryRotation['rot-5']={day:'2026-11-27',status:'pending',at:'2026-11-26T14:30:00Z'};
+ delete live.state.marketDiscovery['mkt-10'];
+ live.delivery.receipts['ev-300']={status:'synced',at:'2026-11-26T14:30:00Z'};
+ live.baseStatus.items['st-99']={status:'sent',url:'https://shop.example/item-99',payload:{k:'UPDATED'}};
+ delete live.baseStatus.items['st-0'];
+
+ const batchDelta=buildIncrementalCheckpoint(live,{baseline,caller:'scan-batch',includeDrafts:false});
+ assert.deepEqual(batchDelta.completedAdded,['plan-1000','plan-1001']);
+ assert.deepEqual(Object.keys(batchDelta.cursorMapDeltas.queryRotation),['rot-5']);
+ assert.deepEqual(batchDelta.cursorMapRemovals.marketDiscovery,['mkt-10']);
+ assert.deepEqual(Object.keys(batchDelta.workflowReceipts.baseStatus.__deltaItems),['st-99']);
+ assert.deepEqual(batchDelta.workflowReceipts.baseStatus.__removedItems,['st-0']);
+ assert.equal(batchDelta.workflowReceipts.baseReview,undefined);
+ const batchCipher=await sealIncrementalCheckpoint(batchDelta,PASSWORD);
+ assert.ok(Buffer.byteLength(JSON.stringify(batchCipher))<8000,`expected compact batch delta, got ${Buffer.byteLength(JSON.stringify(batchCipher))}`);
+
+ // 3. Replay onto untouched baseVault must match live state identically!
+ const restored=structuredClone(baseVault);
+ const replayed=applyIncrementalCheckpoint(restored,await unsealIncrementalCheckpoint(batchCipher,PASSWORD));
+ assert.equal(replayed.applied,true);
+ assert.equal(restored.state.cursor,42);
+ assert.equal(restored.state.completed.length,1002);
+ assert.equal(restored.state.queryRotation['rot-5'].day,'2026-11-27');
+ assert.equal(restored.state.queryRotation['rot-0'].day,'2026-11-14');
+ assert.equal('mkt-10' in restored.state.marketDiscovery,false);
+ assert.equal(restored.state.marketDiscovery['mkt-0'].applied,true);
+ assert.equal(restored.delivery.receipts['ev-300'].status,'synced');
+ assert.equal(restored.delivery.layoutBlocks['blk-0'].id,'blk-0');
+ assert.equal(restored.baseStatus.items['st-99'].status,'sent');
+ assert.equal('st-0' in restored.baseStatus.items,false);
+ assert.equal(Object.keys(restored.baseStatus.items).length,976);
+ assert.equal(Object.keys(restored.baseReview.items).length,30);
+});
+
+test('updateCycleDraft builds valid draft without cloning historic monitor.formalReports',async()=>{
+ const {updateCycleDraft}=await import('../cloud/formal-reports.mjs');
+ const state=await initialState();
+ state.rows=[];
+ state.monitor.reportPolicy={...REPORT_POLICY,firstDay:'2026-10-22'};
+ let touchedFormal=false;
+ state.monitor.formalReports={
+  '2026-10-28':new Proxy({},{
+   ownKeys(){touchedFormal=true;throw Error('must-not-clone-historic-formalReport');},
+   get(){touchedFormal=true;throw Error('must-not-read-historic-formalReport');}
+  })
+ };
+ updateCycleDraft(state,'2026-11-26T14:30:00Z');
+ assert.equal(touchedFormal,false);
+ assert.ok(state.monitor.reportDrafts['2026-11-27']);
+ assert.match(state.monitor.reportDrafts['2026-11-27'].checksum,/^[a-f0-9]{64}$/);
+});
+
 

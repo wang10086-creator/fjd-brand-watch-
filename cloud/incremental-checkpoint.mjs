@@ -13,7 +13,15 @@ const CURSOR_FIELDS=[
  'urlCheckQueue','urlCheckSummary','visualSummary','removedRecordKeys','cloudRevision',
  'imagePolicy'
 ];
+const CURSOR_MAP_FIELDS=new Set(['queryRotation','marketDiscovery','marketHistory','siteCursors']);
+const DELIVERY_MAP_KEYS=new Set([
+ 'pushes','testPushes','receipts','formalReceipts','publicationReceipts',
+ 'pages','layoutBlocks','reportLayouts','removedReportPages','removedReportCharts','formalCharts'
+]);
+const WORKFLOW_RECEIPT_KEYS=['baseReview','baseStatus','historySync','workflowAcknowledged'];
 const DELIVERY_TERMINAL_STATES=new Set(['sent','sending','uncertain']);
+
+const isPlainObject=value=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 
 export function canonicalDigest(value){
  return createHash('sha256').update(JSON.stringify(value??null)).digest('hex');
@@ -53,8 +61,15 @@ function stableRowDigest(row){
  return {compacted,digest:canonicalDigest(compacted)};
 }
 
-// Record baseline row hashes and append-only collection IDs after loading or saving
-// a full vault snapshot, so routine checkpoints serialize only actual deltas.
+function digestPlainMap(obj){
+ const map=new Map();
+ if(!isPlainObject(obj))return map;
+ for(const [k,v]of Object.entries(obj))map.set(k,canonicalDigest(v));
+ return map;
+}
+
+// Record baseline row hashes and collection digests after loading or saving a full
+// vault snapshot, so routine checkpoints serialize only actual deltas.
 export function captureCheckpointBaseline(vault){
  const rows=new Map();
  for(const row of vault?.state?.rows||[]){
@@ -62,7 +77,8 @@ export function captureCheckpointBaseline(vault){
   const key=canonical(row.url);
   rows.set(key,stableRowDigest(row).digest);
  }
- const monitor=vault?.state?.monitor||{};
+ const state=vault?.state||{};
+ const monitor=state.monitor||{};
  const known=new Map();
  for(const [k,v]of Object.entries(monitor.known||{})){
   known.set(k,canonicalDigest(v));
@@ -71,10 +87,46 @@ export function captureCheckpointBaseline(vault){
  for(const [day,r]of Object.entries(monitor.formalReports||{})){
   formalReportChecksums.set(day,r?.checksum||canonicalDigest(r));
  }
+ const formalReportRefDigests=digestPlainMap(formalReportRefs(monitor.formalReports));
  const coverageScopeDigests=new Map();
  for(const [day,scope]of Object.entries(monitor.coverageScopes||{})){
   coverageScopeDigests.set(day,canonicalDigest(scope));
  }
+
+ const cursorScalars=new Map();
+ const cursorMaps=new Map();
+ for(const field of CURSOR_FIELDS){
+  if(state[field]===undefined)continue;
+  if(CURSOR_MAP_FIELDS.has(field)&&isPlainObject(state[field])){
+   cursorMaps.set(field,digestPlainMap(state[field]));
+  }else{
+   cursorScalars.set(field,canonicalDigest(state[field]));
+  }
+ }
+ const completedSet=Array.isArray(state.completed)?new Set(state.completed):null;
+
+ const deliveryScalars=new Map();
+ const deliveryMaps=new Map();
+ for(const [key,value]of Object.entries(vault?.delivery||{})){
+  if(OMITTED_DELIVERY_BODIES.has(key))continue;
+  if(DELIVERY_MAP_KEYS.has(key)&&isPlainObject(value)){
+   deliveryMaps.set(key,digestPlainMap(value));
+  }else{
+   deliveryScalars.set(key,canonicalDigest(value));
+  }
+ }
+
+ const workflowDigests=new Map();
+ const workflowItemMaps=new Map();
+ for(const key of WORKFLOW_RECEIPT_KEYS){
+  const value=vault?.[key];
+  if(value===undefined)continue;
+  workflowDigests.set(key,canonicalDigest(value));
+  if(isPlainObject(value)&&isPlainObject(value.items)){
+   workflowItemMaps.set(key,digestPlainMap(value.items));
+  }
+ }
+
  return {
   baseRevision:vault?.revision||0,
   rows,
@@ -85,7 +137,16 @@ export function captureCheckpointBaseline(vault){
   updateChainIds:new Set((monitor.updateChain||[]).map(e=>e?.id).filter(Boolean)),
   runSignatures:new Map((monitor.runs||[]).map(r=>[r?.id,canonicalDigest(compactRunRecord(r))]).filter(([id])=>Boolean(id))),
   formalReportChecksums,
-  coverageScopeDigests
+  formalReportRefDigests,
+  coverageScopeDigests,
+  coverageScopeAtDigest:monitor.coverageScopeAt!==undefined?canonicalDigest(monitor.coverageScopeAt):null,
+  cursorScalars,
+  cursorMaps,
+  completedSet,
+  deliveryScalars,
+  deliveryMaps,
+  workflowDigests,
+  workflowItemMaps
  };
 }
 
@@ -108,8 +169,48 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
  if(baseline){
   for(const key of baseRows.keys())if(!currentKeys.has(key))removedKeys.push(key);
  }
+
  const cursors={};
- for(const field of CURSOR_FIELDS)if(state[field]!==undefined)cursors[field]=structuredClone(state[field]);
+ const cursorMapDeltas={};
+ const cursorMapRemovals={};
+ let completedAdded=null;
+ for(const field of CURSOR_FIELDS){
+  if(state[field]===undefined)continue;
+  if(!baseline){
+   cursors[field]=structuredClone(state[field]);
+   continue;
+  }
+  if(field==='completed'&&Array.isArray(state.completed)&&baseline.completedSet){
+   const curSet=new Set(state.completed);
+   let anyRemoved=false;
+   for(const id of baseline.completedSet)if(!curSet.has(id)){anyRemoved=true;break;}
+   if(!anyRemoved){
+    const added=state.completed.filter(id=>!baseline.completedSet.has(id));
+    if(added.length)completedAdded=added;
+    continue;
+   }
+   cursors[field]=structuredClone(state.completed);
+   continue;
+  }
+  if(CURSOR_MAP_FIELDS.has(field)&&isPlainObject(state[field])&&baseline.cursorMaps?.has(field)){
+   const baseMap=baseline.cursorMaps.get(field);
+   const changed={};
+   const removed=[];
+   for(const [k,v]of Object.entries(state[field])){
+    if(baseMap.get(k)!==canonicalDigest(v))changed[k]=structuredClone(v);
+   }
+   for(const k of baseMap.keys()){
+    if(!Object.hasOwn(state[field],k))removed.push(k);
+   }
+   if(Object.keys(changed).length)cursorMapDeltas[field]=changed;
+   if(removed.length)cursorMapRemovals[field]=removed;
+   continue;
+  }
+  const digest=canonicalDigest(state[field]);
+  if(baseline.cursorScalars?.get(field)!==digest){
+   cursors[field]=structuredClone(state[field]);
+  }
+ }
 
  const knownDeltas={};
  for(const [k,v]of Object.entries(monitor.known||{})){
@@ -145,14 +246,75 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
   }
  }
 
- // Persist active pre-cutoff drafts when draft-capable checkpoints run so cold restart
- // can always verify cycle-draft-receipts and freeze formal reports without full vault dumps.
+ const allRefs=formalReportRefs(monitor.formalReports);
+ const changedFormalRefs={};
+ for(const [day,ref]of Object.entries(allRefs)){
+  if(!baseline||!baseline.formalReportRefDigests||baseline.formalReportRefDigests.get(day)!==canonicalDigest(ref)){
+   changedFormalRefs[day]=ref;
+  }
+ }
+
+ // Persist active pre-cutoff drafts only on draft-capable checkpoints so cold restart
+ // can verify cycle-draft-receipts and freeze formal reports without bloating mid-scan deltas.
  const reportDrafts=includeDrafts&&monitor.reportDrafts&&Object.keys(monitor.reportDrafts).length?structuredClone(monitor.reportDrafts):null;
 
- const workflowReceipts={};
- for(const key of ['baseReview','baseStatus','historySync','workflowAcknowledged']){
-  if(vault?.[key]!==undefined)workflowReceipts[key]=structuredClone(vault[key]);
+ // Diff deliveryReceipts against baseline so unchanged receipts/pages/layoutBlocks take 0 bytes.
+ const deliveryReceipts={};
+ const deliveryMapRemovals={};
+ if(!baseline){
+  Object.assign(deliveryReceipts,projectDeliveryReceipts(vault?.delivery));
+ }else{
+  for(const [key,value]of Object.entries(vault?.delivery||{})){
+   if(OMITTED_DELIVERY_BODIES.has(key))continue;
+   if(DELIVERY_MAP_KEYS.has(key)&&isPlainObject(value)&&baseline.deliveryMaps?.has(key)){
+    const baseMap=baseline.deliveryMaps.get(key);
+    const changed={};
+    const removed=[];
+    for(const [k,v]of Object.entries(value)){
+     if(baseMap.get(k)!==canonicalDigest(v))changed[k]=structuredClone(v);
+    }
+    if(key!=='pushes'&&key!=='testPushes'){
+     for(const k of baseMap.keys())if(!Object.hasOwn(value,k))removed.push(k);
+    }
+    if(Object.keys(changed).length)deliveryReceipts[key]=changed;
+    if(removed.length)deliveryMapRemovals[key]=removed;
+   }else if(baseline.deliveryScalars?.get(key)!==canonicalDigest(value)){
+    deliveryReceipts[key]=structuredClone(value);
+   }
+  }
  }
+
+ // Diff workflowReceipts against baseline; emit per-item deltas for large .items maps.
+ const workflowReceipts={};
+ for(const key of WORKFLOW_RECEIPT_KEYS){
+  const value=vault?.[key];
+  if(value===undefined)continue;
+  if(!baseline||!baseline.workflowDigests){
+   workflowReceipts[key]=structuredClone(value);
+   continue;
+  }
+  if(baseline.workflowDigests.get(key)===canonicalDigest(value))continue;
+  if(isPlainObject(value)&&isPlainObject(value.items)&&baseline.workflowItemMaps?.has(key)){
+   const baseMap=baseline.workflowItemMaps.get(key);
+   const changedItems={};
+   const removedItems=[];
+   for(const [id,item]of Object.entries(value.items)){
+    if(baseMap.get(id)!==canonicalDigest(item))changedItems[id]=structuredClone(item);
+   }
+   for(const id of baseMap.keys())if(!Object.hasOwn(value.items,id))removedItems.push(id);
+   const meta={};
+   for(const [mk,mv]of Object.entries(value))if(mk!=='items')meta[mk]=structuredClone(mv);
+   workflowReceipts[key]={
+    ...meta,
+    __deltaItems:changedItems,
+    ...(removedItems.length?{__removedItems:removedItems}:{})
+   };
+  }else{
+   workflowReceipts[key]=structuredClone(value);
+  }
+ }
+
+ const coverageScopeAtChanged=monitor.coverageScopeAt&&(!baseline||baseline.coverageScopeAtDigest!==canonicalDigest(monitor.coverageScopeAt));
 
  return {
   format:'fjd-incremental-checkpoint',
@@ -167,7 +329,11 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
   operationStatus:structuredClone(vault?.operationStatus||{}),
   browserPermissionCheck:vault?.browserPermissionCheck?structuredClone(vault.browserPermissionCheck):null,
   cursors,
-  deliveryReceipts:projectDeliveryReceipts(vault?.delivery),
+  ...(Object.keys(cursorMapDeltas).length?{cursorMapDeltas}:{}),
+  ...(Object.keys(cursorMapRemovals).length?{cursorMapRemovals}:{}),
+  ...(completedAdded?{completedAdded}:{}),
+  deliveryReceipts,
+  ...(Object.keys(deliveryMapRemovals).length?{deliveryMapRemovals}:{}),
   workflowReceipts,
   rowDeltas,
   removedKeys,
@@ -179,11 +345,11 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
   newChecks,
   newUpdateChain,
   coverageScopesDelta,
-  ...(monitor.coverageScopeAt?{coverageScopeAt:structuredClone(monitor.coverageScopeAt)}:{}),
+  ...(coverageScopeAtChanged?{coverageScopeAt:structuredClone(monitor.coverageScopeAt)}:{}),
   ...(monitor.reportPolicy?{reportPolicy:structuredClone(monitor.reportPolicy)}:{}),
   ...(reportDrafts?{reportDrafts}:{}),
   ...(Object.keys(newFormalReports).length?{newFormalReports}:{}),
-  formalReportRefs:formalReportRefs(monitor.formalReports)
+  formalReportRefs:changedFormalRefs
  };
 }
 
@@ -219,6 +385,7 @@ function mergeById(existing=[],incoming=[]){
 }
 
 // Deterministically replay a newer incremental checkpoint onto a loaded base vault.
+// Backwards-compatible with both full-object and sparse diffed checkpoint-delta files.
 // Preserves sealed formalReport bodies/checksums and never downgrades delivery receipts.
 export function applyIncrementalCheckpoint(vault,delta){
  if(!vault?.state||!delta||delta.format!=='fjd-incremental-checkpoint'||delta.version!==1){
@@ -236,6 +403,18 @@ export function applyIncrementalCheckpoint(vault,delta){
 
  for(const field of CURSOR_FIELDS){
   if(delta.cursors&&field in delta.cursors)vault.state[field]=structuredClone(delta.cursors[field]);
+ }
+ if(Array.isArray(delta.completedAdded)&&delta.completedAdded.length){
+  vault.state.completed=[...new Set([...(vault.state.completed||[]),...delta.completedAdded])];
+ }
+ for(const [field,patch]of Object.entries(delta.cursorMapDeltas||{})){
+  if(!CURSOR_MAP_FIELDS.has(field)||!isPlainObject(patch))continue;
+  vault.state[field]=isPlainObject(vault.state[field])?{...vault.state[field]}:{};
+  for(const [k,v]of Object.entries(patch))vault.state[field][k]=structuredClone(v);
+ }
+ for(const [field,removed]of Object.entries(delta.cursorMapRemovals||{})){
+  if(!CURSOR_MAP_FIELDS.has(field)||!Array.isArray(removed)||!isPlainObject(vault.state[field]))continue;
+  for(const k of removed)delete vault.state[field][k];
  }
 
  // Merge row deltas by canonical stable key without dropping untouched leads.
@@ -297,13 +476,30 @@ export function applyIncrementalCheckpoint(vault,delta){
  for(const [key,value]of Object.entries(delta.deliveryReceipts||{})){
   if(OMITTED_DELIVERY_BODIES.has(key))continue;
   if(key==='pushes'||key==='testPushes')vault.delivery[key]=mergePushReceipts(vault.delivery[key],value);
-  else if(key==='receipts'||key==='formalReceipts'||key==='publicationReceipts'||key==='pages'||key==='layoutBlocks'||key==='reportLayouts'||key==='removedReportPages'||key==='removedReportCharts'||key==='formalCharts'){
+  else if(DELIVERY_MAP_KEYS.has(key)){
    vault.delivery[key]={...(vault.delivery[key]||{}),...structuredClone(value||{})};
   }else vault.delivery[key]=structuredClone(value);
  }
+ for(const [key,removed]of Object.entries(delta.deliveryMapRemovals||{})){
+  if(!DELIVERY_MAP_KEYS.has(key)||key==='pushes'||key==='testPushes'||!Array.isArray(removed)||!isPlainObject(vault.delivery[key]))continue;
+  for(const k of removed)delete vault.delivery[key][k];
+ }
 
  for(const [key,value]of Object.entries(delta.workflowReceipts||{})){
-  vault[key]=structuredClone(value);
+  if(isPlainObject(value)&&isPlainObject(value.__deltaItems)){
+   const base=isPlainObject(vault[key])?{...vault[key]}:{};
+   const items=isPlainObject(base.items)?{...base.items}:{};
+   for(const [id,item]of Object.entries(value.__deltaItems))items[id]=structuredClone(item);
+   for(const id of value.__removedItems||[])delete items[id];
+   for(const [mk,mv]of Object.entries(value)){
+    if(mk==='__deltaItems'||mk==='__removedItems')continue;
+    base[mk]=structuredClone(mv);
+   }
+   base.items=items;
+   vault[key]=base;
+  }else{
+   vault[key]=structuredClone(value);
+  }
  }
  return {applied:true,revision:delta.revision,rowDeltas:(delta.rowDeltas||[]).length};
 }

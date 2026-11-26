@@ -79,16 +79,17 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  if(saveBlocked)throw saveBlocked;
  let stage='prepare',primarySave='not-attempted';
  try{
- if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);updateCycleDraft(vault.state);}
+ const useIncremental=(incremental===true||(imagesOnly&&!verify)||(progressOnly&&(caller==='python-ack'||caller==='report-before-delivery'||caller==='report-after-delivery')))&&typeof buildIncrementalCheckpoint==='function';
+ const skipDraftRefresh=useIncremental&&['startup','scan-start','scan-batch','stage-batch','python-ack','report-after-delivery'].includes(caller);
+ if(!imagesOnly){applyRecordPolicy(vault.state);refreshPriorities(vault.state);syncFormalReceipts(vault);if(!skipDraftRefresh)updateCycleDraft(vault.state);}
  if(imagesOnly&&pageEvidence)updateCycleDraft(vault.state);
  if(vault.integrationPolicy?.historyNative&&historyWriterMode(config)==='native'&&!historyOnly)queueHistory(vault);
  const retainedIds=new Set(vault.state.monitor.updateChain.map(e=>e.id));
  if(!imagesOnly)vault.delivery.receipts=Object.fromEntries(Object.entries(vault.delivery.receipts||{}).filter(([id])=>retainedIds.has(id)));
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  stage='draft-copy';
- const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
- const useIncremental=(incremental===true||(imagesOnly&&!verify)||(progressOnly&&(caller==='python-ack'||caller==='report-before-delivery'||caller==='report-after-delivery')))&&typeof buildIncrementalCheckpoint==='function';
- const includeDrafts=(!imagesOnly||pageEvidence)&&!['startup','python-ack','report-after-delivery'].includes(caller);
+ const submittedDrafts=skipDraftRefresh?null:{monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
+ const includeDrafts=(!imagesOnly||pageEvidence)&&!skipDraftRefresh;
  const hasDigest=typeof canonicalDigest==='function';
  const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[])];
  let nextVaultDigest=null,nextTaskIndexDigest=null,nextPublicDigest=null,wroteFullVault=false;
@@ -128,7 +129,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  entries.push({path:'status.json',value:publicStatus()});
  stage='task-index-seal';
  const taskIndexValue=workflowTaskIndex(vault);
- nextTaskIndexDigest=hasDigest?canonicalDigest(taskIndexValue):null;
+ nextTaskIndexDigest=hasDigest?canonicalDigest({version:taskIndexValue.version,acknowledged:taskIndexValue.acknowledged,tasks:taskIndexValue.tasks}):null;
  if(!hasDigest||typeof lastTaskIndexDigest==='undefined'||lastTaskIndexDigest===null||nextTaskIndexDigest!==lastTaskIndexDigest){
   entries.push({path:'workflow-task-index.json',value:await seal(taskIndexValue,password,'workflow-task-index')});
  }
@@ -153,7 +154,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  }
  stage='confirmed-status';lastConfirmedStatus=structuredClone(publicStatus());
  stage='draft-proof';
- if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
+ if((!imagesOnly||pageEvidence)&&!skipDraftRefresh)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
  stage='verify';
  const shouldVerify=verify||(useIncremental&&(caller==='report-before-delivery'||caller==='report-after-delivery'));
  const result=shouldVerify&&typeof store.verifyWrite==='function'?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
@@ -432,8 +433,8 @@ async function main(){
    const incrementalSave=({caller='stage-batch'}={})=>checkpoint({progressOnly:true,incremental:true,verify:caller==='python-ack',caller});
    await deliverBaseReviews(vault,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint:()=>incrementalSave({caller:'stage-batch'})});
    if(['scan','site-retry','verify'].includes(op)||(['auto','schedule'].includes(op)&&due.scan)){
-    const already=false;
-    if(op!=='schedule'||!already){budget.require('scan',4*60000);const run=await scan(vault.state,{budget:['auto','schedule'].includes(op)?due.budget:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,maxDurationMs:budget.slice(10*60000),checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
+    const already=false;let lastSiteStatusAt=0;
+    if(op!=='schedule'||!already){budget.require('scan',4*60000);const run=await scan(vault.state,{budget:['auto','schedule'].includes(op)?due.budget:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,maxDurationMs:budget.slice(10*60000),checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;const nowMs=Date.now();vault.runtime.siteUpdatedAt=new Date(nowMs).toISOString();if(nowMs-lastSiteStatusAt>=90000){lastSiteStatusAt=nowMs;await put('status.json',publicStatus());}}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
    }
    if(!['check','authorize','digest','test-digest'].includes(op)&&!(op==='auto'&&(!due.scan||Date.now()>Date.parse(due.cycle.cutoffAt)-4*60000))){
     budget.require('images',5*60000);vault.runtime.currentSite=null;vault.runtime.stage='images';await checkpoint({progressOnly:true,incremental:true,caller:'stage-batch'});
