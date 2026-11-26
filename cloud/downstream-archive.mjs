@@ -101,6 +101,98 @@ export function verifyArchiveReadback({source,documentUrl,documentText,tableReco
  };
 }
 
+export function validateArchiveWebhookUrl(value){
+ if(typeof value!=='string'||!value.trim())throw Error('archive-webhook-unconfigured');
+ let u;
+ try{u=new URL(value.trim());}catch{throw Error('archive-webhook-invalid');}
+ if(u.protocol!=='https:'||u.username||u.password||u.port||u.search||u.hash){
+  throw Error('archive-webhook-invalid');
+ }
+ const validBaseWorkflow=u.hostname==='fjdynamics.feishu.cn'&&/^\/base\/workflow\/webhook\/event\/[A-Za-z0-9_-]+$/.test(u.pathname);
+ const validFlowTrigger=u.hostname==='www.feishu.cn'&&/^\/flow\/api\/trigger-webhook\/[A-Za-z0-9_-]+$/.test(u.pathname);
+ const validAnyCross=u.hostname==='open.feishu.cn'&&/^\/anycross\/trigger\/callback\/[A-Za-z0-9_-]+$/.test(u.pathname);
+ if(!validBaseWorkflow&&!validFlowTrigger&&!validAnyCross){
+  throw Error('archive-webhook-invalid');
+ }
+ return u.href;
+}
+
+// Option A (approved): Feishu Bitable/Docx automation webhook trigger adapter.
+// Webhook HTTP 200 / code=0 records 'accepted-unverified' until the Feishu flow
+// creates the doc, writes tblUcSezDdVSfWsa, and publishes the verified receipt
+// via fjd-archive-link.yml or mode=index-backfill (or returns synchronous readback).
+export function createWebhookArchiveAdapter({webhookUrl,fetcher=fetch}={}){
+ const validUrl=validateArchiveWebhookUrl(webhookUrl);
+ return {
+  configured:true,
+  mode:'feishu-archive-webhook-v1',
+  async createDailyDoc({source,report_day,formalChecksum,title,markdownBody,overviewUrl,sourceTable}){
+   const idempotencyKey=`archive:${report_day}:${formalChecksum.slice(0,16)}`;
+   const payload={
+    protocol:'fjd-daily-archive-webhook-v1',
+    idempotency_key:idempotencyKey,
+    report_day,
+    formal_checksum:formalChecksum,
+    title,
+    overview_url:overviewUrl,
+    source_table_id:sourceTable,
+    manifest_url:source?.manifestUrl||'',
+    body_url:source?.bodyUrl||'',
+    body_sha256:source?.body?.sha256||'',
+    body_utf8_bytes:source?.body?.utf8Bytes??Buffer.byteLength(markdownBody||'','utf8'),
+    body_characters:source?.body?.characters??[...(markdownBody||'')].length,
+    body_markdown:markdownBody||'',
+    counts:source?.counts||{},
+    coverage:source?.coverage||{}
+   };
+   let response;
+   try{
+    response=await fetcher(validUrl,{
+     method:'POST',
+     headers:{'Content-Type':'application/json','Client-Token':idempotencyKey},
+     body:JSON.stringify(payload),
+     redirect:'error',
+     signal:AbortSignal.timeout(20000)
+    });
+   }catch{
+    throw Object.assign(Error('archive-webhook-network-or-timeout'),{uncertain:true,code:'archive-webhook-network-or-timeout'});
+   }
+   if(response.status>=500){
+    throw Object.assign(Error(`archive-webhook-http-${response.status}`),{uncertain:true,code:`archive-webhook-http-${response.status}`});
+   }
+   if(!response.ok){
+    throw Object.assign(Error(`archive-webhook-http-${response.status}`),{uncertain:false,code:`archive-webhook-http-${response.status}`});
+   }
+   let body=null;
+   try{body=await response.json();}catch{body=null;}
+   if(!body||typeof body!=='object'){
+    throw Object.assign(Error('archive-webhook-unparseable-response'),{uncertain:true,code:'archive-webhook-unparseable-response'});
+   }
+   const code=body.code??body.StatusCode;
+   if(code!==0){
+    throw Object.assign(Error(`archive-webhook-code-${String(code??'unknown')}`),{uncertain:false,code:`archive-webhook-code-${String(code??'unknown')}`});
+   }
+   const data=body.data&&typeof body.data==='object'?body.data:body;
+   const documentUrl=data.document_url||data.documentUrl||null;
+   const sourceRecordId=data.source_record_id||data.sourceRecordId||null;
+   const readbackText=typeof (data.readback_text??data.document_text)==='string'?(data.readback_text??data.document_text):null;
+   if(documentUrl&&sourceRecordId&&readbackText!==null){
+    return {
+     acceptedOnly:false,
+     documentUrl,
+     sourceRecordId,
+     readbackText,
+     tableRecord:data.table_record||null
+    };
+   }
+   return {
+    acceptedOnly:true,
+    platformCode:0
+   };
+  }
+ };
+}
+
 export function createUnconfiguredArchiveAdapter(){
  return {
   configured:false,
@@ -108,10 +200,10 @@ export function createUnconfiguredArchiveAdapter(){
   alternatives:[
    {
     id:'option-a-feishu-workflow-webhook',
-    name:'飞书多维表格/文档自动化 Webhook 触发器（推荐最小权限方案）',
-    summary:'在现有归档目录/索引表 tblUcSezDdVSfWsa 侧配置受控自动化流程：接收 daily-text/<day>/body.md 固定提交地址与 formalChecksum，按归属日查重（已有则跳过新建），创建当日正式文档并回填 tblUcSezDdVSfWsa，最后回调现有 fjd-archive-link.yml 或返回已回读的 document_url + source_record_id。',
+    name:'飞书多维表格/文档自动化 Webhook 触发器（已确认方案 A，待配置 FEISHU_ARCHIVE_WEBHOOK）',
+    summary:'在现有归档目录/索引表 tblUcSezDdVSfWsa 侧配置受控自动化流程：接收 daily-text/<day>/body.md 固定提交地址与 formalChecksum，按归属日查重（已有则跳过新建），创建当日正式文档并回填 tblUcSezDdVSfWsa，最后回调现有 fjd-archive-link.yml 或通过 mode=index-backfill 回填索引。',
     requiredPermissions:[
-     '仅需新增一个仓库 Actions Secret（例如 FEISHU_ARCHIVE_WEBHOOK）及对应飞书自动化触发器',
+     '仅需新增一个仓库 Actions Secret：FEISHU_ARCHIVE_WEBHOOK 及对应飞书自动化触发器',
      '不需个人账号、不需新建全租户应用、不扩大文档分享范围、不依赖本机定时'
     ]
    },
@@ -188,6 +280,19 @@ export async function runArchiveStage({
    skipped:false,
    halted:true,
    errorCode:stage.lastErrorCode||'archive-receipt-unconfirmed-manual-check-required'
+  };
+ }
+
+ // 2b. Webhook accepted async flow: do NOT duplicate-POST; only allow
+ // reconciliation if an explicit receipt or verified index entry has landed!
+ if(stage.status==='accepted-unverified'&&!archiveReceiptInput&&indexCheck.status!=='archived'){
+  return {
+   stage:'archive',
+   status:'accepted-unverified',
+   skipped:false,
+   halted:true,
+   createdDoc:false,
+   errorCode:'archive-webhook-accepted-awaiting-readback-or-index'
   };
  }
 
@@ -418,6 +523,7 @@ export async function runArchiveStage({
  let created;
  try{
   created=await archiveAdapter.createDailyDoc({
+   source,
    report_day:source.report_day,
    formalChecksum:source.formalChecksum,
    title:`${source.report_day}｜丰疆品牌监控文字日报`,
@@ -433,6 +539,26 @@ export async function runArchiveStage({
   return {stage:'archive',status:stage.status,createdDoc:false,errorCode:stage.lastErrorCode};
  }
 
+ if(created?.acceptedOnly===true){
+  // Feishu automation webhook HTTP 200 / code=0 proves workflow receipt only,
+  // NOT document creation or index verification. Wait for verified index receipt.
+  stage.status='accepted-unverified';
+  stage.acceptedAt=ts();
+  stage.readbackVerified=false;
+  stage.lastErrorCode=null;
+  stage.updatedAt=ts();
+  await persist(`downstream: archive webhook accepted ${source.report_day}`);
+  return {
+   stage:'archive',
+   status:'accepted-unverified',
+   action:'webhook-accepted-awaiting-readback',
+   createdDoc:false,
+   documentUrl:null,
+   indexPublished:false,
+   readbackVerified:false
+  };
+ }
+
  if(!created||!isValidFeishuDocxUrl(created.documentUrl)||!/^rec[A-Za-z0-9]+$/.test(created.sourceRecordId||'')){
   stage.status='uncertain';
   stage.lastErrorCode='archive-create-invalid-receipt';
@@ -442,10 +568,12 @@ export async function runArchiveStage({
  }
 
  // Mandatory readback verification of body, key numbers, checksum, and links.
- const rb=await archiveAdapter.readbackDocument({
-  documentUrl:created.documentUrl,
-  sourceRecordId:created.sourceRecordId
- });
+ const rb=typeof archiveAdapter.readbackDocument==='function'
+  ?await archiveAdapter.readbackDocument({
+   documentUrl:created.documentUrl,
+   sourceRecordId:created.sourceRecordId
+  })
+  :{documentText:created.readbackText||'',tableRecord:created.tableRecord||null};
  const check=verifyArchiveReadback({
   source,
   documentUrl:created.documentUrl,
