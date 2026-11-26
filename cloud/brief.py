@@ -7,10 +7,10 @@ from pathlib import Path
 FEISHU_OVERVIEW = "https://fjdynamics.feishu.cn/docx/UZzZdC44dolRAqx2lFbcp4yKnVc"
 ARCHIVE_MAP = Path(__file__).resolve().parent.parent / "assets/feishu-daily-archives.json"
 
-def archived_report_url(day):
+def archived_report_url(day, map_path=None):
     """Public projection only; absent, ambiguous or invalid records stay pending."""
     try:
-        rows = json.loads(ARCHIVE_MAP.read_text(encoding="utf-8"))
+        rows = json.loads(Path(map_path or ARCHIVE_MAP).read_text(encoding="utf-8"))
         if not isinstance(rows, list):
             return None
         matches = [r for r in rows if isinstance(r, dict) and r.get("report_day") == day]
@@ -21,7 +21,7 @@ def archived_report_url(day):
     except (OSError, ValueError):
         return None
 
-def brief_card(state, day, latest, today, test=False):
+def brief_card(state, day, latest, today, test=False, archive_map_path=None):
     c=latest or {};cv=c.get('coverage') or {};priority=c.get('priority') or {}
     pending=sum(state.get('receipts',{}).get(e['id'],{}).get('status')!='synced' for e in today)
     from report_state import report_overviews
@@ -31,14 +31,17 @@ def brief_card(state, day, latest, today, test=False):
         from report_sections_text import beijing
         cutoff=beijing(cutoff)
     scope=f"**{cv.get('searched',0)} / {cv.get('total',0)}** 个入口已有成功查询" if cv else '目标范围快照暂缺，覆盖率不作估算'
+    pending_only=cv.get('pendingOnly') if isinstance(cv.get('pendingOnly'), int) and cv.get('pendingOnly') > 0 else 0
+    failure_reasons=[str(r).strip() for r in (c.get('failureReasons') or []) if isinstance(r, str) and r.strip()][:3]
     base=FEISHU_OVERVIEW
-    report=archived_report_url(day)
+    report=archived_report_url(day, map_path=archive_map_path)
     header=('【格式验证】' if test else '')+'丰疆品牌监控日报 · '+day
     fields=[('新增线索',c.get('new',0)),('内容变化',c.get('changed',0)),('待完成核查',c.get('pending',0)),('已结案' if c.get('statsVersion')==2 else '已完成处置',closed_count(c))]
+    coverage_lines=scope+(f"\n待执行 {cv.get('unattempted',0)} · 待补查入口 {cv.get('failedOnly',0)}"+(f" · 仅待续查 {pending_only}" if pending_only else '') if cv else '')+f"\n未解决失败查询 {c.get('failed',0)} · 待归档更新 {pending}"+(f"\n失败摘要：{'；'.join(failure_reasons)}" if failure_reasons else '')
     body=[{'tag':'div','text':{'tag':'lark_md','content':('联调测试：用于核实卡片投递，不替代当日正式简报。\n' if test else '')+('**监控摘要**\n公开线索按页面去重，全部交由人工核查。' if latest else '**数据状态**\n尚无可用累计，不代表没有风险。')}},
           {'tag':'div','fields':[{'is_short':True,'text':{'tag':'lark_md','content':'**'+title+'**\n'+str(value)}} for title,value in fields]},
           {'tag':'hr'},
-          {'tag':'div','text':{'tag':'lark_md','content':'**检索覆盖**\n'+scope+(f"\n待执行 {cv.get('unattempted',0)} · 待补查入口 {cv.get('failedOnly',0)}" if cv else '')+f"\n未解决失败查询 {c.get('failed',0)} · 待归档更新 {pending}"}},
+          {'tag':'div','text':{'tag':'lark_md','content':'**检索覆盖**\n'+coverage_lines}},
           {'tag':'div','text':{'tag':'lark_md','content':'**处置建议**\n'+'先核对商家身份、品牌使用及授权依据，再按处理结论归类。'+'未完成站点将在后续检索周期继续轮转。'}},
           ({'tag':'action','actions':[{'tag':'button','text':{'tag':'plain_text','content':'查阅当日日报'},'url':report,'type':'primary'}]} if report else {'tag':'div','text':{'tag':'plain_text','content':'当日日报：待归档（'+day+'）；可通过日报总览查看归档进度。'}}),
           {'tag':'action','actions':[

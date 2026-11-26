@@ -32,3 +32,20 @@ class BriefLinksTests(unittest.TestCase):
                 self.assertIsNone(archived_report_url('2026-10-28'))
                 path.write_text(json.dumps([row]))
                 self.assertEqual(archived_report_url('2026-10-28'), row['document_url'])
+
+    def test_explicit_map_path_and_failure_summary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'custom-map.json'
+            row = {'report_day':'2026-11-14', 'document_url':'https://fjdynamics.feishu.cn/docx/Sample20261114', 'archive_status':'archived'}
+            path.write_text(json.dumps([row]))
+            latest = {
+                'statsVersion': 2, 'new': 4, 'changed': 2, 'pending': 6, 'failed': 5,
+                'coverage': {'total': 414, 'searched': 31, 'unattempted': 371, 'failedOnly': 5, 'pendingOnly': 7},
+                'failureReasons': ['返回结果未确认目标站点']
+            }
+            card = brief_card({'reportPolicy': True}, '2026-11-14', latest, [], archive_map_path=path)
+            rendered = str(card)
+            self.assertIn(row['document_url'], rendered)
+            self.assertIn('仅待续查 7', rendered)
+            self.assertIn('失败摘要：返回结果未确认目标站点', rendered)
+
