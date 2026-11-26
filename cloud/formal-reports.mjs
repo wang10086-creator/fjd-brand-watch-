@@ -35,7 +35,8 @@ export function freezeReport(state,day,at){
 }
 function buildReport(state,day,at){
  const m=state.monitor,cycle=cycleForDay(day,m.reportPolicy),cutoff=Math.min(Date.parse(cycle.cutoffAt),Date.parse(at));
- const safe=publicFeed(structuredClone(state)),sm=safe.monitor;delete sm.formalReports;
+ const {formalReports:_omitFormal,...monitorWithoutFormal}=m||{};
+ const safe=publicFeed(structuredClone({...state,monitor:monitorWithoutFormal})),sm=safe.monitor;
  // Use only confirmed saved evidence before the cutoff; original records remain intact.
  const before=e=>Date.parse(e.savedAt||e.at||e.endedAt||e.startedAt)<=cutoff;
  sm.reviews=sm.reviews.filter(before);sm.checks=(sm.checks||[]).filter(before);
