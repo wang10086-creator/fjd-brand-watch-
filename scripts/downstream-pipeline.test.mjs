@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {
  createEmptyDownstreamState,
  ensureVersionState,
@@ -23,10 +24,14 @@ import {
 import {
  ARCHIVE_SOURCE_TABLE,
  createUnconfiguredArchiveAdapter,
+ createWebhookArchiveAdapter,
+ validateArchiveWebhookUrl,
  verifyArchiveReadback
 } from '../cloud/downstream-archive.mjs';
 import {runDownstreamPipeline} from '../cloud/downstream-pipeline.mjs';
 import {reconcileLeadsAgainstExport} from '../cloud/reconcile-feishu-leads.mjs';
+import {dueActions,isSkippedReportDay} from '../cloud/automation.mjs';
+import {REPORT_POLICY} from '../report-cycle.js';
 
 const sha256=v=>createHash('sha256').update(v).digest('hex');
 const TEST_PASSWORD='fjd-test-cloud-password-2026-safe';
@@ -721,3 +726,195 @@ test('7. Read-only Feishu export reconciliation diffs ledger and formal reports 
  assert.equal(diff.summary.missingFromFeishuIpStageCount,0);
  assert.equal(diff.missingFromFeishuFormal[0].url,'https://shop.example/b');
 });
+
+test('8. Option A Feishu Archive Webhook: URL allowlist, async accepted-unverified non-duplication, later index reconciliation, uncertain halt, and sync readback verification',async()=>{
+ // URL allowlist accepts official Feishu webhook paths and rejects untrusted/query URLs
+ assert.ok(validateArchiveWebhookUrl('https://fjdynamics.feishu.cn/base/workflow/webhook/event/arcHook001'));
+ assert.ok(validateArchiveWebhookUrl('https://www.feishu.cn/flow/api/trigger-webhook/arcFlow002'));
+ assert.ok(validateArchiveWebhookUrl('https://open.feishu.cn/anycross/trigger/callback/arcAny003'));
+ assert.throws(()=>validateArchiveWebhookUrl('https://evil.example/webhook/1'),/archive-webhook-invalid/);
+ assert.throws(()=>validateArchiveWebhookUrl('https://fjdynamics.feishu.cn/base/workflow/webhook/event/arcHook001?x=1'),/archive-webhook-invalid/);
+
+ const fixture=makeSealedFixture({day:'2026-11-27'});
+ const existingRows=[{record_id:'recEx1',history_id:'20261127-001',source_id:'',url:'https://agroline.example/sale/fjd-ag1-kit-1001'}];
+ const archiveHookUrl='https://fjdynamics.feishu.cn/base/workflow/webhook/event/arcHook2026';
+
+ // 8a. Async webhook (HTTP 200 code=0 without doc URL) -> accepted-unverified; second run does NOT re-POST;
+ // once verified index entry lands, reconciles to verified with ZERO duplicate POST!
+ const storeAsync=createMemoryStore();
+ let asyncPosts=0;
+ let sentPayload=null;
+ const asyncAdapter=createWebhookArchiveAdapter({
+  webhookUrl:archiveHookUrl,
+  fetcher:async(_url,init)=>{
+   asyncPosts++;
+   sentPayload=JSON.parse(init.body);
+   return new Response(JSON.stringify({code:0,msg:'success'}),{status:200});
+  }
+ });
+ const r1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeAsync,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:asyncAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(asyncPosts,1);
+ assert.equal(sentPayload.protocol,'fjd-daily-archive-webhook-v1');
+ assert.equal(sentPayload.report_day,'2026-11-27');
+ assert.equal(sentPayload.source_table_id,ARCHIVE_SOURCE_TABLE);
+ assert.equal(r1.stages.archive.status,'accepted-unverified');
+ assert.equal(r1.stages.archive.readbackVerified,false);
+ assert.equal(r1.stageDetails.brief.archiveUrlIncluded,null);
+
+ // Second run while index is still pending -> MUST NOT duplicate-POST!
+ const r2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeAsync,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:asyncAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(asyncPosts,1,'accepted-unverified must NOT duplicate-POST archive webhook');
+ assert.equal(r2.stages.archive.status,'accepted-unverified');
+
+ // Third run after Feishu workflow landed verified archive link in public map -> reconciles cleanly!
+ const verifiedUrl='https://fjdynamics.feishu.cn/docx/AsyncCreated20261127';
+ const r3=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeAsync,
+  password:TEST_PASSWORD,
+  archiveMapRows:[{report_day:'2026-11-27',document_url:verifiedUrl,archive_status:'archived'}],
+  archiveAdapter:asyncAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(asyncPosts,1,'Reconciling landed index must NOT re-POST archive webhook');
+ assert.equal(r3.stages.archive.status,'verified');
+ assert.equal(r3.stages.archive.documentUrl,verifiedUrl);
+ assert.equal(r3.stageDetails.brief.archiveUrlIncluded,verifiedUrl);
+
+ // 8b. HTTP 502 -> uncertain -> subsequent run halts with ZERO duplicate POST
+ const storeUnc=createMemoryStore();
+ let uncPosts=0;
+ const uncAdapter=createWebhookArchiveAdapter({
+  webhookUrl:archiveHookUrl,
+  fetcher:async()=>{uncPosts++;return new Response('bad gateway',{status:502});}
+ });
+ const u1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeUnc,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:uncAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(uncPosts,1);
+ assert.equal(u1.stages.archive.status,'uncertain');
+ const u2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeUnc,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:uncAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(uncPosts,1,'Uncertain archive create must NOT blind-retry');
+ assert.equal(u2.stages.archive.status,'uncertain');
+
+ // 8c. Sync webhook returning document_url + source_record_id + full readback_text -> verified + index published!
+ const storeSync=createMemoryStore();
+ let syncPublishes=0;
+ const syncDocUrl='https://fjdynamics.feishu.cn/docx/SyncCreated20261127';
+ const syncAdapter=createWebhookArchiveAdapter({
+  webhookUrl:archiveHookUrl,
+  fetcher:async()=>new Response(JSON.stringify({
+   code:0,
+   data:{
+    document_url:syncDocUrl,
+    source_record_id:'recSync1127',
+    readback_text:fixture.body,
+    table_record:{report_day:'2026-11-27',document_url:syncDocUrl,archive_status:'archived'}
+   }
+  }),{status:200})
+ });
+ const s1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeSync,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:syncAdapter,
+  indexPublisher:async(receipt)=>{syncPublishes++;return {status:'committed',report_day:receipt.report_day,commit:'e'.repeat(40)};},
+  existingTableRows:existingRows
+ });
+ assert.equal(syncPublishes,1);
+ assert.equal(s1.stages.archive.status,'verified');
+ assert.equal(s1.stages.archive.readbackVerified,true);
+ assert.equal(s1.stageDetails.brief.archiveUrlIncluded,syncDocUrl);
+});
+
+test('9. Upstream restoration safety: outage window 2026-11-15..2026-11-26 is skipped, 2026-11-27 scans & seals cleanly without unconfirmed upstream group push',async()=>{
+ const config=JSON.parse(await readFile(new URL('../cloud/config.json',import.meta.url),'utf8'));
+ const cloudYml=await readFile(new URL('../.github/workflows/fjd-cloud.yml',import.meta.url),'utf8');
+ assert.equal(config.feishuNotifications,true);
+ assert.equal(config.feishuHistoryNative,true);
+ assert.equal(config.historyWriterMode,'cloud-ui');
+ assert.ok(isSkippedReportDay('2026-11-15',config.skippedReportRanges));
+ assert.ok(isSkippedReportDay('2026-11-26',config.skippedReportRanges));
+ assert.equal(isSkippedReportDay('2026-11-14',config.skippedReportRanges),false);
+ assert.equal(isSkippedReportDay('2026-11-27',config.skippedReportRanges),false);
+ assert.match(cloudYml,/FJD_UPSTREAM_BOT_PAUSED:\s*'true'/);
+
+ const vault={
+  state:{
+   monitor:{
+    reportPolicy:{...REPORT_POLICY,firstDay:'2026-10-21'},
+    runs:[{trigger:'schedule',reportDay:'2026-11-15',attempted:12,startedAt:'2026-11-14T10:30:00Z',endedAt:'2026-11-14T10:35:00Z'}],
+    formalReports:{'2026-11-14':{status:'published'}}
+   }
+  },
+  delivery:{
+   notificationsEnabled:false,
+   pushes:{'2026-11-14':{status:'sent'}}
+  }
+ };
+
+ // At 2026-11-26 21:30 Beijing (13:30Z): skips stale 2026-11-15 & 2026-11-26, starts 2026-11-27 scan!
+ const evening=dueActions(vault,new Date('2026-11-26T13:30:00Z'),{skippedRanges:config.skippedReportRanges});
+ assert.equal(evening.day,'2026-11-27');
+ assert.equal(evening.scan,true);
+ assert.equal(evening.digest,false);
+ assert.equal(evening.digestDay,undefined);
+
+ // At 2026-11-27 09:30 Beijing (01:30Z): triggers 2026-11-27 seal (no scan after 09:20)
+ const morning=dueActions(vault,new Date('2026-11-27T01:30:00Z'),{skippedRanges:config.skippedReportRanges});
+ assert.equal(morning.scan,false);
+ assert.equal(morning.digest,true);
+ assert.equal(morning.digestDay,'2026-11-27');
+
+ // Once 2026-11-27 is sealed/published (notificationsEnabled=false), next tick skips idempotently
+ vault.state.monitor.formalReports['2026-11-27']={status:'published'};
+ const afterSeal=dueActions(vault,new Date('2026-11-27T01:50:00Z'),{skippedRanges:config.skippedReportRanges});
+ assert.equal(afterSeal.digest,false);
+ assert.equal(afterSeal.digestDay,undefined);
+});
+

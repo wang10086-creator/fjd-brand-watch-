@@ -11,5 +11,12 @@
   "notionParentId": "3f865b80-3b2b-81cf-800b-ff7fcf1624db",
   "notionPublicUrl": "https://adventurous-eyebrow-6d5.notion.site/3f865b803b2b81cf800bff7fcf1624db",
   "feishuHistoryNative": true,
-  "historyWriterMode": "cloud-ui"
+  "historyWriterMode": "cloud-ui",
+  "skippedReportRanges": [
+    {
+      "from": "2026-11-15",
+      "to": "2026-11-26",
+      "reason": "GitHub quota outage window; skip stale outage days and resume sealing from 2026-11-27"
+    }
+  ]
 }

@@ -51,6 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_HISTORY_WEBHOOK: ${{ secrets.FEISHU_HISTORY_WEBHOOK }}
+          FEISHU_ARCHIVE_WEBHOOK: ${{ secrets.FEISHU_ARCHIVE_WEBHOOK }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
           FJD_DOWNSTREAM_MODE: ${{ inputs.mode || 'preview' }}

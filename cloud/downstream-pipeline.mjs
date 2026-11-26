@@ -27,6 +27,7 @@ import {createUnconfiguredTableReadbackAdapter,runTableEntryStage} from './downs
 import {
  ARCHIVE_MAP_PATH,
  createUnconfiguredArchiveAdapter,
+ createWebhookArchiveAdapter,
  publishArchiveReceipt,
  runArchiveStage
 } from './downstream-archive.mjs';
@@ -343,6 +344,12 @@ async function main(){
  const indexPublisher=token&&!dryRun
   ?await createGithubArchiveIndexPublisher({repository,token})
   :null;
+ const archiveWebhookRaw=dryRun?'':(process.env.FEISHU_ARCHIVE_WEBHOOK||'').trim();
+ let archiveAdapter=createUnconfiguredArchiveAdapter();
+ if(archiveWebhookRaw){
+  try{archiveAdapter=createWebhookArchiveAdapter({webhookUrl:archiveWebhookRaw});}
+  catch{archiveAdapter=createUnconfiguredArchiveAdapter();}
+ }
 
  const result=await runDownstreamPipeline({
   mode,
@@ -350,6 +357,7 @@ async function main(){
   sourceReader,
   stateStore:store,
   password,
+  archiveAdapter,
   indexPublisher,
   archiveReceiptInput,
   tableWebhookUrl:dryRun?'':(process.env.FEISHU_HISTORY_WEBHOOK||''),
