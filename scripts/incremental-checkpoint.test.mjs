@@ -408,10 +408,10 @@ test('end-to-end consecutive runner.mjs runs reuse checkpoint-delta.json without
   const vBytes=Buffer.from(JSON.stringify(cipher)),vSha=sha1Blob(vBytes);
   const dbPath=join(root,'mock-git.json');
   await writeFile(dbPath,JSON.stringify({
-   head:'a'.repeat(40),
+   heads:{'data-cloud':'a'.repeat(40),main:'c'.repeat(40)},
    seq:10,
-   commits:{['a'.repeat(40)]:{tree:'b'.repeat(40),parents:[]}},
-   trees:{['b'.repeat(40)]:{'vault.json':vSha}},
+   commits:{['a'.repeat(40)]:{tree:'b'.repeat(40),parents:[]},['c'.repeat(40)]:{tree:'d'.repeat(40),parents:[]}},
+   trees:{['b'.repeat(40)]:{'vault.json':vSha},['d'.repeat(40)]:{}},
    blobs:{[vSha]:vBytes.toString('base64')},
    writes:[]
   }));
@@ -443,7 +443,7 @@ globalThis.fetch=async(url,o={})=>{
  const db=load();
  const body=o.body?JSON.parse(o.body):null;
  const json=(s,v)=>new Response(JSON.stringify(v),{status:s,headers:{'Content-Type':'application/json'}});
- if(m==='GET'&&p.includes('/git/ref/heads/'))return json(200,{object:{sha:db.head}});
+ if(m==='GET'&&p.includes('/git/ref/heads/')){const br=p.split('/git/ref/heads/')[1];return json(200,{object:{sha:db.heads[br]}});}
  if(m==='GET'&&p.includes('/git/commits/')){const id=p.split('/git/commits/')[1];return json(200,{sha:id,tree:{sha:db.commits[id].tree}});}
  if(m==='GET'&&p.includes('/git/trees/')){const id=p.split('/git/trees/')[1];return json(200,{sha:id,truncated:false,tree:Object.entries(db.trees[id]||{}).map(([path,sha])=>({path,type:'blob',sha}))});}
  if(m==='GET'&&p.includes('/git/blobs/')){const id=p.split('/git/blobs/')[1];return json(200,{sha:id,encoding:'base64',content:db.blobs[id]});}
@@ -459,36 +459,81 @@ globalThis.fetch=async(url,o={})=>{
   const tid=String(++db.seq).padStart(40,'0');db.trees[tid]=next;db.lastTouched=touched;save(db);return json(201,{sha:tid});
  }
  if(m==='POST'&&p.endsWith('/git/commits')){const cid=String(++db.seq).padStart(40,'0');db.commits[cid]={tree:body.tree,parents:body.parents||[]};save(db);return json(201,{sha:cid});}
- if(m==='PATCH'&&p.includes('/git/refs/heads/')){db.head=body.sha;db.writes.push({sha:body.sha,paths:db.lastTouched||[]});save(db);return json(200,{object:{sha:body.sha}});}
+ if(m==='PATCH'&&p.includes('/git/refs/heads/')){const br=p.split('/git/refs/heads/')[1];db.heads[br]=body.sha;db.writes.push({branch:br,sha:body.sha,paths:db.lastTouched||[]});save(db);return json(200,{object:{sha:body.sha}});}
+ if(m==='GET'&&p.endsWith('/pages'))return json(200,{build_type:'legacy'});
  if(p.endsWith('/pages/builds')||p.includes('/actions/workflows/'))return json(204,null);
  return json(404,{message:'unhandled'});
 };
 `);
 
-  // Run #1 (check operation, with tight budget so tail public snapshot defers and ONLY routine checkpoints run)
-  for(const runNum of [1,2]){
+  // Run #1, #2 & #3 with FULL 23-minute budget (reaches end of main() including tail & publishWebSnapshot!)
+  for(const runNum of [1,2,3]){
    const res=spawnSync(process.execPath,['--import',join(root,'preload.mjs'),'cloud/runner.mjs'],{
     cwd:new URL('../',import.meta.url),
-    env:{...process.env,MOCK_GIT_DB:dbPath,GITHUB_TOKEN:'tok',MONITOR_CLOUD_PASSWORD:PASSWORD,FJD_OPERATION:'check',GITHUB_EVENT_NAME:'workflow_dispatch',FJD_JOB_STARTED_AT:new Date(Date.now()-20.5*60000).toISOString(),FJD_JOB_TIMEOUT_MINUTES:'23'},
+    env:{...process.env,MOCK_GIT_DB:dbPath,GITHUB_TOKEN:'tok',MONITOR_CLOUD_PASSWORD:PASSWORD,FJD_OPERATION:'check',GITHUB_EVENT_NAME:'workflow_dispatch',FJD_JOB_STARTED_AT:new Date().toISOString(),FJD_JOB_TIMEOUT_MINUTES:'23'},
     encoding:'utf8',timeout:60000
    });
-   // Tight budget exits 1 due to deferred public-snapshot, which is expected; must NOT have checkpoint failure!
-   assert.ok(!res.stderr.includes('检查点失败'),`run ${runNum} checkpoint failed: ${res.stderr}`);
+   assert.equal(res.status,0,`run ${runNum} failed: ${res.stderr}`);
   }
   const db=JSON.parse(await readFile(dbPath,'utf8'));
-  assert.ok(db.writes.length>=4,`expected multiple incremental writes across 2 runs, got ${db.writes.length}`);
-  for(const w of db.writes){
-   assert.ok(!w.paths.includes('vault.json'),`consecutive runs must not rewrite full vault.json, saw ${JSON.stringify(w.paths)}`);
-   assert.ok(!w.paths.includes('dashboard.json'),`consecutive runs must not rewrite dashboard.json`);
+  const dataWrites=db.writes.filter(w=>w.branch==='data-cloud');
+  const mainWrites=db.writes.filter(w=>w.branch==='main');
+  assert.ok(dataWrites.length>=6,`expected multiple incremental writes across 3 full-budget runs, got ${dataWrites.length}`);
+  // Run #1 compacts irrelevant row r2 in checkpoint-delta.json -> run #2 sees compacted r2 once, run #3 MUST skip main rewrite!
+  assert.ok(mainWrites.length<=2,`expected main public-snapshot.json.gz to stabilize after compaction, got ${mainWrites.length}`);
+  assert.equal(mainWrites.filter(w=>w.paths.includes('public-snapshot.json.gz')).length,mainWrites.length);
+  for(const w of dataWrites){
+   assert.ok(!w.paths.includes('vault.json'),`consecutive full-budget runs must not rewrite full vault.json, saw ${JSON.stringify(w.paths)}`);
+   assert.ok(!w.paths.includes('dashboard.json'),`consecutive full-budget runs must not rewrite dashboard.json`);
+   assert.ok(!w.paths.includes('public-dashboard.json.gz'),`consecutive full-budget runs must not rewrite public-dashboard.json.gz`);
+   assert.ok(!w.paths.some(p=>p.startsWith('public-parts/')),`consecutive full-budget runs must not write public-parts`);
   }
-  assert.ok(db.writes.some(w=>w.paths.includes(INCREMENTAL_CHECKPOINT_PATH)),'must persist encrypted checkpoint-delta.json');
-  const headTree=db.trees[db.commits[db.head].tree];
-  assert.equal(headTree['vault.json'],vSha,'base vault.json blob SHA must remain unchanged across routine runs');
+  assert.ok(dataWrites.some(w=>w.paths.includes(INCREMENTAL_CHECKPOINT_PATH)),'must persist encrypted checkpoint-delta.json');
+  const headTree=db.trees[db.commits[db.heads['data-cloud']].tree];
+  assert.equal(headTree['vault.json'],vSha,'base vault.json blob SHA must remain unchanged across routine full-budget runs');
   assert.ok(headTree[INCREMENTAL_CHECKPOINT_PATH],'checkpoint-delta.json must exist in branch head');
   const deltaCipher=JSON.parse(Buffer.from(db.blobs[headTree[INCREMENTAL_CHECKPOINT_PATH]],'base64').toString('utf8'));
   const deltaPlain=await unsealIncrementalCheckpoint(deltaCipher,PASSWORD);
   assert.ok(deltaPlain.revision>500);
  }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('pre-cutoff draft and monitor.known survive cold restart via checkpoint-delta.json alone and freeze cleanly',async()=>{
+ const {updateCycleDraft,cycleDraftProofs,restoreCycleDrafts,freezeReport}=await import('../cloud/formal-reports.mjs');
+ const {observe}=await import('../monitor.js');
+ const baseState=await initialState();
+ baseState.rows=[];
+ baseState.monitor.reportPolicy={...REPORT_POLICY,firstDay:'2026-10-22'};
+ const baseVault={version:2,revision:10,state:structuredClone(baseState),delivery:{receipts:{},pages:{},pushes:{}},runtime:{phase:'ready'}};
+ const baseline=captureCheckpointBaseline(baseVault);
+
+ // Pre-cutoff discovery + draft update (no full vault.json write!)
+ const liveVault=structuredClone(baseVault);
+ liveVault.revision=11;
+ const lead={id:'l1',url:'https://dealer.example/fjd-new-at2',title:'FJD AT2',snippet:'Evidence',platform:'dealer',country:'US',firstSeen:'2026-11-14T22:00:00Z'};
+ const obs=observe(liveVault.state.monitor,[lead],liveVault.state.rows,{at:'2026-11-14T22:00:00Z',reportDay:'2026-11-15',runId:'run-1',query:'FJD AT2'});
+ assert.equal(obs[0].isNew,true);
+ liveVault.state.rows.push(lead);
+ updateCycleDraft(liveVault.state,'2026-11-14T22:05:00Z');
+ const checkpointSha='c'.repeat(40);
+ const proofs=cycleDraftProofs(liveVault.state,'2026-11-14T22:05:10Z',checkpointSha);
+ const delta=buildIncrementalCheckpoint(liveVault,{baseline,caller:'finalize',includeDrafts:true});
+ const cipher=await sealIncrementalCheckpoint(delta,PASSWORD);
+
+ // Cold restart from old baseVault (without lead, known, or draft) + replay delta
+ const restored=structuredClone(baseVault);
+ const replayed=applyIncrementalCheckpoint(restored,await unsealIncrementalCheckpoint(cipher,PASSWORD));
+ assert.equal(replayed.applied,true);
+ restoreCycleDrafts(restored.state,proofs);
+
+ // Post-cutoff freeze succeeds with exact checksum
+ const frozen=freezeReport(restored.state,'2026-11-15','2026-11-15T01:30:00Z');
+ assert.equal(verifyFormal(frozen),true);
+ assert.equal(frozen.day,'2026-11-15');
+
+ // Re-observing the same URL after cold restart must recognize monitor.known (NOT duplicate isNew!)
+ const again=observe(restored.state.monitor,[lead],restored.state.rows,{at:'2026-11-15T11:00:00Z',reportDay:'2026-11-16',runId:'run-2',query:'FJD AT2'});
+ assert.equal(again[0].isNew,false);
 });
 
 test('scan() passes incremental checkpoint options at start, batch, and end without full snapshot dumps',async()=>{

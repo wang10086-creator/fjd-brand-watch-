@@ -10,7 +10,8 @@ const OMITTED_DELIVERY_BODIES=new Set(['formalReports','events','reportOverviews
 const CURSOR_FIELDS=[
  'cursor','watchCursor','siteCursors','completed','lastAttempt','lastSuccess',
  'queryRotation','searchProviders','marketDiscovery','marketHistory',
- 'urlCheckQueue','urlCheckSummary','visualSummary','removedRecordKeys','cloudRevision'
+ 'urlCheckQueue','urlCheckSummary','visualSummary','removedRecordKeys','cloudRevision',
+ 'imagePolicy'
 ];
 const DELIVERY_TERMINAL_STATES=new Set(['sent','sending','uncertain']);
 
@@ -43,6 +44,15 @@ function formalReportRefs(formalReports){
  return out;
 }
 
+function stableRowDigest(row){
+ const compacted=compactLeadForStorage(row);
+ if(compacted?.priorityV2?.auto&&'evaluatedAt' in compacted.priorityV2.auto){
+  const {evaluatedAt:_ignored,...auto}=compacted.priorityV2.auto;
+  return {compacted,digest:canonicalDigest({...compacted,priorityV2:{...compacted.priorityV2,auto}})};
+ }
+ return {compacted,digest:canonicalDigest(compacted)};
+}
+
 // Record baseline row hashes and append-only collection IDs after loading or saving
 // a full vault snapshot, so routine checkpoints serialize only actual deltas.
 export function captureCheckpointBaseline(vault){
@@ -50,20 +60,36 @@ export function captureCheckpointBaseline(vault){
  for(const row of vault?.state?.rows||[]){
   if(!row?.url)continue;
   const key=canonical(row.url);
-  rows.set(key,canonicalDigest(compactLeadForStorage(row)));
+  rows.set(key,stableRowDigest(row).digest);
  }
  const monitor=vault?.state?.monitor||{};
+ const known=new Map();
+ for(const [k,v]of Object.entries(monitor.known||{})){
+  known.set(k,canonicalDigest(v));
+ }
+ const formalReportChecksums=new Map();
+ for(const [day,r]of Object.entries(monitor.formalReports||{})){
+  formalReportChecksums.set(day,r?.checksum||canonicalDigest(r));
+ }
+ const coverageScopeDigests=new Map();
+ for(const [day,scope]of Object.entries(monitor.coverageScopes||{})){
+  coverageScopeDigests.set(day,canonicalDigest(scope));
+ }
  return {
   baseRevision:vault?.revision||0,
   rows,
-  observationIds:new Set((monitor.observations||[]).map(e=>e?.id).filter(Boolean)),
+  known,
+  observationSignatures:new Map((monitor.observations||[]).map(e=>[e?.id,canonicalDigest(e)]).filter(([id])=>Boolean(id))),
   reviewIds:new Set((monitor.reviews||[]).map(e=>e?.id).filter(Boolean)),
+  checkSignatures:new Map((monitor.checks||[]).map(e=>[e?.id,canonicalDigest(e)]).filter(([id])=>Boolean(id))),
   updateChainIds:new Set((monitor.updateChain||[]).map(e=>e?.id).filter(Boolean)),
-  runSignatures:new Map((monitor.runs||[]).map(r=>[r?.id,canonicalDigest(compactRunRecord(r))]).filter(([id])=>Boolean(id)))
+  runSignatures:new Map((monitor.runs||[]).map(r=>[r?.id,canonicalDigest(compactRunRecord(r))]).filter(([id])=>Boolean(id))),
+  formalReportChecksums,
+  coverageScopeDigests
  };
 }
 
-export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',stage=null,now=()=>new Date().toISOString()}={}){
+export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',stage=null,includeDrafts=false,now=()=>new Date().toISOString()}={}){
  const state=vault?.state||{};
  const monitor=state.monitor||{};
  const baseRows=baseline?.rows||new Map();
@@ -73,8 +99,7 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
   if(!row?.url)continue;
   const key=canonical(row.url);
   currentKeys.add(key);
-  const compacted=compactLeadForStorage(row);
-  const digest=canonicalDigest(compacted);
+  const {compacted,digest}=stableRowDigest(row);
   if(!baseline||baseRows.get(key)!==digest){
    rowDeltas.push({key,digest,row:compacted});
   }
@@ -86,17 +111,43 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
  const cursors={};
  for(const field of CURSOR_FIELDS)if(state[field]!==undefined)cursors[field]=structuredClone(state[field]);
 
+ const knownDeltas={};
+ for(const [k,v]of Object.entries(monitor.known||{})){
+  const digest=canonicalDigest(v);
+  if(!baseline||baseline.known.get(k)!==digest)knownDeltas[k]=structuredClone(v);
+ }
+
  const changedRuns=[];
- for(const run of (monitor.runs||[]).slice(-10)){
+ for(const run of (monitor.runs||[]).slice(-20)){
   if(!run?.id)continue;
   const compact=compactRunRecord(run);
   const sig=canonicalDigest(compact);
   if(!baseline||baseline.runSignatures.get(run.id)!==sig)changedRuns.push(compact);
  }
  const latestHistory=state.history?.[0]?compactRunRecord(state.history[0]):null;
- const newObservations=(monitor.observations||[]).filter(e=>e?.id&&(!baseline||!baseline.observationIds.has(e.id))).map(e=>structuredClone(e));
+ const newObservations=(monitor.observations||[]).filter(e=>e?.id&&(!baseline||baseline.observationSignatures.get(e.id)!==canonicalDigest(e))).map(e=>structuredClone(e));
  const newReviews=(monitor.reviews||[]).filter(e=>e?.id&&(!baseline||!baseline.reviewIds.has(e.id))).map(e=>structuredClone(e));
+ const newChecks=(monitor.checks||[]).filter(e=>e?.id&&(!baseline||baseline.checkSignatures.get(e.id)!==canonicalDigest(e))).map(e=>structuredClone(e));
  const newUpdateChain=(monitor.updateChain||[]).filter(e=>e?.id&&(!baseline||!baseline.updateChainIds.has(e.id))).map(({chartPng,...event})=>structuredClone(event));
+
+ const coverageScopesDelta={};
+ for(const [day,scope]of Object.entries(monitor.coverageScopes||{})){
+  const sig=canonicalDigest(scope);
+  if(!baseline||baseline.coverageScopeDigests.get(day)!==sig)coverageScopesDelta[day]=structuredClone(scope);
+ }
+
+ const newFormalReports={};
+ for(const [day,report]of Object.entries(monitor.formalReports||{})){
+  if(!report||typeof report!=='object')continue;
+  const key=report.checksum||canonicalDigest(report);
+  if(!baseline||!baseline.formalReportChecksums.has(day)||baseline.formalReportChecksums.get(day)!==key){
+   newFormalReports[day]=structuredClone(report);
+  }
+ }
+
+ // Persist active pre-cutoff drafts when draft-capable checkpoints run so cold restart
+ // can always verify cycle-draft-receipts and freeze formal reports without full vault dumps.
+ const reportDrafts=includeDrafts&&monitor.reportDrafts&&Object.keys(monitor.reportDrafts).length?structuredClone(monitor.reportDrafts):null;
 
  const workflowReceipts={};
  for(const key of ['baseReview','baseStatus','historySync','workflowAcknowledged']){
@@ -120,11 +171,18 @@ export function buildIncrementalCheckpoint(vault,{baseline=null,caller='other',s
   workflowReceipts,
   rowDeltas,
   removedKeys,
+  knownDeltas,
   latestHistory,
   changedRuns,
   newObservations,
   newReviews,
+  newChecks,
   newUpdateChain,
+  coverageScopesDelta,
+  ...(monitor.coverageScopeAt?{coverageScopeAt:structuredClone(monitor.coverageScopeAt)}:{}),
+  ...(monitor.reportPolicy?{reportPolicy:structuredClone(monitor.reportPolicy)}:{}),
+  ...(reportDrafts?{reportDrafts}:{}),
+  ...(Object.keys(newFormalReports).length?{newFormalReports}:{}),
   formalReportRefs:formalReportRefs(monitor.formalReports)
  };
 }
@@ -191,12 +249,33 @@ export function applyIncrementalCheckpoint(vault,delta){
  }
  vault.state.rows=[...rowMap.values()];
 
- vault.state.monitor||={observations:[],reviews:[],runs:[],updateChain:[],known:{}};
+ vault.state.monitor||={observations:[],reviews:[],runs:[],checks:[],updateChain:[],known:{}};
  const monitor=vault.state.monitor;
+ monitor.known||={};
+ for(const [k,v]of Object.entries(delta.knownDeltas||{}))monitor.known[k]=structuredClone(v);
  if(delta.changedRuns?.length)monitor.runs=mergeById(monitor.runs,delta.changedRuns);
  if(delta.newObservations?.length)monitor.observations=mergeById(monitor.observations,delta.newObservations);
  if(delta.newReviews?.length)monitor.reviews=mergeById(monitor.reviews,delta.newReviews);
+ if(delta.newChecks?.length)monitor.checks=mergeById(monitor.checks||[],delta.newChecks);
  if(delta.newUpdateChain?.length)monitor.updateChain=mergeById(monitor.updateChain,delta.newUpdateChain);
+ if(delta.coverageScopesDelta&&Object.keys(delta.coverageScopesDelta).length){
+  monitor.coverageScopes={...(monitor.coverageScopes||{}),...structuredClone(delta.coverageScopesDelta)};
+ }
+ if(delta.coverageScopeAt)monitor.coverageScopeAt={...(monitor.coverageScopeAt||{}),...structuredClone(delta.coverageScopeAt)};
+ if(delta.reportPolicy&&!monitor.reportPolicy)monitor.reportPolicy=structuredClone(delta.reportPolicy);
+ if(delta.reportDrafts){
+  monitor.reportDrafts={...(monitor.reportDrafts||{}),...structuredClone(delta.reportDrafts)};
+ }
+ if(delta.newFormalReports){
+  monitor.formalReports||={};
+  for(const [day,report]of Object.entries(delta.newFormalReports)){
+   const existing=monitor.formalReports[day];
+   if(!existing){
+    monitor.formalReports[day]=structuredClone(report);
+    if(monitor.reportDrafts)delete monitor.reportDrafts[day];
+   }
+  }
+ }
  if(delta.latestHistory?.id){
   vault.state.history=mergeById(vault.state.history||[],[delta.latestHistory]).sort((a,b)=>String(b.startedAt||'').localeCompare(String(a.startedAt||''))).slice(0,100);
  }

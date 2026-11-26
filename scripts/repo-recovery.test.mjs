@@ -266,8 +266,8 @@ test('publishWebSnapshot skips rewriting main public-snapshot.json.gz when feed 
  assert.equal(pagesBuilds,1);
  const headAfterFirst=mock.getHead();
 
- // Same business feed with newer revision & timestamp -> MUST skip committing duplicate 15 MiB gzip!
- const feed2={...feed1,revision:2,updatedAt:'2026-11-26T01:00:00Z'};
+ // Same business feed with newer revision, timestamp AND volatile empty scan run -> MUST skip committing duplicate 15 MiB gzip!
+ const feed2={...feed1,revision:2,updatedAt:'2026-11-26T01:00:00Z',monitor:{...feed1.monitor,runs:[{id:'run-noop',attempted:5,added:0}]}};
  const status2={runtime:{phase:'ready'},updatedAt:'2026-11-26T01:00:00Z'};
  const second=await publishWebSnapshot({repository:'synthetic/repo',token:'tok',feed:feed2,status:status2,store,pagesBuilder:async()=>{pagesBuilds++}});
  assert.equal(second.skipped,true);

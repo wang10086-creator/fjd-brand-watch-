@@ -3,9 +3,28 @@ import {requestPagesBuild} from './pages-publish.mjs';
 import {gzipSync} from 'node:zlib';
 import {createGithubStore} from './github-store.mjs';
 export const WEB_SNAPSHOT_META_PATH='public-snapshot-meta.json';
+function stableRowForDigest(row){
+ if(!row?.priorityV2?.auto||!('evaluatedAt' in row.priorityV2.auto))return row;
+ const {evaluatedAt:_ignored,...auto}=row.priorityV2.auto;
+ return {...row,priorityV2:{...row.priorityV2,auto}};
+}
 export function snapshotBusinessDigest(feed){
  if(feed?.version!==1||!Array.isArray(feed.rows))throw Error('公开快照数据不完整');
- const stable={...feed,revision:0,updatedAt:''};
+ const m=feed.monitor||{};
+ const stable={
+  version:feed.version,
+  brandOwnership:feed.brandOwnership||null,
+  removedRecordKeys:feed.removedRecordKeys||[],
+  rows:feed.rows.map(stableRowForDigest),
+  receipts:feed.receipts||{},
+  monitor:{
+   reportPolicy:m.reportPolicy||null,
+   formalReports:m.formalReports||{},
+   observations:m.observations||[],
+   reviews:m.reviews||[],
+   updateChain:m.updateChain||[]
+  }
+ };
  return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
 }
 export function snapshotBytes(feed,status){if(feed?.version!==1||!Array.isArray(feed.rows)||!status?.runtime)throw Error('公开快照数据不完整');return gzipSync(Buffer.from(JSON.stringify({version:1,feed,status,updatedAt:feed.updatedAt})));}
