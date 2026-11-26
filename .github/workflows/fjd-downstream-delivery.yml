@@ -1,0 +1,62 @@
+name: 丰疆下游交付（入表→归档→简报）
+on:
+  # 下游唯一交付日程（北京时间 10:00 = UTC 02:00）默认保持停用；
+  # 须待入表回读与云端归档入口真实验收通过后，经负责人明确批准再取消注释启用。
+  # schedule:
+  #   - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preview 预览并保存待发状态（不发群）；confirm-send 按确认日期与校验值发群；index-backfill 已有文档仅补索引；replay-preview 历史样本隔离回放'
+        type: choice
+        default: preview
+        options: [preview, confirm-send, index-backfill, replay-preview]
+      report_day:
+        description: '北京时间日报归属日 YYYY-MM-DD（留空默认今日；历史回放可填已有封版日如 2026-11-14）'
+        required: false
+        type: string
+      confirm_checksum:
+        description: '仅 confirm-send 必填：与预览一致的 64 位 formalChecksum（日期或版本不匹配立即拦截）'
+        required: false
+        type: string
+      archive_receipt:
+        description: '仅 index-backfill 选填：已核对的 tblUcSezDdVSfWsa 最小 JSON 回执（只补索引，不新建文档）'
+        required: false
+        type: string
+      allow_pending_archive:
+        description: '默认 false（须先核验正式日报链接）；仅在明确允许待归档发群时勾选'
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: fjd-downstream-delivery
+  cancel-in-progress: false
+jobs:
+  downstream:
+    if: github.ref == 'refs/heads/main' || inputs.mode == 'replay-preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 运行统一断点续跑下游流程（入表 → 归档 → 群简报预览/确认发送）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
+          FEISHU_HISTORY_WEBHOOK: ${{ secrets.FEISHU_HISTORY_WEBHOOK }}
+          FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
+          FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          FJD_DOWNSTREAM_MODE: ${{ inputs.mode || 'preview' }}
+          FJD_DOWNSTREAM_DAY: ${{ inputs.report_day }}
+          FJD_CONFIRM_DAY: ${{ inputs.report_day }}
+          FJD_CONFIRM_CHECKSUM: ${{ inputs.confirm_checksum }}
+          FJD_ARCHIVE_RECEIPT: ${{ inputs.archive_receipt }}
+          FJD_ALLOW_PENDING_ARCHIVE: ${{ inputs.allow_pending_archive }}
+        run: node cloud/downstream-pipeline.mjs
