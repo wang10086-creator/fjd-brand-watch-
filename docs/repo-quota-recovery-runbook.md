@@ -65,15 +65,17 @@
 ## 4. 远端回收与写入恢复最小操作（需管理员审批）
 
 1. **删除远端 `data-cloud` 引用以解除 ~96.9 GiB 历史对象可达性**（仅删引用，不上传新对象；执行前必须确认第 3 节备份清单已落盘并留存副本）：
-   ```bash
-   gh api -X DELETE repos/wang10086-creator/fjd-brand-watch-/git/refs/heads/data-cloud
-   ```
+   - 若远端已被 100 GiB 硬配额锁死，REST API `DELETE /git/refs/heads/data-cloud` 会返回 `HTTP 403 {"message":"Repository is above its size quota."}`（2026-11-26 实测 `X-Github-Request-Id: 40C0:173195:71D3E0:16B8061:6B07F767`，遇到后立即停止、零重试）。
+   - **实测可用的免费删除路径**：仓库拥有者在浏览器打开 `https://github.com/wang10086-creator/fjd-brand-watch-/branches`，点击 `data-cloud` 右侧删除图标即可绕过 REST 限制删除引用（2026-11-26 `09:42:26Z` 已实测成功，`GET /git/ref/heads/data-cloud` 返回 `404`，`git ls-remote` 确认零剩余引用）。
 2. **观察 GitHub 后台 GC 与配额释放**：
    ```bash
    gh api repos/wang10086-creator/fjd-brand-watch- --jq '{size_kb: .size, size_gib: ((.size / 1048576 * 100 | floor) / 100)}'
    ```
+   - 浏览器免命令只读查看：`https://api.github.com/repos/wang10086-creator/fjd-brand-watch-` 中检索 `"size"`。
    - 若 `size_kb` 降回 `< 10,000,000`（`< 10 GiB`，预期 `~3.5 GiB`），继续第 3 步。
-   - **若等待后 `size_kb` 仍卡在 `~105,457,610` 且推送新引用返回 `Repository is above its size quota.`**：**切勿反复试写**，记录原始错误与 `x-github-request-id`，经审批后向 GitHub Support 提交一次服务端 GC 请求（模板见第 6 节）。
+   - **实测重要限制（GitHub Free 账号）**：2026-11-26 实测 `support.github.com` 人工工单（`#5061157`）会对免费账号自动关单，且 GitHub 不提供用户自助触发服务端 `git gc` 的按钮。在不引入付费服务前提下，仅有两条免费路径：
+     - **路径 A（保原库零重配）**：在 `https://github.com/orgs/community/discussions`（Repositories 版块）发帖附上工单号 `#5061157` 请求社区工作人员协助刷新/触发 GC，同时等待 GitHub 后台自动定期回收。
+     - **路径 B（当天可控恢复，保留旧库不删除）**：先确认管理员本地已掌握仓库全部 6 个 Actions Secrets 原值（`MONITOR_CLOUD_PASSWORD`、`FEISHU_BASE_APP_ID`、`FEISHU_BASE_REVIEW_WEBHOOK`、`FEISHU_BOT_WEBHOOK`、`FEISHU_HISTORY_WEBHOOK`、`NOTION_TOKEN`），将旧库改名归档（例如 `fjd-brand-watch--archive`），原地新建同名公开仓库 `wang10086-creator/fjd-brand-watch-`，推入瘦身 `main`（57 MiB）+ 干净 3 提交 `data-cloud`（90.76 MiB）+ 补丁分支 + `mirror-storage-v1` Release 资产，补填 6 个 Secrets 并重新开启 Pages（`workflow` 模式）。
 3. **推送本地已校验的 3 提交干净 `data-cloud` 分支**：
    ```bash
    git -C "$HOME/fjd-backups/data-cloud-clean-repo" remote add origin \
@@ -103,29 +105,33 @@ GITHUB_TOKEN="<正式写入身份Token>" node cloud/repo-recovery.mjs verify-wri
 
 ---
 
-## 6. 回滚方案与 GitHub Support 模板
+## 6. 回滚方案与社区求助模板
 
 ### 回滚方案
-1. **GitHub 尚未完成 GC 前的秒级回滚**（原 commit 对象仍在远端对象库时）：
+1. **GitHub 尚未完成 GC 前的秒级回滚**（原 commit 对象仍在远端对象库且未锁写时）：
    ```bash
    gh api -X POST repos/wang10086-creator/fjd-brand-watch-/git/refs \
      -f ref=refs/heads/data-cloud \
      -f sha=ea5d58730bd6a33bf8d86c942dbf1d7e0fc1e003
    ```
 2. **GitHub 已完成 GC 后的重建回滚**：
-   - 使用第 3 节在公司受控机器持久化保存的 `$HOME/fjd-backups/data-cloud-20261126` 及其 `backup-manifest.json`（所有正式日报、原始证据、历史索引、最新加密 `vault.json`/`dashboard.json` 与现用分块均有 SHA-256 校验值），重新执行 `build-clean` 并推送至 `refs/heads/data-cloud`。
+   - 使用第 3 节持久化保存的备份目录及其 `backup-manifest.json`（所有正式日报、原始证据、历史索引、最新加密 `vault.json`/`dashboard.json` 与现用分块均有 SHA-256 校验值），重新执行 `build-clean` 并推送至 `refs/heads/data-cloud`。
 3. **代码补丁回滚**：
    - `main` 上直接 `git revert` 补丁合并提交即可恢复旧检查点逻辑（但注意：未启用增量检查点前请勿恢复高频定时任务，否则会再次触发配额超限）。
 
-### GitHub Support 服务端 GC 请求模板（仅在删除 `data-cloud` 后仍被配额拦截时使用）
-> Subject: Request server-side git gc to clear unreachable objects on `wang10086-creator/fjd-brand-watch-`
+### GitHub Community Discussions 免费求助模板（Repositories 版块）
+> Title: Request server-side `git gc --prune=now` for public repo locked >100 GiB after deleting bloated branch (`wang10086-creator/fjd-brand-watch-`)
 >
-> Hello GitHub Support,
+> Hello GitHub Community & Staff,
 >
-> Our public repository `wang10086-creator/fjd-brand-watch-` exceeded the 100 GiB repository size quota (`~100.57 GiB`) due to repeated automated snapshots committed to the `data-cloud` branch.
+> My public repository `https://github.com/wang10086-creator/fjd-brand-watch-` exceeded the 100 GiB repository size quota (`105,457,610 KB` / `~100.57 GiB`) due to repeated automated snapshots committed to the `data-cloud` branch. I submitted Support Ticket `#5061157`, which was automatically closed because my account is on the GitHub Free plan.
 >
-> We have disabled all scheduled workflows and deleted the `refs/heads/data-cloud` reference (no other branches, tags, or pull request refs reference those ~14,608 commits). We have also patched the workflow to store compact incremental checkpoints and prune obsolete chunks.
+> I have already completed all client-side cleanup steps:
+> 1. Disabled all scheduled GitHub Actions workflows.
+> 2. Deleted `refs/heads/data-cloud` via the GitHub web UI at `2026-11-26T09:42:26Z` (`GET /git/ref/heads/data-cloud` now returns `404`).
+> 3. Verified via `git ls-remote` that zero remaining branches, tags, or pull request refs point to the ~97 GiB of historical snapshot commits (`ea5d58730b`).
+> 4. Prepared a clean ~90.8 MiB replacement branch and an incremental-checkpoint code patch so the repository will not grow back.
 >
-> Could you please run server-side `git gc --prune=now` on `wang10086-creator/fjd-brand-watch-` to reclaim the unreachable objects from the deleted `data-cloud` branch and lift the size-quota write block?
+> Could a GitHub staff member please trigger server-side `git gc --prune=now` and recalculate disk usage on `wang10086-creator/fjd-brand-watch-` so the ~97 GiB of unreachable objects are purged and writes are unblocked?
 >
-> Thank you.
+> Thank you very much!

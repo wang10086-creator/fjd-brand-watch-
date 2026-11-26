@@ -618,3 +618,70 @@ test('compactRunRecord strips duplicated aliases/termRules from item.plan while 
  assert.equal(slim.items[0].plan.aliases,undefined);
  assert.equal(slim.items[0].plan.termRules,undefined);
 });
+
+test('formal report critical path persists newly frozen day via checkpoint-delta.json without rewriting full vault.json',async()=>{
+ const {runReportCriticalPath,formalTextFeed}=await import('../cloud/report-critical-path.mjs');
+ const {updateCycleDraft,cycleDraftProofs,restoreCycleDrafts}=await import('../cloud/formal-reports.mjs');
+ const {observe}=await import('../monitor.js');
+ const baseState=await initialState();
+ baseState.rows=[{id:'r-old',url:'https://dealer.example/fjd-old',title:'FJD Old',snippet:'O'.repeat(30000),platform:'dealer',country:'US',status:'pending'}];
+ baseState.monitor.reportPolicy={...REPORT_POLICY,firstDay:'2026-10-22'};
+ const oldDay={version:1,day:'2026-11-14',cycle:{id:'c14'},generatedAt:'2026-11-14T01:30:00Z',report:{body:'H'.repeat(40000)},overview:{day:'2026-11-14'},chain:[]};
+ const oldChecksum=createHash('sha256').update(JSON.stringify(oldDay)).digest('hex');
+ baseState.monitor.formalReports={'2026-11-14':{...oldDay,checksum:oldChecksum,status:'published',publishedAt:'2026-11-14T01:31:00Z'}};
+ const baseVault={version:2,revision:200,state:structuredClone(baseState),delivery:{receipts:{},pages:{},pushes:{'2026-11-14':{status:'sent',checksum:oldChecksum,sentAt:'2026-11-14T01:31:00Z',attempts:1}}},runtime:{phase:'ready'}};
+ const baseCipher=await seal(baseVault,PASSWORD,'vault');baseCipher.keyScheme='data-password-v2';
+ const mock=makeInMemoryGithubFetcher({'vault.json':baseCipher});
+ const store=createGithubStore({repository:'synthetic/repo',branch:'data-cloud',token:'tok',fetcher:mock.fetcher});
+ const baseline=captureCheckpointBaseline(baseVault);
+
+ const liveVault=structuredClone(baseVault);
+ const newLead={id:'r-15',url:'https://dealer.example/fjd-15',title:'FJD Day15',snippet:'New evidence for day 15',platform:'dealer',country:'US',firstSeen:'2026-11-14T22:00:00Z'};
+ observe(liveVault.state.monitor,[newLead],liveVault.state.rows,{at:'2026-11-14T22:00:00Z',reportDay:'2026-11-15',runId:'run-15',query:'FJD AT2'});
+ liveVault.state.rows.push(newLead);
+ updateCycleDraft(liveVault.state,'2026-11-14T22:05:00Z');
+ restoreCycleDrafts(liveVault.state,cycleDraftProofs(liveVault.state,'2026-11-14T22:05:10Z','d'.repeat(40)));
+
+ const calls=[];
+ const reportSave=async({caller='other'}={})=>{
+  calls.push(caller);
+  liveVault.revision++;
+  const delta=buildIncrementalCheckpoint(liveVault,{baseline,caller,includeDrafts:caller==='report-before-delivery'});
+  assert.ok(!JSON.stringify(delta).includes('H'.repeat(5000)),'delta must omit historic 2026-11-14 formal report body');
+  const entries=[{path:INCREMENTAL_CHECKPOINT_PATH,value:await sealIncrementalCheckpoint(delta,PASSWORD)},{path:'status.json',value:{version:3,revision:liveVault.revision}}];
+  const res=await store.write(entries);
+  const v=await store.verifyWrite(entries,res.sha);
+  assert.equal(v.confirmed,true);
+ };
+
+ let publishedFeed=null;
+ await runReportCriticalPath({
+  vault:liveVault,day:'2026-11-15',now:()=>'2026-11-15T01:30:00Z',
+  checkpoint:reportSave,
+  deliver:async()=>{
+   const frozen=liveVault.state.monitor.formalReports['2026-11-15'];
+   assert.equal(verifyFormal(frozen),true);
+   liveVault.delivery.pushes['2026-11-15']={status:'sent',checksum:frozen.checksum,at:'2026-11-15T01:31:00Z',sentAt:'2026-11-15T01:31:00Z',attempts:1};
+   frozen.status='published';frozen.publishedAt='2026-11-15T01:31:00Z';
+  },
+  publish:async()=>{publishedFeed=formalTextFeed(liveVault.state);return {status:'verified'};}
+ });
+
+ assert.deepEqual(calls,['report-before-delivery','report-after-delivery']);
+ assert.equal(mock.writtenCommits.length,2);
+ for(const c of mock.writtenCommits){
+  assert.ok(c.changedPaths.includes(INCREMENTAL_CHECKPOINT_PATH));
+  assert.ok(!c.changedPaths.includes('vault.json'),'report critical path must not rewrite full vault.json');
+ }
+ assert.ok(publishedFeed?.monitor?.formalReports?.['2026-11-15']);
+
+ // Cold restart from base vault.json + checkpoint-delta.json restores 2026-11-15 sealed report & sent receipt cleanly
+ const restored=await unseal((await store.readJSON('vault.json')).value,PASSWORD,'vault');
+ const delta=await unsealIncrementalCheckpoint((await store.readJSON(INCREMENTAL_CHECKPOINT_PATH)).value,PASSWORD);
+ assert.equal(applyIncrementalCheckpoint(restored,delta).applied,true);
+ assert.equal(verifyFormal(restored.state.monitor.formalReports['2026-11-14']),true);
+ assert.equal(verifyFormal(restored.state.monitor.formalReports['2026-11-15']),true);
+ assert.equal(restored.state.monitor.formalReports['2026-11-15'].status,'published');
+ assert.equal(restored.delivery.pushes['2026-11-15'].status,'sent');
+});
+

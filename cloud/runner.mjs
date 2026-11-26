@@ -87,7 +87,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  stage='draft-copy';
  const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
- const useIncremental=(incremental===true||(imagesOnly&&!verify)||(progressOnly&&(caller==='python-ack'||caller==='report-after-delivery')))&&typeof buildIncrementalCheckpoint==='function';
+ const useIncremental=(incremental===true||(imagesOnly&&!verify)||(progressOnly&&(caller==='python-ack'||caller==='report-before-delivery'||caller==='report-after-delivery')))&&typeof buildIncrementalCheckpoint==='function';
  const includeDrafts=(!imagesOnly||pageEvidence)&&!['startup','python-ack','report-after-delivery'].includes(caller);
  const hasDigest=typeof canonicalDigest==='function';
  const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[])];
@@ -155,7 +155,8 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  stage='draft-proof';
  if(!imagesOnly||pageEvidence)draftReceipts=await persistDraftProofs(vault.state,checkpointResult,draftReceipts,next=>put('cycle-draft-receipts.json',next),new Date().toISOString(),submittedDrafts);
  stage='verify';
- const result=verify?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
+ const shouldVerify=verify||(useIncremental&&(caller==='report-before-delivery'||caller==='report-after-delivery'));
+ const result=shouldVerify&&typeof store.verifyWrite==='function'?await store.verifyWrite(entries,checkpointResult.sha):checkpointResult;
  stage='formal-copy';
  confirmedFormalFeed=formalTextFeed(vault.state);
  return result;
