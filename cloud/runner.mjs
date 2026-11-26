@@ -87,7 +87,7 @@ async function checkpoint({imagesOnly=false,progressOnly=false,incremental=false
  vault.revision=Math.max(Date.now(),++revision);vault.state.cloudRevision=vault.revision;vault.state.archive={receipts:vault.delivery.receipts||{},publicUrl:config.notionPublicUrl};
  stage='draft-copy';
  const submittedDrafts={monitor:structuredClone({reportPolicy:vault.state.monitor.reportPolicy,reportDrafts:vault.state.monitor.reportDrafts})};
- const useIncremental=incremental===true&&typeof buildIncrementalCheckpoint==='function';
+ const useIncremental=(incremental===true||(imagesOnly&&independent)||(progressOnly&&(caller==='python-ack'||caller==='report-after-delivery')))&&typeof buildIncrementalCheckpoint==='function';
  const hasDigest=typeof canonicalDigest==='function';
  const entries=[...(vault.state.imagePolicy?[{path:'image-policy.json',value:{id:vault.state.imagePolicy.id,activatedAt:vault.state.imagePolicy.activatedAt,runId:vault.state.imagePolicy.runId,commit:vault.state.imagePolicy.commit,pausedIdentities:vault.state.imagePolicy.blocked.length}}]:[])];
  let nextVaultDigest=null,nextTaskIndexDigest=null,nextPublicDigest=null,wroteFullVault=false;
@@ -416,7 +416,8 @@ async function main(){
    // Preserve the original business-stage eligibility after the report path.
    // Only the remaining job budget may defer an otherwise eligible stage.
    budget.require('base-reviews');
-   await deliverBaseReviews(vault,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint});
+   const incrementalSave=({caller='stage-batch'}={})=>checkpoint({progressOnly:true,incremental:true,verify:caller==='python-ack',caller});
+   await deliverBaseReviews(vault,{...baseDeliveryOptions(),webhook:env.FEISHU_BASE_REVIEW_WEBHOOK,checkpoint:()=>incrementalSave({caller:'stage-batch'})});
    if(['scan','site-retry','verify'].includes(op)||(['auto','schedule'].includes(op)&&due.scan)){
     const already=false;
     if(op!=='schedule'||!already){budget.require('scan',4*60000);const run=await scan(vault.state,{budget:['auto','schedule'].includes(op)?due.budget:op==='verify'?8:60,trigger:['auto','schedule'].includes(op)?'schedule':op==='site-retry'?'site-retry':payload.watchOnly?'watch':'manual',site:op==='site-retry'?payload.site:null,watchOnly:!!payload.watchOnly,maxDurationMs:budget.slice(10*60000),checkpoint,siteUrl:config.siteUrl,onSite:async site=>{vault.runtime.currentSite=site;vault.runtime.siteUpdatedAt=new Date().toISOString();await put('status.json',publicStatus());}});console.log('实际检索：'+run.attempted+' 条查询；成功 '+run.success+'；失败 '+run.failed+'；新增 '+run.added);vault.runtime.warning=run.failed?'部分查询失败，原因已保留在日报和检索日志。':'';}
@@ -430,17 +431,17 @@ async function main(){
    if(!['check','authorize','digest','test-digest','verify'].includes(op)&&!(minute>=550&&minute<585)&&urlDeadline>Date.now()+1000){
     budget.require('url-check');vault.runtime.stage='url-check';const result=await checkUrlBatch(vault.state,{priorityUrls:pendingBaseUrlChecks(vault),deadline:urlDeadline,limit:8,priorityContext:priorityContext(brandCatalog,vault.state.config||{})});enqueueBaseStatus(vault);await checkpoint({progressOnly:true,incremental:true,caller:'stage-batch'});
     console.log('网址核查：'+JSON.stringify(result));
-    try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint,deadline:urlDeadline})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，原归档与推送流程保留'}
+    try{await deliverBaseStatus(vault,{webhook:env.FEISHU_BASE_STATUS_WEBHOOK,checkpoint:()=>incrementalSave({caller:'stage-batch'}),deadline:urlDeadline})}catch(error){if(saveBlocked)throw error;vault.runtime.urlUpdateWarning='飞书状态更新未完成，原归档与推送流程保留'}
    }
    budget.require('delivery',4*60000);vault.runtime.currentSite=null;vault.runtime.stage='delivery';await checkpoint({progressOnly:true,incremental:true,caller:'stage-batch'});
-   await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync');
-   if(vault.integrationPolicy.historyNative&&historyWriterMode(config)==='native'&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint,bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
+   await delivery(['test-digest','verify'].includes(op)?'test-digest':['check','authorize'].includes(op)?'check':'sync',{save:incrementalSave});
+   if(vault.integrationPolicy.historyNative&&historyWriterMode(config)==='native'&&['auto','scan','site-retry','sync','migrate'].includes(op)){try{await deliverHistory(vault,{checkpoint:()=>incrementalSave({caller:'stage-batch'}),bridge:historyTransport,webhook:env.FEISHU_HISTORY_WEBHOOK,limit:5,deadline:Date.now()+45000})}catch(error){if(saveBlocked)throw error;vault.historySync.lastError='history-sync-unconfirmed'}}
  }catch(error){
    if(error.code==='FJD_BUDGET_DEFERRED'){process.exitCode=1;vault.runtime.deferredStage=error.stage;console.warn('作业预算不足，阶段留待自然续查：'+error.stage);return;}
    vault.lastError=error.message||'云端操作失败，原记录保留';
    // Saved results can still be archived after a search failure. Atomic checkpoints
    // retain the conflict guards if another ledger writer has intervened.
-   try{if(!saveBlocked&&budget.allow(4*60000))await delivery('sync')}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
+   try{if(!saveBlocked&&budget.allow(4*60000))await delivery('sync',{save:({caller='other'}={})=>checkpoint({progressOnly:true,incremental:true,verify:caller==='python-ack',caller})})}catch(deliveryError){vault.runtime.deliveryError=deliveryError.message||'补同步未确认'}
  }
  finally{
   vault.runtime={...vault.runtime,currentSite:null,budget:budget.diagnostic(),lastError:vault.lastError||'',phase:vault.lastError?'failed':(vault.runtime.deferredStage||vault.runtime.textExport?.status==='unconfirmed'||vault.delivery.archiveError||vault.delivery.botError)?'partial':'ready',endedAt:new Date().toISOString()};
