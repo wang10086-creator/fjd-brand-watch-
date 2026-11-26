@@ -365,7 +365,10 @@ export async function verifyRemoteWrite({
  token,
  fetcher=fetch,
  probePath='recovery-write-probe.json',
- actor='production-writer'
+ actor='production-writer',
+ readbackAttempts=5,
+ readbackDelayMs=1000,
+ wait=ms=>new Promise(r=>setTimeout(r,ms))
 }={}){
  if(!token)throw Error('缺少正式写入身份 GITHUB_TOKEN');
  assertSafeRepoPath(probePath);
@@ -416,9 +419,19 @@ export async function verifyRemoteWrite({
   };
  }
 
- // Independent readback using fresh GET calls (bypassing store cache).
- const refAfter=await ghGetJson(`https://api.github.com/repos/${repository}/git/ref/heads/${branch}?verify=${randomUUID()}`,{token,fetcher});
- const commitSha=refAfter.object?.sha;
+ // Independent readback using fresh read-only GET calls (tolerates brief GitHub read-replica lag; zero write retries).
+ const maxAttempts=Math.max(1,Number(readbackAttempts)||1);
+ let commitSha=null;
+ let readbackChecks=0;
+ for(let attempt=1;attempt<=maxAttempts;attempt++){
+  readbackChecks=attempt;
+  const refAfter=await ghGetJson(`https://api.github.com/repos/${repository}/git/ref/heads/${branch}?verify=${randomUUID()}`,{token,fetcher});
+  commitSha=refAfter.object?.sha||null;
+  if(commitSha===writeResult.sha)break;
+  if(attempt<maxAttempts&&commitSha===previousSha&&readbackDelayMs>0){
+   await wait(readbackDelayMs);
+  }
+ }
  if(commitSha!==writeResult.sha){
   throw Error(`独立回读分支提交不一致：期望 ${writeResult.sha}，实际 ${commitSha}`);
  }
@@ -445,6 +458,7 @@ export async function verifyRemoteWrite({
   probePath,
   blobSha1:expectedBlobSha,
   byteLength:expectedBytes.length,
+  readbackChecks,
   readbackVerified:true
  };
 }

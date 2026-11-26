@@ -252,6 +252,24 @@ test('verifyRemoteWrite fails immediately with zero retries on quota 422 and pas
  assert.equal(okRes.quotaBlocked,false);
  assert.equal(okRes.commitSha,healthy.getHead());
  assert.ok(okRes.byteLength>50&&okRes.byteLength<512);
+
+ // Regression: transient stale read-replica ref GET right after PATCH must settle via read-only GET polling with zero write retries
+ const lagged=makeMockGitHub({repository:'synthetic/repo',branch:'data-cloud',repoSizeKb:3500000,quotaError:false});
+ const initialHead=lagged.getHead();
+ let staleVerifyReads=0;
+ const laggedFetcher=async(url,opts)=>{
+  const u=String(url);
+  if((opts?.method||'GET')==='GET'&&u.includes('?verify=')&&staleVerifyReads<2){
+   staleVerifyReads++;
+   return new Response(JSON.stringify({object:{sha:initialHead}}),{status:200,headers:{'Content-Type':'application/json'}});
+  }
+  return lagged.fetcher(url,opts);
+ };
+ const laggedRes=await verifyRemoteWrite({repository:'synthetic/repo',branch:'data-cloud',token:'secret-token-xyz',fetcher:laggedFetcher,readbackDelayMs:1,wait:async()=>{}});
+ assert.equal(laggedRes.ok,true);
+ assert.equal(laggedRes.readbackVerified,true);
+ assert.equal(laggedRes.readbackChecks,3);
+ assert.equal(lagged.getWriteAttempts(),healthy.getWriteAttempts(),'readback lag must never retry writes');
 });
 
 test('publishWebSnapshot skips rewriting main public-snapshot.json.gz when feed business digest is unchanged',async()=>{
