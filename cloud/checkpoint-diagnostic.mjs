@@ -1,5 +1,5 @@
-const callers=new Set(['startup','report-before-delivery','python-ack','report-after-delivery','finalize']);
-const stages=new Set(['prepare','draft-copy','vault-seal','status-project','task-index-seal','public-project','primary-write','confirmed-status','draft-proof','verify','formal-copy']);
+const callers=new Set(['startup','scan-start','scan-batch','stage-batch','report-before-delivery','python-ack','report-after-delivery','finalize']);
+const stages=new Set(['prepare','draft-copy','delta-seal','vault-seal','snapshot-offload','status-project','task-index-seal','public-project','primary-write','confirmed-status','draft-proof','verify','formal-copy']);
 const saves=new Set(['not-attempted','unconfirmed','confirmed']);
 const classes=new Set(['Error','TypeError','RangeError','SyntaxError','ReferenceError','URIError','EvalError','AggregateError']);
 const safe=(set,value,fallback)=>typeof value==='string'&&set.has(value)?value:fallback;

@@ -15,7 +15,8 @@ export function safeGithubError(payload){
  const messages=[typeof payload==='string'?payload:payload?.message,...errors.map(e=>e?.message)].filter(m=>typeof m==='string');
  const labels=new Set();
  for(const m of messages){
-  if(/(?:blob|file|content).{0,80}(?:too large|exceeds.{0,40}(?:size|limit)|larger than)/i.test(m))labels.add('blob-size-limit');
+  if(/repository is above its size quota|exceeds.{0,40}size quota/i.test(m))labels.add('repo-size-quota');
+  else if(/(?:blob|file|content).{0,80}(?:too large|exceeds.{0,40}(?:size|limit)|larger than)/i.test(m))labels.add('blob-size-limit');
   else if(/(?:request|body|payload).{0,80}(?:too large|exceeds.{0,40}(?:size|limit))/i.test(m))labels.add('request-size-limit');
   else if(/^validation failed[.!]?$/i.test(m))labels.add('validation-failed');
   else if(/^(?:invalid|unsupported) encoding[.!]?$/i.test(m))labels.add('invalid-encoding');
@@ -168,11 +169,13 @@ export function createGithubStore({repository,branch,token,fetcher=fetch,wait=pa
     // GitHub uses 422 for a non-fast-forward ref update, but also for invalid
     // requests. Only retry 422 when the branch really moved in the meantime.
     let retry=transient(error);
+    if(error.diagnostic?.reason==='size-quota'||error.diagnostic?.messageKinds?.includes('repo-size-quota'))retry=false;
     if(error.status===422&&error.diagnostic?.stage==='ref-update'&&current){const ref=await read('/git/ref/heads/'+branch+'?fresh='+crypto.randomUUID());retry=ref.object.sha!==current.sha;}
     if(!retry||attempt>=retries)throw error;
     await backoff(error,attempt,'保存快照');
    }
   }
  }
- return {request,readBytes,readJSON,readJSONAt,verifyWrite,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
+ async function listFiles(prefix=''){const current=await snapshot();return [...current.files.keys()].filter(p=>!prefix||p.startsWith(prefix));}
+ return {request,readBytes,readJSON,readJSONAt,verifyWrite,listFiles,write,putJSON:(path,value)=>write([{path,value}]),putBytes:(path,bytes)=>write([{path,bytes,bytesInput:true}],'Daily report data chart'),remove:path=>write([{path,remove:true}],'Remove completed monitor record')};
 }
