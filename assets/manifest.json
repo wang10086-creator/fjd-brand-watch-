@@ -1,0 +1,98 @@
+{
+  "assets": [
+    {
+      "id": "fjdynamics-wordmark",
+      "name": "FJDynamics 主品牌字标（官方白色版）",
+      "filename": "fjdynamics-official-logo.webp",
+      "width": 494,
+      "height": 119,
+      "sourcePage": "https://www.fjdynamics.com/",
+      "assetUrl": "https://www.fjdynamics.com/web/image/website/1/logo/FJDynamics?unique=94f2924",
+      "kind": "wordmark",
+      "displayBackground": "#142c35",
+      "evidence": "Official homepage navbar img alt=FJDynamics and Organization JSON-LD logo reference. Original white wordmark includes shield symbol.",
+      "note": "官方白色字标，透明背景；请用深色底展示。",
+      "retrievedAt": "2026-10-12",
+      "mimeType": "image/webp",
+      "sha256": "8d9bfe59ebdb1bc33a3c85bbf7eb358a3bb4e8f4bcfe65a58e85fca7a9810806",
+      "googleLensUrl": "https://www.google.com/searchbyimage?image_url=https%3A%2F%2Fwww.fjdynamics.com%2Fweb%2Fimage%2Fwebsite%2F1%2Flogo%2FFJDynamics%3Funique%3D94f2924",
+      "corsCheck": {
+        "origin": "https://brand-watch-production.up.railway.app",
+        "date": "2026-10-12",
+        "headers": [
+          "HTTP/1.1 200 OK",
+          "HTTP/2 200 ",
+          "content-type: image/webp",
+          "cache-control: max-age=31536000, private, immutable"
+        ],
+        "browserFetchCrossOrigin": "not available"
+      }
+    },
+    {
+      "id": "fjdynamics-shield",
+      "name": "FJD 盾形图标（官网黄色底版）",
+      "filename": "fjdynamics-official-symbol.webp",
+      "width": 128,
+      "height": 128,
+      "sourcePage": "https://www.fjdynamics.com/",
+      "assetUrl": "https://www.fjdynamics.com/web/image/website/1/favicon?unique=94f2924",
+      "kind": "symbol",
+      "displayBackground": "#ffffff",
+      "evidence": "Official homepage rel=shortcut icon points to this original asset; visually inspected: stylized black FJ shield on yellow circle. Shield shape matches the user-provided black mark, but its official asset includes yellow background.",
+      "note": "盾形与用户上传图形一致；此官网版本含黄色圆底，请勿将其标注为用户原图。",
+      "retrievedAt": "2026-10-12",
+      "mimeType": "image/webp",
+      "sha256": "f1277a42dbf5bc51ae9619d43669b2489fc9a2e0f2836df41fd5002ad349e40e",
+      "googleLensUrl": "https://www.google.com/searchbyimage?image_url=https%3A%2F%2Fwww.fjdynamics.com%2Fweb%2Fimage%2Fwebsite%2F1%2Ffavicon%3Funique%3D94f2924",
+      "corsCheck": {
+        "origin": "https://brand-watch-production.up.railway.app",
+        "date": "2026-10-12",
+        "headers": [
+          "HTTP/1.1 200 OK",
+          "HTTP/2 200 ",
+          "content-type: image/webp",
+          "cache-control: max-age=31536000, private, immutable"
+        ],
+        "browserFetchCrossOrigin": "not available"
+      }
+    },
+    {
+      "id": "fjd-trion-wordmark",
+      "name": "FJD Trion 子品牌字标（官方白色版）",
+      "filename": "fjd-trion-official-logo.webp",
+      "width": 305,
+      "height": 96,
+      "sourcePage": "https://www.fjdtrion.com/",
+      "assetUrl": "https://www.fjdtrion.com/web/image/website/3/logo/FJD%20Trion?unique=f638ca5",
+      "kind": "subbrand",
+      "displayBackground": "#142c35",
+      "evidence": "FJDynamics official main homepage links to fjdtrion.com as FJD Trion. Trion homepage navbar img alt=FJD Trion references this asset.",
+      "note": "FJD Trion 为子品牌检索要素，不代表用户所持商标权利范围已经核验。",
+      "retrievedAt": "2026-10-12",
+      "mimeType": "image/webp",
+      "sha256": "6627a84eacbb06dcbfa1a1134cd20e365fdb28bcc2bc5c32ba4712db4229be34",
+      "googleLensUrl": "https://www.google.com/searchbyimage?image_url=https%3A%2F%2Fwww.fjdtrion.com%2Fweb%2Fimage%2Fwebsite%2F3%2Flogo%2FFJD%2520Trion%3Funique%3Df638ca5",
+      "corsCheck": {
+        "origin": "https://brand-watch-production.up.railway.app",
+        "date": "2026-10-12",
+        "headers": [
+          "HTTP/1.1 200 OK",
+          "HTTP/2 200 ",
+          "content-type: image/webp",
+          "cache-control: max-age=31536000, private, immutable"
+        ],
+        "browserFetchCrossOrigin": "not available"
+      }
+    }
+  ],
+  "imageSearchVerification": {
+    "date": "2026-10-12",
+    "googleSearchByImage": "HTTP 200 and redirects to Google Lens search with image dimensions 128x128; real Chromium run reached Google unusual-traffic CAPTCHA after successful image handoff. Suitable as an external user-operated image-search link; not evidence of completed image matching.",
+    "googleLensUploadByUrl": "Deprecated endpoint returned 404; do not use.",
+    "bingImageUrl": "Tested q=imgurl and searchbyimage variants silently redirect to images homepage, losing image. Do not advertise these as automatic image handoff.",
+    "bingManual": "https://www.bing.com/images",
+    "googleManual": "https://images.google.com/",
+    "manualEntryBrowserVerification": "Chromium loaded Google Images with aria-label=\"Search by image\" and Bing Images with aria-label=\"Search using an image\" plus \"upload an image\" on 2026-10-12. Use these actual upload-capable homepages; lens.google and bing.com/visualsearch currently redirect to marketing pages."
+  },
+  "legalScope": "Assets were retrieved from public official websites for identification and human review. Brand association is verified; registration scope, geography, ownership and authorization are not established by website publication."
+}
