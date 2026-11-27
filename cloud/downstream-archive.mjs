@@ -335,8 +335,9 @@ export async function runArchiveStage({
    if(!dryRun)await persist('downstream: archive receipt day mismatch');
    return {stage:'archive',status:'failed',skipped:false,errorCode:stage.lastErrorCode};
   }
-  // If we have a doc reader and haven't read back yet, verify body/numbers/links first!
-  if(!stage.readbackVerified&&archiveAdapter?.configured&&typeof archiveAdapter.readbackDocument==='function'){
+  // If we have a programmatic doc reader and haven't read back yet, verify body/numbers/links first!
+  const hasReadback=Boolean(archiveAdapter?.configured&&typeof archiveAdapter.readbackDocument==='function');
+  if(!stage.readbackVerified&&hasReadback){
    const rb=await archiveAdapter.readbackDocument({
     documentUrl:receipt.record.document_url,
     sourceRecordId:receipt.source_record_id
@@ -361,10 +362,10 @@ export async function runArchiveStage({
 
   try{
    const {merged,publishResult}=await backfillIndexOnly(receipt);
-   stage.status=stage.readbackVerified||!archiveAdapter?.configured?'verified':'doc-verified-index-pending';
-   if(!archiveAdapter?.configured){
-    // Operator-supplied verified tblUcSezDdVSfWsa receipt backfills index only.
-    stage.readbackVerified=stage.readbackVerified||Boolean(archiveReceiptInput);
+   stage.status=stage.readbackVerified||!hasReadback?'verified':'doc-verified-index-pending';
+   if(!hasReadback){
+    // Operator-supplied verified tblUcSezDdVSfWsa receipt (or resumed post-backfill index) confirms archive when adapter is webhook-only.
+    stage.readbackVerified=stage.readbackVerified||Boolean(archiveReceiptInput)||stage.indexPublished;
    }
    stage.verifiedAt=stage.verifiedAt||ts();
    stage.lastErrorCode=null;

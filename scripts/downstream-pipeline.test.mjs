@@ -870,6 +870,76 @@ test('8. Option A Feishu Archive Webhook: URL allowlist, async accepted-unverifi
  assert.equal(s1.stages.archive.status,'verified');
  assert.equal(s1.stages.archive.readbackVerified,true);
  assert.equal(s1.stageDetails.brief.archiveUrlIncluded,syncDocUrl);
+
+ // 8d. Async webhook (configured, no readbackDocument) -> operator index-backfill -> confirm-send succeeds!
+ const storeBackfill=createMemoryStore();
+ let backfillPosts=0,backfillBotPosts=0,backfillPublishes=0;
+ const bfDocUrl='https://fjdynamics.feishu.cn/docx/AsyncBackfilled20261127';
+ const bfAdapter=createWebhookArchiveAdapter({
+  webhookUrl:archiveHookUrl,
+  fetcher:async()=>{backfillPosts++;return new Response(JSON.stringify({code:0}),{status:200});}
+ });
+ const b1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeBackfill,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:bfAdapter,
+  existingTableRows:existingRows
+ });
+ assert.equal(backfillPosts,1);
+ assert.equal(b1.stages.archive.status,'accepted-unverified');
+
+ const publishedMap=[{report_day:'2026-11-27',document_url:bfDocUrl,archive_status:'archived'}];
+ const b2=await runDownstreamPipeline({
+  mode:'index-backfill',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeBackfill,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter:bfAdapter,
+  archiveReceiptInput:{
+   source_table_id:'tblUcSezDdVSfWsa',
+   source_record_id:'recBackfill1127',
+   report_day:'2026-11-27',
+   record:{report_day:'2026-11-27',document_url:bfDocUrl,archive_status:'archived'}
+  },
+  indexPublisher:async(receipt)=>{backfillPublishes++;return {status:'committed',report_day:receipt.report_day,commit:'f'.repeat(40)};},
+  existingTableRows:existingRows
+ });
+ assert.equal(backfillPosts,1,'index-backfill must not re-invoke webhook');
+ assert.equal(backfillPublishes,1);
+ assert.equal(b2.stages.archive.status,'verified');
+ assert.equal(b2.stages.archive.readbackVerified,true);
+ assert.equal(b2.stageDetails.brief.archiveUrlIncluded,bfDocUrl);
+
+ const b3=await runDownstreamPipeline({
+  mode:'confirm-send',
+  targetDay:'2026-11-27',
+  currentBeijingDay:'2026-11-27',
+  sourceReader:fixture.reader,
+  stateStore:storeBackfill,
+  password:TEST_PASSWORD,
+  archiveMapRows:publishedMap,
+  archiveAdapter:bfAdapter,
+  botWebhookUrl:'https://open.feishu.cn/open-apis/bot/v2/hook/test-bot-hook',
+  confirmSend:true,
+  confirmDay:'2026-11-27',
+  confirmChecksum:fixture.manifest.formalChecksum,
+  allowPendingArchive:false,
+  existingTableRows:existingRows,
+  fetcher:async()=>{backfillBotPosts++;return new Response(JSON.stringify({code:0,StatusCode:0}),{status:200});}
+ });
+ assert.equal(backfillPosts,1);
+ assert.equal(backfillBotPosts,1,'confirm-send must proceed once webhook index-backfill verified archive');
+ assert.equal(b3.stages.archive.status,'verified');
+ assert.equal(b3.stages.brief.status,'sent');
+ assert.equal(b3.stageDetails.brief.archiveUrlIncluded,bfDocUrl);
 });
 
 test('9. Upstream restoration safety: outage window 2026-11-15..2026-11-26 is skipped, 2026-11-27 scans & seals cleanly without unconfirmed upstream group push',async()=>{
