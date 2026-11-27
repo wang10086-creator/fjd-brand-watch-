@@ -1,15 +1,21 @@
 name: 丰疆云端监控
 on:
   schedule:
-    # UTC 10:00-23:30 = Beijing 18:00-next day 07:30.
+    # UTC 10:00-23:30 = Beijing 18:00-next day 07:30 (+ off-peak :17,:47 fallback against :00/:30 GitHub cron drops).
     - cron: '0,30 10-23 * * *'
-    # Beijing 08:00,08:30,09:00,09:10; no new scans after 09:20.
+    - cron: '17,47 10-23 * * *'
+    # Beijing 08:00-09:14; off-peak fallbacks keep final pre-cutoff batches running before 09:20.
     - cron: '0,30 0 * * *'
+    - cron: '17,47 0 * * *'
     - cron: '0,10 1 * * *'
-    # Freeze/publish 09:30; definite-failure recovery checks, no daytime scans.
+    - cron: '4,14 1 * * *'
+    # Freeze/publish 09:30 Beijing (01:30 UTC): dense off-peak prime-minute watchdogs prevent morning cron drops from stalling daily sealing; already-sealed runs fast-exit with 0 commits.
     - cron: '30,50 1 * * *'
+    - cron: '33,41,53 1 * * *'
     - cron: '10,40 2 * * *'
+    - cron: '7,23,43 2 * * *'
     - cron: '10 3-9 * * *'
+    - cron: '17 3-9 * * *'
   workflow_dispatch:
     inputs:
       operation:
@@ -42,14 +48,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: 定时冗余防重预检
+        id: preflight
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FJD_SCHEDULE: ${{ github.event.schedule }}
+        run: node cloud/schedule-preflight.mjs
       - uses: actions/setup-python@v5
+        if: steps.preflight.outputs.skip_run != 'true'
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: cloud/requirements-monitor.txt
       - name: 准备日报图表
+        if: steps.preflight.outputs.skip_run != 'true'
         run: python3 -m pip install --quiet -r cloud/requirements-monitor.txt
       - uses: actions/cache@v4
+        if: steps.preflight.outputs.skip_run != 'true'
         with:
           path: .cache/fjd-images
           key: image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-${{ github.run_id }}
@@ -57,13 +72,13 @@ jobs:
             image-evidence-v2-${{ runner.os }}-${{ hashFiles('assets/*-images.json', 'assets/trademark-image-references.json') }}-
             image-evidence-v2-${{ runner.os }}-
       - name: 准备真实浏览器整窗采集
-        if: inputs.operation == 'base-evidence'
+        if: steps.preflight.outputs.skip_run != 'true' && inputs.operation == 'base-evidence'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth x11-utils libxtst6 python3-tk fonts-wqy-microhei
           python3 -m pip install --quiet playwright==1.55.0
       - name: 云端检索、Notion 归档与飞书简报
-        if: inputs.operation != 'archive'
+        if: steps.preflight.outputs.skip_run != 'true' && inputs.operation != 'archive'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FEISHU_BASE_APP_ID: ${{ secrets.FEISHU_BASE_APP_ID }}
@@ -83,11 +98,11 @@ jobs:
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs
       - name: 准备单页 HTML 镜像组件
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && inputs.operation != 'history-sync' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
+        if: ${{ !cancelled() && steps.preflight.outputs.skip_run != 'true' && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && inputs.operation != 'history-sync' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '4,14 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '33,41,53 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '7,23,43 2 * * *' && github.event.schedule != '10 3-9 * * *' && github.event.schedule != '17 3-9 * * *' }}
         continue-on-error: true
         run: bash cloud/prepare-archive.sh
       - name: 公开页面存档（独立于检索统计）
-        if: ${{ !cancelled() && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && inputs.operation != 'history-sync' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '10 3-9 * * *' }}
+        if: ${{ !cancelled() && steps.preflight.outputs.skip_run != 'true' && inputs.operation != 'digest' && inputs.operation != 'test-digest' && inputs.operation != 'check' && inputs.operation != 'images' && inputs.operation != 'review' && inputs.operation != 'url-check' && inputs.operation != 'base-evidence' && inputs.operation != 'history-sync' && github.event.schedule != '0,10 1 * * *' && github.event.schedule != '4,14 1 * * *' && github.event.schedule != '30,50 1 * * *' && github.event.schedule != '33,41,53 1 * * *' && github.event.schedule != '10,40 2 * * *' && github.event.schedule != '7,23,43 2 * * *' && github.event.schedule != '10 3-9 * * *' && github.event.schedule != '17 3-9 * * *' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
