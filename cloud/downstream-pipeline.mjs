@@ -23,7 +23,7 @@ import {
  createLocalDirSourceReader,
  loadSealedSource
 } from './downstream-source.mjs';
-import {createUnconfiguredTableReadbackAdapter,runTableEntryStage} from './downstream-table.mjs';
+import {createStateHistoryIdAllocator,createUnconfiguredTableReadbackAdapter,runTableEntryStage} from './downstream-table.mjs';
 import {
  ARCHIVE_MAP_PATH,
  createUnconfiguredArchiveAdapter,
@@ -152,6 +152,12 @@ export async function runDownstreamPipeline({
  }
 
  // Stage 1: 线索入表 (skipped if already completed for this version; paused cleanly if unconfigured).
+ const hasManifestHydration=(source.leads||[]).some(l=>l.kind==='new'&&l.tableHydration);
+ const effectiveAllocateHistoryId=typeof allocateHistoryId==='function'
+  ?allocateHistoryId
+  :hasManifestHydration
+   ?createStateHistoryIdAllocator({state,existingRows:existingTableRows})
+   :null;
  const tableResult=await runTableEntryStage({
   source,
   state,
@@ -160,7 +166,7 @@ export async function runDownstreamPipeline({
   readbackAdapter:tableReadbackAdapter,
   existingRows:existingTableRows,
   ledgerRowsByKey,
-  allocateHistoryId,
+  allocateHistoryId:effectiveAllocateHistoryId,
   fetcher,
   persist,
   now,

@@ -988,3 +988,121 @@ test('9. Upstream restoration safety: outage window 2026-11-15..2026-11-26 is sk
  assert.equal(afterSeal.digestDay,undefined);
 });
 
+test('10. Manifest tableLeads hydration (2026-11-28+): end-to-end publishLightReports -> Stage 1 22-field payload, YYYYMMDD-NNN allocation, single-row budget, and zero private leakage',async()=>{
+ const {snapshotPayload}=await import('../cloud/formal-reports.mjs');
+ const {publishLightReports}=await import('../cloud/publish-light-reports.mjs');
+ const day='2026-11-28';
+ const leadUrl='https://shop.alibaba.com/product/fjd-at2-kit.html';
+ const leadUrl2='https://machinio.com/listings/fjd-r1-mower';
+ const entry1={
+  key:leadUrl,kind:'new',reviewStage:'initial',
+  snapshot:{url:leadUrl,title:'FJDynamics AT2 Steering Kit',platform:'alibaba',checkedAt:'2026-11-27T11:20:00.000Z',snippet:'PRIVATE_SNIPPET_MUST_NOT_LEAK'},
+  reviewNote:'PRIVATE_NOTE_MUST_NOT_LEAK',
+  frozenUrlCheck:{current:{id:'chk-1',status:'normal',at:'2026-11-27T11:25:00.000Z'}},
+  frozenPriority:{level:'high',auto:{reason:'页面指向目标品牌商品，并存在销售信息。'},manual:null}
+ };
+ const entry2={
+  key:leadUrl2,kind:'new',reviewStage:'initial',
+  snapshot:{url:leadUrl2,title:'FJDynamics R1 Mower',platform:'machinio',checkedAt:'2026-11-27T12:10:00.000Z'},
+  frozenUrlCheck:null,
+  frozenPriority:{level:'medium',auto:{reason:'相关型号售卖页面。'},manual:null}
+ };
+ const formalReport={
+  version:1,day,status:'published',
+  cycle:{startAt:'2026-11-27T18:00:00+08:00',cutoffAt:'2026-11-28T09:20:00+08:00'},
+  generatedAt:'2026-11-28T01:30:00Z',
+  overview:{
+   day,
+   cumulative:{new:2,changed:0,repeat:0,pending:2,stages:{initial:2,ip:0,handling:0,closed:0},success:5,failed:0,coverage:{total:5,searched:5,failedOnly:0,unattempted:0},failureReasons:[]},
+   priorityCurrent:{total:2,counts:{high:1,medium:1,low:0}}
+  },
+  report:{cohort:[entry1,entry2],items:[{query:'PRIVATE_QUERY'}]},
+  chain:[]
+ };
+ formalReport.checksum=sha256(JSON.stringify(snapshotPayload(formalReport)));
+
+ let n=0,head='a'.repeat(40);
+ const files=new Map(),commits=new Map([[head,new Map()]]);
+ const pubStore={
+  async readJSON(p){const b=files.get(p);return b?{value:JSON.parse(b)}:null;},
+  async readBytes(p){const b=files.get(p);return b?{bytes:Buffer.from(b),commitSha:head,sha:sha256(b)}:null;},
+  async write(entries){
+   for(const e of entries)files.set(e.path,Buffer.from(e.bytes??JSON.stringify(e.value)));
+   head=(++n).toString(16).padStart(40,'0');
+   commits.set(head,new Map(files));
+   return {sha:head};
+  },
+  async verifyWrite(){return {confirmed:true};}
+ };
+ const pubFetcher=async url=>{
+  const parts=new URL(url).pathname.split('/').slice(3);
+  const commit=parts.shift(),p=parts.join('/'),b=commits.get(commit)?.get(p);
+  return {ok:!!b,arrayBuffer:async()=>b};
+ };
+ const pub=await publishLightReports({
+  feed:{version:1,rows:[],monitor:{version:1,formalReports:{[day]:formalReport}}},
+  store:pubStore,
+  repository:'wang10086-creator/fjd-brand-watch-',
+  branch:'data-cloud',
+  fetcher:pubFetcher
+ });
+ assert.equal(pub.status,'published');
+
+ const reader={
+  async readIndex(){return JSON.parse(files.get('daily-text/index.json'));},
+  async readManifest(entry){return JSON.parse(files.get(`daily-text/${entry.report_day}/manifest.json`));},
+  async readBody(entry){return files.get(`daily-text/${entry.report_day}/body.md`).toString('utf8');}
+ };
+
+ const stateStore=createMemoryStore();
+ const posted=[];
+ const r1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:reader,
+  stateStore,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  maxLiveTableWrites:1,
+  fetcher:async(_url,opts)=>{
+   posted.push(JSON.parse(opts.body));
+   return new Response(JSON.stringify({code:0}),{status:200});
+  }
+ });
+
+ assert.equal(posted.length,1);
+ assert.equal(posted[0].history_id,'20261128-001');
+ assert.equal(posted[0].first_report_day,'2026-11-28');
+ assert.equal(posted[0].first_report_checksum,formalReport.checksum);
+ assert.equal(posted[0].category,'电商平台');
+ assert.equal(posted[0].url_status,'正常');
+ assert.equal(posted[0].priority,'高');
+ assert.doesNotMatch(JSON.stringify(posted[0]),/PRIVATE_/);
+ assert.equal(r1.stages.tableEntry.status,'accepted-unverified');
+ assert.equal(r1.stageDetails.tableEntry.liveWrites,1);
+
+ // Re-running preview never duplicates row 1 (halted at accepted-unverified) and allocates 20261128-002 for row 2!
+ const r2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:reader,
+  stateStore,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  maxLiveTableWrites:1,
+  fetcher:async(_url,opts)=>{
+   posted.push(JSON.parse(opts.body));
+   return new Response(JSON.stringify({code:0}),{status:200});
+  }
+ });
+ assert.equal(posted.length,2);
+ assert.equal(posted[1].history_id,'20261128-002');
+ assert.equal(posted[1].url,leadUrl2);
+ assert.equal(r2.stages.tableEntry.status,'accepted-unverified');
+});
+
+
