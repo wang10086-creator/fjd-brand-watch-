@@ -94,6 +94,7 @@ jobs:
           FEISHU_BASE_REVIEW_WEBHOOK: ${{ secrets.FEISHU_BASE_REVIEW_WEBHOOK }}
           FEISHU_BASE_PREVIEW_MODE: ${{ vars.FEISHU_BASE_PREVIEW_MODE }}
           FEISHU_BASE_STATUS_WEBHOOK: ${{ secrets.FEISHU_BASE_STATUS_WEBHOOK }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           FJD_OPERATION: ${{ inputs.operation }}
           FJD_SCHEDULE: ${{ github.event.schedule }}
         run: node cloud/runner.mjs

@@ -53,3 +53,37 @@ test('server Retry-After is not shortened by recovery cap and one successful pai
  const {recordHealth}=await import('../cloud/search-health.mjs');const providers={};recordHealth(providers,'rss',plan.domain,'source-unavailable',now,{code:429,retryAfter:24*3600000});assert.equal(providers.rssUntil,now+24*3600000);
  const base={plan,domain:plan.domain,platform:plan.platform,at:new Date(now).toISOString(),keywordCombinationCount:3};const c=siteCoverage([plan],{runs:[{reportDay:'2026-10-22',items:[{...base,keywordCombination:0,status:'失败'},{...base,keywordCombination:1,status:'成功'}]}]},'2026-10-22');assert.equal(c.rows[0].pendingFailed,1);assert.equal(c.rows[0].keywordCompleted,1);
 });
+test('simplifiedQuery deduplicates case-identical aliases and searchPlan supports optional Tavily Bearer key without leaking it',async()=>{
+ const {searchPlan}=await import('../search-engine.js');
+ const q=simplifiedQuery({...plan,aliases:['FJDynamics','FJDYNAMICS','Sveaverken']});
+ assert.match(q,/"FJDynamics"/);assert.match(q,/"Sveaverken"/);assert.doesNotMatch(q,/"FJDYNAMICS"/);
+ const seenHeaders=[];
+ const okRes=await searchPlan(plan,{apiKey:'tvly-SYNTHETIC-SECRET',retries:0,fetcher:async(_url,opts)=>{seenHeaders.push(opts.headers);return {ok:true,json:async()=>({results:[{url:'https://shop.example/a',title:'FJDynamics AT2',content:'FJDynamics AT2 for sale'}]})}}});
+ assert.equal(okRes.results.length,1);assert.equal(seenHeaders[0].Authorization,'Bearer tvly-SYNTHETIC-SECRET');assert.equal(seenHeaders[0]['X-Tavily-Access-Mode'],undefined);
+ await assert.rejects(searchPlan(plan,{apiKey:'tvly-SYNTHETIC-SECRET',retries:0,fetcher:async()=>({ok:false,status:401,headers:new Headers()})}),e=>e.code===401&&!JSON.stringify(e).includes('tvly-SYNTHETIC-SECRET'));
+ const keylessHeaders=[];
+ await searchPlan(plan,{apiKey:'',retries:0,fetcher:async(_url,opts)=>{keylessHeaders.push(opts.headers);return {ok:true,json:async()=>({results:[{url:'https://shop.example/a',title:'FJDynamics AT2',content:'FJDynamics AT2 for sale'}]})}}});
+ assert.equal(keylessHeaders[0]['X-Tavily-Access-Mode'],'keyless');assert.equal(keylessHeaders[0].Authorization,undefined);
+});
+test('Bing RSS retries once with brand-only site:domain query on cross-language scope-unverified and stays fail-closed if still off-domain',async()=>{
+ const intentPlan={...plan,terms:['αγορά','πωλητής']};
+ const calls=[];
+ const res=await cloudSearch(intentPlan,{
+  state:{searchProviders:{primaryUntil:now+60000}},now,
+  fetcher:async url=>{
+   calls.push(url);
+   if(url.includes('bing.com')&&decodeURIComponent(url).includes('αγορά'))return rss('https://outside.example/a');
+   if(url.includes('bing.com'))return rss('https://shop.example/hit');
+   return zero();
+  }
+ });
+ assert.equal(calls.filter(u=>u.includes('bing.com')).length,2);
+ assert.equal(res.outcome,'hit');assert.equal(res.results[0].url,'https://shop.example/hit');
+ assert.doesNotMatch(res.effectivePlan.query,/αγορά/);
+ // Still fails closed as scope-unverified if compact retry also returns off-domain results
+ await assert.rejects(cloudSearch(intentPlan,{
+  state:{searchProviders:{primaryUntil:now+60000}},now,
+  fetcher:async url=>url.includes('bing.com')?rss('https://outside.example/still-off'):({ok:false,status:403,headers:new Headers()})
+ }),e=>e.code==='scope-unverified');
+});
+

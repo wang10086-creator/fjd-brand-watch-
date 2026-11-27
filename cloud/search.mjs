@@ -59,9 +59,17 @@ export async function cloudSearch(plan,{state={},fetcher=fetch,wait,signal,now=D
    const data=await withSourceBudget(async child=>{
     if(name==='primary')return {...await searchPlan(plan,{fetcher,wait,signal:child,retries:0}),provider:'Tavily 公开索引'};
     if(name==='web'){const {attempt,...rest}=await publicHtmlSearch(plan,{fetcher,signal:child,query});return {...rest,rawCount:attempt.raw,attempts:[attempt]}}
-    const url='https://www.bing.com/search?'+new URLSearchParams({q:query,format:'rss',count:'10'}),r=await fetcher(url,{signal:child,headers:{Accept:'application/rss+xml, application/xml;q=0.9'}});
-    if(!r.ok)throw Object.assign(Error('备用公开索引 HTTP '+r.status),{code:r.status,retryAfter:retryAfterMs(r.headers?.get('Retry-After'))});
-    return {results:parseRss(await r.text()),provider:'Bing 公开 RSS 索引',effectivePlan:{...plan,query,searchUrl:url.replace('format=rss','format=html')}};
+    const fetchRss=async q=>{
+     const url='https://www.bing.com/search?'+new URLSearchParams({q,format:'rss',count:'10'}),r=await fetcher(url,{signal:child,headers:{Accept:'application/rss+xml, application/xml;q=0.9'}});
+     if(!r.ok)throw Object.assign(Error('备用公开索引 HTTP '+r.status),{code:r.status,retryAfter:retryAfterMs(r.headers?.get('Retry-After'))});
+     return {results:parseRss(await r.text()),provider:'Bing 公开 RSS 索引',effectivePlan:{...plan,query:q,searchUrl:url.replace('format=rss','format=html')}};
+    };
+    const firstRss=await fetchRss(query);
+    if(plan.domain&&plan.terms?.length&&firstRss.results.length&&!firstRss.results.some(r=>inTarget(r.url,plan.domain))){
+     const compactQuery=['site:'+plan.domain,simplifiedQuery({...plan,terms:[],models:[]})].filter(Boolean).join(' ');
+     if(compactQuery!==query)return await fetchRss(compactQuery);
+    }
+    return firstRss;
    },signal,Math.min(sourceBudgets[name],totalMs-(Date.now()-began)));
    const raw=data.results,scoped=raw.filter(r=>inTarget(r.url,plan.domain));
    if(raw.length&&!scoped.length)throw Object.assign(Error('索引仅返回域外结果，未确认目标站点检索'),{code:'scope-unverified',raw:raw.length});
