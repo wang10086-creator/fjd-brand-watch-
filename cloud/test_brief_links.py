@@ -9,7 +9,10 @@ class BriefLinksTests(unittest.TestCase):
     def test_confirmed_day_and_pending_future(self):
         url = archived_report_url('2026-10-27')
         self.assertEqual(url, 'https://fjdynamics.feishu.cn/docx/BgYadhKaQoScHWxj3vmcDol0nLe')
-        for day in ['2026-10-28', '2026-10-26']:
+        self.assertEqual(archived_report_url('2026-10-28'), 'https://fjdynamics.feishu.cn/docx/Zx8sdKanHogXL1xTnxccGEL6nqf')
+        self.assertEqual(archived_report_url('2026-11-14'), 'https://fjdynamics.feishu.cn/docx/FAV3dSrszok9U5xEWgIcPN90nce')
+        self.assertEqual(archived_report_url('2026-11-27'), 'https://fjdynamics.feishu.cn/docx/X2Q7dQSxroPZehxNdwOcs6jVnNe')
+        for day in ['2099-01-01', '2026-10-26', '2026-11-15']:
             self.assertIsNone(archived_report_url(day))
             card = brief_card({}, day, {}, [])
             self.assertIn('待归档', str(card))
