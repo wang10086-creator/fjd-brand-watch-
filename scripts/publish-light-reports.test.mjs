@@ -123,3 +123,31 @@ test('single-day retry respects manifest trace after an index publication interr
  assert.equal((await exportOneLightReport(args)).body.sha256,original.sha256);
  assert.equal((await exportOneLightReport({...args,publish:true})).body.sha256,original.sha256);
 });
+test('manifests from 2026-11-28 onward include deterministic public-only tableLeads without altering historic manifests or leaking private notes',async()=>{
+ const m=memory();
+ const oldRep=report('2026-11-27');
+ const newRep=report('2026-11-28');
+ newRep.report.cohort[0].snapshot.checkedAt='2026-11-27T11:30:00.000Z';
+ newRep.report.cohort[0].snapshot.platform='alibaba';
+ newRep.report.cohort[0].snapshot.url='https://shop.alibaba.com/product/fjd-at2.html';
+ newRep.report.cohort[0].key='https://shop.alibaba.com/product/fjd-at2.html';
+ newRep.report.cohort[0].frozenUrlCheck={current:{id:'chk-1',status:'normal',at:'2026-11-27T11:35:00.000Z'}};
+ sign(newRep);
+ const f=feed([oldRep,newRep]);
+ const res=await run(m,f);
+ assert.equal(res.status,'published');
+ const oldManifest=JSON.parse(m.files.get('daily-text/2026-11-27/manifest.json'));
+ assert.equal(Object.hasOwn(oldManifest,'tableLeads'),false);
+ const newManifest=JSON.parse(m.files.get('daily-text/2026-11-28/manifest.json'));
+ assert.equal(Array.isArray(newManifest.tableLeads),true);
+ assert.equal(newManifest.tableLeads.length,1);
+ assert.equal(newManifest.tableLeads[0].firstSeen,'2026-11-27T11:30:00.000Z');
+ assert.equal(newManifest.tableLeads[0].category,'电商平台');
+ assert.equal(newManifest.tableLeads[0].url_status,'正常');
+ assert.equal(newManifest.tableLeads[0].priority,'低');
+ assert.doesNotMatch(JSON.stringify(newManifest),/PRIVATE_|LONG_QUERY|snippet/);
+ // Re-running publishLightReports stays byte-identical with zero writes
+ assert.equal((await run(m,f)).status,'verified');
+ assert.equal(m.writes.length,3);
+});
+

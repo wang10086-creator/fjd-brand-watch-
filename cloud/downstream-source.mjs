@@ -133,6 +133,32 @@ export function parseLightDailyBody(markdownText,manifest){
  const stageMap={'待初核':'initial','待 IP 复核':'ip','后续处置中':'handling','已结案':'closed'};
  const levelMap={'高':'high','中':'medium','低':'low'};
 
+ const tableHydrationBySid=new Map();
+ if(Array.isArray(manifest.tableLeads)){
+  for(const item of manifest.tableLeads){
+   if(!item||typeof item!=='object'||Array.isArray(item))continue;
+   try{
+    const keyInfo=stableLeadKey(item.url);
+    if(item.source_id&&item.source_id!==keyInfo.source_id)continue;
+    tableHydrationBySid.set(keyInfo.source_id,{
+     source_id:keyInfo.source_id,
+     url:keyInfo.actualUrl,
+     title:typeof item.title==='string'?item.title.trim():'',
+     platform:typeof item.platform==='string'?item.platform.trim():'',
+     firstSeen:typeof item.firstSeen==='string'?item.firstSeen:null,
+     checkedAt:typeof item.checkedAt==='string'?item.checkedAt:null,
+     category:typeof item.category==='string'?item.category:null,
+     source_platform:typeof item.source_platform==='string'?item.source_platform:null,
+     country_region:typeof item.country_region==='string'?item.country_region:null,
+     entity_name:typeof item.entity_name==='string'?item.entity_name:null,
+     product_model:typeof item.product_model==='string'?item.product_model:null,
+     url_status:typeof item.url_status==='string'?item.url_status:null,
+     priority:typeof item.priority==='string'?item.priority:null
+    });
+   }catch{}
+  }
+ }
+
  const leads=[];
  for(const [index,rawBlock] of blocks.entries()){
   const lines=rawBlock.split(/\n+/).map(l=>l.trim()).filter(Boolean);
@@ -162,7 +188,8 @@ export function parseLightDailyBody(markdownText,manifest){
    canonicalUrl:keyInfo.canonicalUrl,
    source_id:keyInfo.source_id,
    canonicalUrlHash:keyInfo.canonicalUrlHash,
-   actualUrlHash:keyInfo.actualUrlHash
+   actualUrlHash:keyInfo.actualUrlHash,
+   tableHydration:tableHydrationBySid.get(keyInfo.source_id)||null
   });
  }
 
@@ -186,6 +213,7 @@ export function parseLightDailyBody(markdownText,manifest){
    ?'本期存在未执行或失败查询，不可将零线索视为无风险或全覆盖'
    :null,
   leads,
+  tableLeads:[...tableHydrationBySid.values()],
   body:{
    url:manifest.body?.url||null,
    characters,

@@ -84,6 +84,39 @@ export function auditLegacyPreflightAndFields(){
  ];
 }
 
+export function createStateHistoryIdAllocator({state,existingRows=[]}={}){
+ const reservedInRun=new Map();
+ const maxSeqForDay=dayCompact=>{
+  const re=new RegExp(`^${dayCompact}-(\\d{3,})$`);
+  let maxSeq=Number(state?.historySeqByDay?.[dayCompact]||0);
+  const scan=id=>{
+   const m=typeof id==='string'?id.match(re):null;
+   if(m){const n=Number(m[1]);if(Number.isSafeInteger(n)&&n>maxSeq)maxSeq=n;}
+  };
+  for(const r of existingRows||[])scan(r?.history_id);
+  for(const v of Object.values(state?.versions||{})){
+   for(const it of Object.values(v?.tableEntry?.items||{}))scan(it?.history_id);
+  }
+  for(const id of reservedInRun.values())scan(id);
+  return maxSeq;
+ };
+ return ({lead,source})=>{
+  const reportDay=source?.report_day||'';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(reportDay))return '';
+  const dayCompact=reportDay.replaceAll('-','');
+  const sid=lead?.source_id||'';
+  if(sid&&reservedInRun.has(sid))return reservedInRun.get(sid);
+  for(const v of Object.values(state?.versions||{})){
+   const existing=v?.report_day===reportDay?v?.tableEntry?.items?.[sid]?.history_id:null;
+   if(typeof existing==='string'&&existing.startsWith(dayCompact+'-'))return existing;
+  }
+  const next=maxSeqForDay(dayCompact)+1;
+  const id=`${dayCompact}-${String(next).padStart(3,'0')}`;
+  if(sid)reservedInRun.set(sid,id);
+  return id;
+ };
+}
+
 export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='',eventType='upsert'}={}){
  if(!lead||!source)throw Error('table-candidate-source-required');
  const cleanUrl=actualUrl(lead.url);
@@ -91,16 +124,22 @@ export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='
  const source_id=lead.source_id||'lead-'+sha256(canon);
  const missingFields=[];
 
- // Hydrate from verified ledger row when available; never invent timestamps or
- // silently drop required schema fields.
- const firstSeenMs=ledgerRow?.firstSeen?Date.parse(ledgerRow.firstSeen):NaN;
+ // Hydrate from verified ledger row or frozen manifest tableHydration; never
+ // invent timestamps or silently drop required schema fields.
+ const hydration=ledgerRow?null:(lead.tableHydration&&typeof lead.tableHydration==='object'?lead.tableHydration:null);
+ const firstSeenRaw=ledgerRow?.firstSeen||hydration?.firstSeen||null;
+ const firstSeenMs=firstSeenRaw?Date.parse(firstSeenRaw):NaN;
  const observedAtMs=ledgerRow?.checkedAt
   ?Date.parse(ledgerRow.checkedAt)
   :ledgerRow?.lastSeen
    ?Date.parse(ledgerRow.lastSeen)
-   :source.cycle?.cutoffAt
-    ?Date.parse(source.cycle.cutoffAt)
-    :NaN;
+   :hydration?.checkedAt
+    ?Date.parse(hydration.checkedAt)
+    :hydration?.firstSeen
+     ?Date.parse(hydration.firstSeen)
+     :source.cycle?.cutoffAt
+      ?Date.parse(source.cycle.cutoffAt)
+      :NaN;
 
  if(!Number.isFinite(firstSeenMs))missingFields.push('first_discovered_at_ms');
  if(!Number.isFinite(observedAtMs))missingFields.push('observed_at_ms');
@@ -110,14 +149,14 @@ export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='
   derived=baseFields({...ledgerRow,url:cleanUrl,title:ledgerRow.title||lead.title,platform:ledgerRow.platform||lead.platform});
  }
 
- const category=derived?.monitor_category||null;
- const platform=derived?.source_platform||lead.platform||'';
- const page_title=(ledgerRow?.title||lead.title||'').trim();
- const country_region=derived?.country_region??null;
- const entity_name=derived?.operator_name??null;
- const product_model=derived?.product_model??null;
- const url_status=derived?(derived.page_status||''):null;
- const priority=derived?.monitor_level||lead.priorityLabel||'';
+ const category=derived?.monitor_category||hydration?.category||null;
+ const platform=derived?.source_platform||hydration?.source_platform||lead.platform||'';
+ const page_title=(ledgerRow?.title||hydration?.title||lead.title||'').trim();
+ const country_region=derived?derived.country_region:(hydration?.country_region??null);
+ const entity_name=derived?derived.operator_name:(hydration?.entity_name??null);
+ const product_model=derived?derived.product_model:(hydration?.product_model??null);
+ const url_status=derived?(derived.page_status||''):(hydration?.url_status??null);
+ const priority=derived?.monitor_level||hydration?.priority||lead.priorityLabel||'';
 
  if(!category)missingFields.push('category');
  if(!platform.trim())missingFields.push('platform');

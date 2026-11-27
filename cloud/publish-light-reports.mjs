@@ -1,11 +1,69 @@
 import {createHash} from 'node:crypto';
+import {canonical} from '../model.js';
+import {actualUrl} from '../gateway/history-protocol.mjs';
+import {baseFields} from './base-fields.mjs';
 import {buildLightExport} from './formal-report-light.mjs';
 export const LIGHT_INDEX='daily-text/index.json';
 export const LIGHT_HISTORY_THROUGH='2026-10-27';
+export const LIGHT_TABLE_LEADS_SINCE='2026-11-28';
 const hash=b=>createHash('sha256').update(b).digest('hex');
 const sha=s=>/^[a-f0-9]{64}$/.test(s||'');
 const day=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+const validIso=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(v)&&Number.isFinite(Date.parse(v));
 const encoded=v=>Buffer.from(JSON.stringify(v));
+// Deterministic, immutable public-only lead hydration for Stage 1 table entry.
+// Reads strictly from the frozen formal report cohort; never exposes private notes, snippets, or queries.
+export function publicTableLeadsForReport(report){
+ const cohort=Array.isArray(report?.report?.cohort)?report.report.cohort:[];
+ const out=[],seen=new Set();
+ for(const e of cohort){
+  if(!e||e.kind!=='new')continue;
+  const s=e.snapshot||{};
+  let cleanUrl,canon;
+  try{cleanUrl=actualUrl(s.url);canon=canonical(cleanUrl);}catch{continue;}
+  const source_id='lead-'+hash(canon);
+  if(seen.has(source_id))continue;
+  seen.add(source_id);
+  const firstSeen=[s.checkedAt,e.queries?.[0]?.at,e.at].find(validIso)||null;
+  const checkedAt=[s.checkedAt,firstSeen].find(validIso)||null;
+  const title=typeof s.title==='string'?s.title.trim():'';
+  const platform=typeof s.platform==='string'?s.platform.trim():'';
+  if(!title||!platform||!firstSeen||!checkedAt)continue;
+  const safeRow={
+   url:cleanUrl,
+   title,
+   platform,
+   ...(typeof s.seller==='string'?{seller:s.seller}:{}),
+   ...(typeof s.operator==='string'?{operator:s.operator}:{}),
+   ...(typeof s.productModel==='string'?{productModel:s.productModel}:{}),
+   ...(typeof s.productName==='string'?{productName:s.productName}:{}),
+   ...(s.countryEvidence?{countryEvidence:true}:{}),
+   ...(typeof s.observedCountry==='string'?{observedCountry:s.observedCountry}:{}),
+   ...(e.frozenUrlCheck?{urlCheck:e.frozenUrlCheck}:{}),
+   ...(e.frozenPriority?{priorityV2:e.frozenPriority}:{})
+  };
+  let derived;
+  try{derived=baseFields(safeRow);}catch{continue;}
+  const priority=({high:'高',medium:'中',low:'低'})[e.frozenPriority?.level]||derived.monitor_level;
+  if(!['高','中','低'].includes(priority))continue;
+  out.push({
+   source_id,
+   url:cleanUrl,
+   title,
+   platform,
+   firstSeen,
+   checkedAt,
+   category:derived.monitor_category,
+   source_platform:derived.source_platform,
+   country_region:derived.country_region,
+   entity_name:derived.operator_name,
+   product_model:derived.product_model,
+   url_status:derived.page_status||'',
+   priority
+  });
+ }
+ return out;
+}
 function publicNotion(value){
  try{const u=new URL(value);return u.protocol==='https:'&&/(^|\.)notion\.site$/.test(u.hostname)&&!u.username&&!u.password&&!u.search&&!u.hash?value:null}catch{return null}
 }
@@ -22,7 +80,7 @@ function render(r,trace,limits){
 function dailyManifest(p){
  return {format:'fjd-daily-text',version:1,rendererVersion:1,report_day:p.day,formalChecksum:p.checksum,status:p.ready?'complete':'requires_segmentation',complete:p.ready,
   body:{url:p.bodyUrl,characters:p.m.body.characters,utf8Bytes:p.m.body.utf8Bytes,sha256:p.m.body.sha256},traceability:p.trace,
-  limits:p.m.limits,counts:p.m.counts};
+  limits:p.m.limits,counts:p.m.counts,...(p.day>=LIGHT_TABLE_LEADS_SINCE&&Array.isArray(p.tableLeads)?{tableLeads:p.tableLeads}:{})};
 }
 async function publicRead(url,expected,fetcher){
  const response=await fetcher(url,{redirect:'error',signal:AbortSignal.timeout(20000),cache:'no-store'});
@@ -67,7 +125,7 @@ export async function publishLightReports({feed,store,repository,branch='data-cl
   const ready=m.status==='ready',bodyBytes=Buffer.from(body),oldBody=await store.readBytes(path+'/body.md');
   if(oldBody&&!oldBody.bytes.equals(bodyBytes))throw Error('既有正文内容冲突，停止覆盖');
   if(previous&&previous.status!==(ready?'complete':'requires_segmentation'))throw Error('日级发布状态冲突');
-  plans.push({day:d,checksum:r.checksum,path,bodyBytes,ready,oldBody,stored,previous,trace,m,prior});
+  plans.push({day:d,checksum:r.checksum,path,bodyBytes,ready,oldBody,stored,previous,trace,m,prior,tableLeads:d>=LIGHT_TABLE_LEADS_SINCE?publicTableLeadsForReport(r):null});
  }
  // Validate every candidate before any mutation. Missing or invalid snapshots never
  // manufacture a successful entry; old already-published entries remain intact.
