@@ -88,12 +88,30 @@ test('seal watchdog runs when today is unsealed, skips with 0 commits once seale
   eventName:'schedule',
   schedule:'33,41,53 1 * * *',
   now:Date.parse('2026-11-27T01:41:00Z'),
-  status:sampleStatus({formalReports:[{day:'2026-11-14',status:'published'},{day:'2026-11-27',status:'published'}]}),
+  status:sampleStatus({
+   runtime:{reportTiming:{dueAt:'2026-11-27T09:30:00+08:00',checkedAt:'2026-11-27T02:51:11.927Z',lateByMs:4871927}},
+   formalReports:[{day:'2026-11-14',status:'published'},{day:'2026-11-27',status:'published'}]
+  }),
   dailyTextIndex:sampleDailyText(['2026-11-14','2026-11-27']),
   skippedRanges:SKIPPED
  });
  assert.equal(sealed.skip,true);
  assert.equal(sealed.reason,'today-already-sealed-and-published');
+
+ // Still pending if reportTiming.dueAt points to an unsealed day
+ const pendingDue=evaluateSchedulePreflight({
+  eventName:'schedule',
+  schedule:'33,41,53 1 * * *',
+  now:Date.parse('2026-11-27T01:41:00Z'),
+  status:sampleStatus({
+   runtime:{reportTiming:{dueAt:'2026-11-27T09:30:00+08:00'}},
+   formalReports:[{day:'2026-11-14',status:'published'}]
+  }),
+  dailyTextIndex:sampleDailyText(['2026-11-14']),
+  skippedRanges:SKIPPED
+ });
+ assert.equal(pendingDue.skip,false);
+ assert.equal(pendingDue.reason,'report-timing-due');
 });
 
 test('seal watchdog fails open on missing remote state, runtime errors, unconfirmed textExport, or missing prior day',()=>{

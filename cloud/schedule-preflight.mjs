@@ -79,9 +79,15 @@ export function evaluateSchedulePreflight({
  const yesterday=addDay(today,-1);
 
  const checkSealComplete=()=>{
-  if(runtime.reportTiming?.dueAt)return {skip:false,reason:'report-timing-due',day:today};
   if(!dailyTextIndex||!Array.isArray(dailyTextIndex.reports)){
    return {skip:false,reason:'daily-text-unavailable-fail-open',day:today};
+  }
+  const dueAt=runtime.reportTiming?.dueAt;
+  if(typeof dueAt==='string'&&dueAt){
+   const dueDay=dueAt.slice(0,10);
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(dueDay)||!isDaySealedAndPublished(dueDay,policy,skippedRanges,status,dailyTextIndex)){
+    return {skip:false,reason:'report-timing-due',day:/^\d{4}-\d{2}-\d{2}$/.test(dueDay)?dueDay:today};
+   }
   }
   const todayPushMs=Date.parse(cycleForDay(today,policy).pushAt);
   const yesterdayOk=isDaySealedAndPublished(yesterday,policy,skippedRanges,status,dailyTextIndex);
