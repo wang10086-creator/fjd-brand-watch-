@@ -269,7 +269,7 @@ export function indexExistingTableRows(rows=[]){
  return {bySourceId,byCanonicalUrl,byActualUrl};
 }
 
-export function deduplicateLead({lead,state,existingIndex=null}){
+export function deduplicateLead({lead,state,existingIndex=null,allowRetryVersionKey=null,allowRetrySourceId=''}={}){
  const clean=actualUrl(lead.url);
  const canon=canonical(clean);
  const source_id=lead.source_id||'lead-'+sha256(canon);
@@ -311,12 +311,20 @@ export function deduplicateLead({lead,state,existingIndex=null}){
    };
   }
   if(['sending','accepted-unverified','uncertain'].includes(stateHit.status)){
-   return {
-    status:'in-flight-blocked',
-    priorStatus:stateHit.status,
-    history_id:stateHit.history_id||null,
-    reason:`prior-${stateHit.status}-requires-verification`
-   };
+   const explicitRetryMatch=
+    Boolean(allowRetryVersionKey)&&
+    allowRetrySourceId===source_id&&
+    stateHit.source_id===source_id&&
+    stateHit.versionKey===allowRetryVersionKey&&
+    ['accepted-unverified','uncertain'].includes(stateHit.status);
+   if(!explicitRetryMatch){
+    return {
+     status:'in-flight-blocked',
+     priorStatus:stateHit.status,
+     history_id:stateHit.history_id||null,
+     reason:`prior-${stateHit.status}-requires-verification`
+    };
+   }
   }
  }
  return {status:'new-candidate'};
@@ -385,6 +393,7 @@ export async function runTableEntryStage({
  state,
  versionState,
  webhookUrl='',
+ retrySourceId='',
  readbackAdapter=createUnconfiguredTableReadbackAdapter(),
  existingRows=[],
  ledgerRowsByKey=new Map(),
@@ -403,6 +412,10 @@ export async function runTableEntryStage({
  const existingIndex=indexExistingTableRows(existingRows);
  const newLeads=(source.leads||[]).filter(l=>l.kind==='new');
  const audit=auditLegacyPreflightAndFields();
+ const normalizedRetrySourceId=
+  typeof retrySourceId==='string'&&/^lead-[a-f0-9]{64}$/.test(retrySourceId.trim())
+   ?retrySourceId.trim()
+   :'';
 
  // If this version already reached verified or skipped-no-new-leads and all
  // current leads are accounted for, skip cleanly.
@@ -450,7 +463,14 @@ export async function runTableEntryStage({
    itemReports.push({source_id:lead.source_id,status:existingItem.status,action:'skipped-already-done',record_id:existingItem.record_id||null});
    continue;
   }
-  if(existingItem&&['sending','accepted-unverified','uncertain'].includes(existingItem.status)){
+  const explicitOperatorRetry=
+   Boolean(normalizedRetrySourceId)&&
+   normalizedRetrySourceId===lead.source_id&&
+   !dryRun&&
+   !source.isHistoricalReplay&&
+   Boolean(existingItem)&&
+   ['accepted-unverified','uncertain'].includes(existingItem.status);
+  if(existingItem&&['sending','accepted-unverified','uncertain'].includes(existingItem.status)&&!explicitOperatorRetry){
    // If accepted-unverified and a readback adapter is now configured, allow
    // read-only readback reconciliation without re-POSTing!
    if(existingItem.status==='accepted-unverified'&&readbackAdapter?.configured&&existingItem.lastPayload){
@@ -476,7 +496,13 @@ export async function runTableEntryStage({
    continue;
   }
 
-  const dedup=deduplicateLead({lead,state,existingIndex});
+  const dedup=deduplicateLead({
+   lead,
+   state,
+   existingIndex,
+   allowRetryVersionKey:explicitOperatorRetry?versionState.versionKey:null,
+   allowRetrySourceId:explicitOperatorRetry?normalizedRetrySourceId:''
+  });
   if(dedup.status==='conflict'){
    stage.items[lead.source_id]={
     source_id:lead.source_id,
@@ -582,6 +608,7 @@ export async function runTableEntryStage({
    event_id:candidate.event_id,
    attempts:(existingItem?.attempts||0)+1,
    dispatchedAt:ts(),
+   ...(explicitOperatorRetry?{operatorRetryAt:ts()}:{}),
    verifiedAt:null,
    receiptHash:null,
    lastPayload:candidate.payload,

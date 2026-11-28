@@ -29,6 +29,10 @@ on:
         required: false
         type: boolean
         default: false
+      retry_table_source_id:
+        description: '仅人工确认飞书表确无该行时选填：精确单条 lead-<64位hex> 补发入表（绝不自动重试）'
+        required: false
+        type: string
 permissions:
   contents: write
 concurrency:
@@ -52,10 +56,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_HISTORY_WEBHOOK: ${{ secrets.FEISHU_HISTORY_WEBHOOK }}
-          # 飞书旧入表流程 wkfQwGPTGxlwgiUq 当前仍处于停用且存在已删字段/旧回调节点报错；
-          # 暂停 Stage 1 投递使新线索保持 pending（避免被停用网关误标 accepted-unverified），
-          # 待飞书端修复并启用后再改为 'false' 恢复自动入表。Stage 2 日报归档与 Stage 3 简报不受影响。
-          FJD_TABLE_ENTRY_PAUSED: 'true'
+          # 飞书历史表新入表流程 wkfCCuWm1JPV2qBa（丰疆历史线索自动入表）已启用且 Secret 已更新；
+          # 如需紧急暂停 Stage 1 投递，可改为 'true' 使新线索安全保持 pending。
+          FJD_TABLE_ENTRY_PAUSED: 'false'
+          FJD_RETRY_TABLE_SOURCE_ID: ${{ inputs.retry_table_source_id }}
           FEISHU_ARCHIVE_WEBHOOK: ${{ secrets.FEISHU_ARCHIVE_WEBHOOK }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}

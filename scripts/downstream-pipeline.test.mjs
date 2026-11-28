@@ -1106,13 +1106,14 @@ test('10. Manifest tableLeads hydration (2026-11-28+): end-to-end publishLightRe
 });
 
 test('11. Scheduled downstream preview workflow: Beijing 10:00 + off-peak backups, tableEntryPaused pending safety, and zero-write no-op on unchanged backup slots',async()=>{
- // 11a. Workflow YAML has active 10:00 Beijing + off-peak prime backup schedule, defaults to preview, and pauses Stage 1 until Feishu flow is repaired.
+ // 11a. Workflow YAML has active 10:00 Beijing + off-peak prime backup schedule, defaults to preview, Stage 1 active, and explicit retry input wired.
  const yml=await readFile(new URL('../.github/workflows/fjd-downstream-delivery.yml',import.meta.url),'utf8');
  assert.match(yml,/^\s+schedule:/m);
  assert.match(yml,/cron:\s*'0 2 \* \* \*'/);
  assert.match(yml,/cron:\s*'13,37,53 2 \* \* \*'/);
  assert.match(yml,/FJD_DOWNSTREAM_MODE:\s*\$\{\{\s*inputs\.mode \|\| 'preview'\s*\}\}/);
- assert.match(yml,/FJD_TABLE_ENTRY_PAUSED:\s*'true'/);
+ assert.match(yml,/FJD_TABLE_ENTRY_PAUSED:\s*'false'/);
+ assert.match(yml,/FJD_RETRY_TABLE_SOURCE_ID:\s*\$\{\{\s*inputs\.retry_table_source_id\s*\}\}/);
 
  // 11b. First scheduled preview with tableEntryPaused=true: 0 table POSTs (keeps lead pending), 1 archive POST, 0 bot POSTs.
  const day='2026-11-29';
@@ -1275,6 +1276,117 @@ test('11. Scheduled downstream preview workflow: Beijing 10:00 + off-peak backup
  });
  assert.equal(tablePosts,1,'accepted-unverified must NOT duplicate-POST');
  assert.equal(store.writeCount,writesAfterResume,'Unchanged accepted-unverified backup slot must produce ZERO data-cloud commits');
+});
+
+test('12. Audited single-lead operator retry: only exact lead-<64hex> matching same-version accepted-unverified/uncertain retries once, preserving history_id and never overriding verified/duplicate/in-flight sending',async()=>{
+ const day='2026-11-28';
+ const leadUrl='https://agroline.example/sale/fjd-ag1-kit-1001';
+ const targetSid=stableLeadKey(leadUrl).source_id;
+ const fixture=makeSealedFixture({day,formalChecksum:'f'.repeat(64)});
+ const ledger=makeLedgerMap(day,leadUrl);
+ const store=createMemoryStore();
+ const posted=[];
+ const fetcher=async(_url,opts)=>{
+  posted.push(JSON.parse(opts.body));
+  return new Response(JSON.stringify({code:0}),{status:200});
+ };
+
+ // Initial dispatch -> accepted-unverified (attempt 1, history_id 20261128-001).
+ const r1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261128-001',
+  fetcher
+ });
+ assert.equal(posted.length,1);
+ assert.equal(r1.stages.tableEntry.status,'accepted-unverified');
+
+ // Wrong / malformed retryTableSourceId still halts with 0 POSTs.
+ for(const bad of ['','*','lead-short','lead-'+'0'.repeat(64)]){
+  const rb=await runDownstreamPipeline({
+   mode:'preview',
+   targetDay:day,
+   currentBeijingDay:day,
+   sourceReader:fixture.reader,
+   stateStore:store,
+   password:TEST_PASSWORD,
+   archiveMapRows:[],
+   tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+   retryTableSourceId:bad,
+   ledgerRowsByKey:ledger,
+   allocateHistoryId:()=>'20261128-001',
+   fetcher
+  });
+  assert.equal(posted.length,1,`Bad retryTableSourceId "${bad}" must NEVER re-POST`);
+  assert.equal(rb.stages.tableEntry.status,'accepted-unverified');
+ }
+
+ // Exact matching retryTableSourceId re-dispatches ONCE with identical history_id and increments attempts!
+ const r2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  retryTableSourceId:targetSid,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261128-001',
+  fetcher
+ });
+ assert.equal(posted.length,2);
+ assert.equal(posted[1].history_id,'20261128-001');
+ assert.equal(posted[1].source_id,targetSid);
+ assert.equal(r2.stages.tableEntry.status,'accepted-unverified');
+ const loadedAfterRetry=await loadEncryptedDownstreamState({store,password:TEST_PASSWORD});
+ const savedItem=loadedAfterRetry.state.versions[`${day}::${'f'.repeat(64)}`].tableEntry.items[targetSid];
+ assert.equal(savedItem.attempts,2);
+ assert.ok(savedItem.operatorRetryAt,'operatorRetryAt audit timestamp must be recorded');
+
+ // Even with exact retryTableSourceId, an already-present Feishu row (existingTableRows) is NEVER retried!
+ const r3=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  retryTableSourceId:targetSid,
+  existingTableRows:[{record_id:'recExisting123',history_id:'20261128-001',source_id:targetSid,url:leadUrl}],
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261128-001',
+  fetcher
+ });
+ assert.equal(posted.length,2,'Existing Feishu row must block even explicit operator retry');
+ assert.equal(r3.stages.tableEntry.status,'verified');
+
+ // Once verified, even exact retryTableSourceId is strictly ignored!
+ await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  retryTableSourceId:targetSid,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261128-001',
+  fetcher
+ });
+ assert.equal(posted.length,2,'Verified item must NEVER be retried');
 });
 
 
