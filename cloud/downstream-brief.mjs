@@ -220,14 +220,21 @@ export async function runBriefStage({
     previewText
    };
   }
-  stage.status='awaiting-confirmation';
-  stage.cardDigest=rendered.cardDigest;
-  stage.archiveUrlIncluded=rendered.archiveUrlIncluded;
-  stage.previewGeneratedAt=ts();
-  stage.lastErrorCode=null;
-  stage.updatedAt=ts();
-  if(!dryRun&&!source.isHistoricalReplay){
-   await persist(`downstream: brief preview awaiting confirmation ${source.report_day}`);
+  const unchanged=
+   stage.status==='awaiting-confirmation'&&
+   stage.cardDigest===rendered.cardDigest&&
+   (stage.archiveUrlIncluded||null)===(rendered.archiveUrlIncluded||null)&&
+   (stage.lastErrorCode||null)===null;
+  if(!unchanged){
+   stage.status='awaiting-confirmation';
+   stage.cardDigest=rendered.cardDigest;
+   stage.archiveUrlIncluded=rendered.archiveUrlIncluded;
+   stage.previewGeneratedAt=ts();
+   stage.lastErrorCode=null;
+   stage.updatedAt=ts();
+   if(!dryRun&&!source.isHistoricalReplay){
+    await persist(`downstream: brief preview awaiting confirmation ${source.report_day}`);
+   }
   }
   return {
    stage:'brief',
