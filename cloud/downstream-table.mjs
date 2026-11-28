@@ -20,6 +20,7 @@ import {
  validatePayload
 } from '../gateway/history-protocol.mjs';
 import {collectKnownLeadIdentities,reconcileStaleInFlight} from './downstream-state.mjs';
+import {buildLeadRelevanceNote,resolveLeadCountry} from './lead-enrichment.mjs';
 
 export const TARGET_HISTORY_TABLE=historyTable;
 export const TARGET_HISTORY_WORKFLOW=historyWorkflow;
@@ -117,7 +118,7 @@ export function createStateHistoryIdAllocator({state,existingRows=[]}={}){
  };
 }
 
-export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='',eventType='upsert'}={}){
+export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='',eventType='upsert',enrichment=null}={}){
  if(!lead||!source)throw Error('table-candidate-source-required');
  const cleanUrl=actualUrl(lead.url);
  const canon=canonical(cleanUrl);
@@ -152,11 +153,23 @@ export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='
  const category=derived?.monitor_category||hydration?.category||null;
  const platform=derived?.source_platform||hydration?.source_platform||lead.platform||'';
  const page_title=(ledgerRow?.title||hydration?.title||lead.title||'').trim();
- const country_region=derived?derived.country_region:(hydration?.country_region??null);
+ const rawCountry=derived?derived.country_region:(hydration?.country_region??null);
+ const country_region=rawCountry===null
+  ?null
+  :(enrichment?.country_region&&enrichment.country_region!=='待核实'
+   ?enrichment.country_region
+   :resolveLeadCountry({
+    url:cleanUrl,
+    title:page_title,
+    currentCountry:rawCountry,
+    observedCountry:ledgerRow?.observedCountry||'',
+    countryEvidence:Boolean(ledgerRow?.countryEvidence)
+   }).country);
  const entity_name=derived?derived.operator_name:(hydration?.entity_name??null);
  const product_model=derived?derived.product_model:(hydration?.product_model??null);
  const url_status=derived?(derived.page_status||''):(hydration?.url_status??null);
  const priority=derived?.monitor_level||hydration?.priority||lead.priorityLabel||'';
+ const snapshot_url=typeof enrichment?.snapshot_url==='string'?enrichment.snapshot_url.trim():'';
 
  if(!category)missingFields.push('category');
  if(!platform.trim())missingFields.push('platform');
@@ -199,7 +212,7 @@ export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='
   url_status,
   priority,
   preview_image_url:'',
-  snapshot_url:'',
+  snapshot_url,
   observed_at_ms:observedAtMs,
   first_report_day:source.report_day,
   first_report_checksum:source.formalChecksum,
@@ -207,7 +220,20 @@ export function buildTableEntryCandidate({lead,source,ledgerRow=null,historyId='
   first_discovered_at:new Date(firstSeenMs).toISOString()
  };
 
- return validateTableEntryPayload(payload);
+ const validated=validateTableEntryPayload(payload);
+ if(!validated.valid)return validated;
+ const remarks=(typeof enrichment?.remarks==='string'&&enrichment.remarks.trim())
+  ?enrichment.remarks.trim()
+  :buildLeadRelevanceNote({
+   lead:{...lead,title:page_title,url:cleanUrl},
+   source,
+   platformLabel:platform,
+   priorityLabel:priority
+  });
+ return {
+  ...validated,
+  remarks
+ };
 }
 
 export function validateTableEntryPayload(payload){
@@ -330,7 +356,7 @@ export function deduplicateLead({lead,state,existingIndex=null,allowRetryVersion
  return {status:'new-candidate'};
 }
 
-export function verifyTableReadback({payload,readbackRecord}){
+export function verifyTableReadback({payload,readbackRecord,expectedRemarks=''}={}){
  if(!readbackRecord||typeof readbackRecord!=='object'){
   return {verified:false,mismatches:['readback-record-missing']};
  }
@@ -350,7 +376,9 @@ export function verifyTableReadback({payload,readbackRecord}){
  if(readbackRecord.processing_status!==EXPECTED_INITIAL_PROCESSING_STATUS){
   mismatches.push('processing_status-mismatch');
  }
- if(readbackRecord.remarks!==''&&readbackRecord.remarks!==undefined&&readbackRecord.remarks!==null){
+ if(expectedRemarks){
+  if(readbackRecord.remarks!==expectedRemarks)mismatches.push('remarks-mismatch');
+ }else if(readbackRecord.remarks!==''&&readbackRecord.remarks!==undefined&&readbackRecord.remarks!==null){
   mismatches.push('remarks-not-empty');
  }
  return {
@@ -394,6 +422,7 @@ export async function runTableEntryStage({
  versionState,
  webhookUrl='',
  retrySourceId='',
+ leadEnricher=null,
  readbackAdapter=createUnconfiguredTableReadbackAdapter(),
  existingRows=[],
  ledgerRowsByKey=new Map(),
@@ -597,6 +626,35 @@ export async function runTableEntryStage({
    continue;
   }
 
+  // Optional live enrichment (country HTML extraction + URL/timestamp screenshot + relevance note)
+  // runs strictly right before an authorized live dispatch.
+  let enrichment=null;
+  let effectiveCandidate=candidate;
+  if(typeof leadEnricher==='function'){
+   try{
+    enrichment=await leadEnricher({
+     lead,
+     source,
+     historyId:candidate.payload.history_id,
+     currentCountry:candidate.payload.country_region,
+     platformLabel:candidate.payload.platform,
+     priorityLabel:candidate.payload.priority
+    });
+    if(enrichment&&typeof enrichment==='object'){
+     const rechecked=buildTableEntryCandidate({lead,source,ledgerRow,historyId:allocatedId,enrichment});
+     if(rechecked.valid){
+      effectiveCandidate=rechecked;
+     }else if(enrichment.snapshot_url){
+      const fallback=buildTableEntryCandidate({lead,source,ledgerRow,historyId:allocatedId,enrichment:{...enrichment,snapshot_url:''}});
+      if(fallback.valid)effectiveCandidate=fallback;
+     }
+    }
+   }catch{
+    enrichment=null;
+   }
+  }
+  const effectiveRemarks=effectiveCandidate.remarks||'';
+
   // Save-before-send: persist 'sending' BEFORE issuing any network POST.
   const item=stage.items[lead.source_id]={
    source_id:lead.source_id,
@@ -604,14 +662,17 @@ export async function runTableEntryStage({
    actualUrlHash:lead.actualUrlHash,
    status:'sending',
    record_id:null,
-   history_id:candidate.payload.history_id,
-   event_id:candidate.event_id,
+   history_id:effectiveCandidate.payload.history_id,
+   event_id:effectiveCandidate.event_id,
    attempts:(existingItem?.attempts||0)+1,
    dispatchedAt:ts(),
    ...(explicitOperatorRetry?{operatorRetryAt:ts()}:{}),
    verifiedAt:null,
    receiptHash:null,
-   lastPayload:candidate.payload,
+   lastPayload:effectiveCandidate.payload,
+   remarks:effectiveRemarks,
+   ...(enrichment?.screenshotStatus?{screenshotStatus:enrichment.screenshotStatus}:{}),
+   ...(enrichment?.screenshotReason?{screenshotReason:enrichment.screenshotReason}:{}),
    lastErrorCode:null
   };
   stage.status='uncertain';
@@ -622,9 +683,11 @@ export async function runTableEntryStage({
   try{
    const response=await fetcher(validWebhook,{
     method:'POST',
-    headers:{'Content-Type':'application/json','Client-Token':candidate.event_id},
+    headers:{'Content-Type':'application/json','Client-Token':effectiveCandidate.event_id},
     body:JSON.stringify({
-     ...candidate.payload,
+     ...effectiveCandidate.payload,
+     remarks:effectiveRemarks,
+     screenshot_captured_at:enrichment?.screenshotCapturedAt||'',
      workflow_id:TARGET_HISTORY_WORKFLOW,
      table_id:TARGET_HISTORY_TABLE
     }),
