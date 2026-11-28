@@ -24,6 +24,7 @@ import {
  loadSealedSource
 } from './downstream-source.mjs';
 import {createStateHistoryIdAllocator,createUnconfiguredTableReadbackAdapter,runTableEntryStage} from './downstream-table.mjs';
+import {createLiveLeadEnricher} from './lead-screenshot.mjs';
 import {
  ARCHIVE_MAP_PATH,
  createUnconfiguredArchiveAdapter,
@@ -50,6 +51,7 @@ export async function runDownstreamPipeline({
  tableWebhookUrl='',
  tableEntryPaused=false,
  retryTableSourceId='',
+ leadEnricher=null,
  tableReadbackAdapter=createUnconfiguredTableReadbackAdapter(),
  existingTableRows=[],
  ledgerRowsByKey=new Map(),
@@ -166,6 +168,7 @@ export async function runDownstreamPipeline({
   versionState,
   webhookUrl:tableEntryPaused?'':tableWebhookUrl,
   retrySourceId:effectiveDryRun?'':String(retryTableSourceId||'').trim(),
+  leadEnricher:effectiveDryRun?null:leadEnricher,
   readbackAdapter:tableReadbackAdapter,
   existingRows:existingTableRows,
   ledgerRowsByKey,
@@ -363,6 +366,11 @@ async function main(){
   catch{archiveAdapter=createUnconfiguredArchiveAdapter();}
  }
 
+ const tableEntryPaused=process.env.FJD_TABLE_ENTRY_PAUSED==='true';
+ const leadEnricher=!dryRun&&!tableEntryPaused
+  ?createLiveLeadEnricher({repository,token})
+  :null;
+
  const result=await runDownstreamPipeline({
   mode,
   targetDay,
@@ -373,8 +381,9 @@ async function main(){
   indexPublisher,
   archiveReceiptInput,
   tableWebhookUrl:dryRun?'':(process.env.FEISHU_HISTORY_WEBHOOK||''),
-  tableEntryPaused:process.env.FJD_TABLE_ENTRY_PAUSED==='true',
+  tableEntryPaused,
   retryTableSourceId:dryRun?'':retryTableSourceId,
+  leadEnricher,
   botWebhookUrl:dryRun?'':(process.env.FEISHU_BOT_WEBHOOK||''),
   botSecret:dryRun?'':(process.env.FEISHU_BOT_SECRET||''),
   confirmSend,

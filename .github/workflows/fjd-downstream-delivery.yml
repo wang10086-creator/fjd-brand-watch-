@@ -51,6 +51,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: 准备网页截图中文显示字体（仅 preview 且缺失中文字体时）
+        if: inputs.mode == '' || inputs.mode == 'preview'
+        run: |
+          if ! fc-list :lang=zh | grep -q .; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq fonts-wqy-microhei
+          fi
       - name: 运行统一断点续跑下游流程（入表 → 归档 → 群简报预览/确认发送）
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

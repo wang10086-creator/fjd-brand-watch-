@@ -1389,4 +1389,113 @@ test('12. Audited single-lead operator retry: only exact lead-<64hex> matching s
  assert.equal(posted.length,2,'Verified item must NEVER be retried');
 });
 
+test('13. Stage 1 enrichment in runDownstreamPipeline: sends upgraded country_region, non-empty relevance remarks, verified snapshot_url, and falls back gracefully on enricher error',async()=>{
+ const day='2026-11-29';
+ const leadUrl='https://www.cbinsights.com/company/fj-dynamics/alternatives-competitors';
+ const fixture=makeSealedFixture({
+  day,
+  formalChecksum:'9'.repeat(64),
+  leads:[
+   {
+    title:'Top FJDynamics Alternatives, Competitors',
+    platform:'dealer',
+    kind:'new',
+    reviewStage:'待初核',
+    change:'本期新发现；不据此认定页面刚发布。',
+    priority:'低',
+    reason:'低优先级：当前仅有标题、网址或品牌词，尚无支持中高优先级的具体行为证据，按较低复核顺序安排。',
+    url:leadUrl
+   }
+  ]
+ });
+ const ledger=makeLedgerMap(day,leadUrl,{
+  title:'Top FJDynamics Alternatives, Competitors',
+  platform:'dealer',
+  priorityV2:{level:'low'}
+ });
+ const store=createMemoryStore();
+ const posted=[];
+ const screenshotUrl='https://github.com/wang10086-creator/fjd-brand-watch-/releases/download/lead-screenshots-2026-11/20261129-001-a1b2c3d4.png';
+ const res=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  leadEnricher:async()=>({
+   country_region:'美国',
+   countryEvidenceKind:'html-jsonld-address',
+   snapshot_url:screenshotUrl,
+   screenshotCapturedAt:'2026-11-29T02:00:05.000Z',
+   screenshotStatus:'captured',
+   remarks:'2026-11-29 日报新发现：页面标题/网址命中品牌词「FJDynamics」（标题：Top FJDynamics Alternatives, Competitors），渠道为经销商 / 代理商独立站；关联特征：当前仅有标题、网址或品牌词（低优先级复核）；需结合原页面核实经营主体、实际业务关联及品牌授权情况。'
+  }),
+  fetcher:async(_url,opts)=>{
+   posted.push(JSON.parse(opts.body));
+   return new Response(JSON.stringify({code:0}),{status:200});
+  }
+ });
+
+ assert.equal(res.stages.tableEntry.status,'accepted-unverified');
+ assert.equal(posted.length,1);
+ assert.equal(posted[0].country_region,'美国');
+ assert.equal(posted[0].snapshot_url,screenshotUrl);
+ assert.equal(posted[0].screenshot_captured_at,'2026-11-29T02:00:05.000Z');
+ assert.match(posted[0].remarks,/FJDynamics/);
+ assert.ok(posted[0].remarks.length>20);
+
+ // Enricher throws -> still dispatches safely with offline title-country resolution & non-empty relevance remarks!
+ const day2='2026-11-30';
+ const leadUrl2='https://agroline.com/-/sale/GPS-land-leveling-systems/fjd-rk45345';
+ const fixture2=makeSealedFixture({
+  day:day2,
+  formalChecksum:'8'.repeat(64),
+  leads:[
+   {
+    title:'GPS land leveling system for sale from Germany Wildeshausen, RK45345 - Agroline',
+    platform:'agroline',
+    kind:'new',
+    reviewStage:'待初核',
+    change:'本期新发现；不据此认定页面刚发布。',
+    priority:'高',
+    reason:'页面指向目标品牌商品，并存在销售、报价或转卖信息。',
+    url:leadUrl2
+   }
+  ]
+ });
+ const ledger2=makeLedgerMap(day2,leadUrl2,{
+  title:'GPS land leveling system for sale from Germany Wildeshausen, RK45345 - Agroline',
+  platform:'agroline'
+ });
+ const posted2=[];
+ const res2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day2,
+  currentBeijingDay:day2,
+  sourceReader:fixture2.reader,
+  stateStore:createMemoryStore(),
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  ledgerRowsByKey:ledger2,
+  allocateHistoryId:()=>'20261130-001',
+  leadEnricher:async()=>{throw Error('simulated-enricher-crash');},
+  fetcher:async(_url,opts)=>{
+   posted2.push(JSON.parse(opts.body));
+   return new Response(JSON.stringify({code:0}),{status:200});
+  }
+ });
+ assert.equal(res2.stages.tableEntry.status,'accepted-unverified');
+ assert.equal(posted2.length,1);
+ assert.equal(posted2[0].country_region,'德国','Offline title extraction must still resolve Germany even if live enricher crashes');
+ assert.equal(posted2[0].snapshot_url,'');
+ assert.match(posted2[0].remarks,/2026-11-30 日报新发现/);
+ assert.match(posted2[0].remarks,/销售、报价或转卖信息/);
+});
+
 
