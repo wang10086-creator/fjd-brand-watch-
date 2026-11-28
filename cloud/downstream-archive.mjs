@@ -446,14 +446,17 @@ export async function runArchiveStage({
  }
 
  if(!archiveAdapter?.configured){
+  const unchanged=stage.status==='paused-unconfigured'&&stage.lastErrorCode==='cloud-archive-adapter-unconfigured';
   stage.status='paused-unconfigured';
   stage.lastErrorCode='cloud-archive-adapter-unconfigured';
-  stage.updatedAt=ts();
-  await persist('downstream: archive paused (no authorized cloud archive writer)');
+  if(!unchanged){
+   stage.updatedAt=ts();
+   await persist('downstream: archive paused (no authorized cloud archive writer)');
+  }
   return {
    stage:'archive',
    status:'paused-unconfigured',
-   skipped:false,
+   skipped:unchanged,
    createdDoc:false,
    errorCode:'cloud-archive-adapter-unconfigured',
    alternatives:archiveAdapter.alternatives||createUnconfiguredArchiveAdapter().alternatives

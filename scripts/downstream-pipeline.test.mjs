@@ -1105,4 +1105,176 @@ test('10. Manifest tableLeads hydration (2026-11-28+): end-to-end publishLightRe
  assert.equal(r2.stages.tableEntry.status,'accepted-unverified');
 });
 
+test('11. Scheduled downstream preview workflow: Beijing 10:00 + off-peak backups, tableEntryPaused pending safety, and zero-write no-op on unchanged backup slots',async()=>{
+ // 11a. Workflow YAML has active 10:00 Beijing + off-peak prime backup schedule, defaults to preview, and pauses Stage 1 until Feishu flow is repaired.
+ const yml=await readFile(new URL('../.github/workflows/fjd-downstream-delivery.yml',import.meta.url),'utf8');
+ assert.match(yml,/^\s+schedule:/m);
+ assert.match(yml,/cron:\s*'0 2 \* \* \*'/);
+ assert.match(yml,/cron:\s*'13,37,53 2 \* \* \*'/);
+ assert.match(yml,/FJD_DOWNSTREAM_MODE:\s*\$\{\{\s*inputs\.mode \|\| 'preview'\s*\}\}/);
+ assert.match(yml,/FJD_TABLE_ENTRY_PAUSED:\s*'true'/);
+
+ // 11b. First scheduled preview with tableEntryPaused=true: 0 table POSTs (keeps lead pending), 1 archive POST, 0 bot POSTs.
+ const day='2026-11-29';
+ const leadUrl='https://agroline.example/sale/fjd-ag1-kit-1001';
+ const fixture=makeSealedFixture({day,formalChecksum:'e'.repeat(64)});
+ const ledger=makeLedgerMap(day,leadUrl);
+ const store=createMemoryStore();
+ let tablePosts=0,archivePosts=0,botPosts=0;
+ const postedTable=[];
+ const archiveAdapter=createWebhookArchiveAdapter({
+  webhookUrl:'https://fjdynamics.feishu.cn/base/workflow/webhook/event/testArchiveHook999',
+  fetcher:async()=>{archivePosts++;return new Response(JSON.stringify({code:0}),{status:200});}
+ });
+ const tableFetcher=async(url,opts)=>{
+  if(url===TEST_HISTORY_WEBHOOK){
+   tablePosts++;
+   postedTable.push(JSON.parse(opts.body));
+   return new Response(JSON.stringify({code:0}),{status:200});
+  }
+  botPosts++;
+  return new Response(JSON.stringify({code:0}),{status:200});
+ };
+
+ const r1=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter,
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:true,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(r1.stages.tableEntry.status,'paused-unconfigured');
+ assert.equal(r1.stages.archive.status,'accepted-unverified');
+ assert.equal(r1.stages.brief.status,'awaiting-confirmation');
+ assert.equal(tablePosts,0,'tableEntryPaused must NOT POST to disabled Feishu webhook');
+ assert.equal(archivePosts,1);
+ assert.equal(botPosts,0,'preview must NEVER send Feishu group brief');
+ const writesAfterFirst=store.writeCount;
+ assert.ok(writesAfterFirst>=3);
+
+ // 11c. Backup cron slot (e.g. 10:13) on unchanged state: ZERO POSTs AND ZERO data-cloud commits!
+ const r2=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter,
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:true,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(tablePosts,0);
+ assert.equal(archivePosts,1);
+ assert.equal(botPosts,0);
+ assert.equal(store.writeCount,writesAfterFirst,'Unchanged backup preview slot must produce ZERO data-cloud commits');
+ assert.equal(r2.stageDetails.tableEntry.skipped,true);
+
+ // 11d. Operator index-backfill updates archive -> verified and refreshes brief preview with verified link.
+ let publishedRows=[];
+ const receipt={
+  source_table_id:ARCHIVE_SOURCE_TABLE,
+  source_record_id:'reczz28test1129',
+  report_day:day,
+  record:{report_day:day,document_url:'https://fjdynamics.feishu.cn/docx/TestDoc20261129AbCd',archive_status:'archived'}
+ };
+ const r3=await runDownstreamPipeline({
+  mode:'index-backfill',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:[],
+  archiveAdapter,
+  archiveReceiptInput:receipt,
+  indexPublisher:async rec=>{publishedRows=[rec.record];return {status:'published',commit:'f'.repeat(40)};},
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:true,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(r3.stages.archive.status,'verified');
+ assert.equal(r3.stageDetails.brief.archiveUrlIncluded,'https://fjdynamics.feishu.cn/docx/TestDoc20261129AbCd');
+ const writesAfterBackfill=store.writeCount;
+ assert.ok(writesAfterBackfill>writesAfterFirst);
+
+ // 11e. Another backup cron slot after index-backfill (still awaiting human confirm-send): ZERO writes!
+ await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:publishedRows,
+  archiveAdapter,
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:true,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(store.writeCount,writesAfterBackfill,'Post-backfill backup preview slot must produce ZERO data-cloud commits');
+
+ // 11f. Once Feishu workflow is repaired and tableEntryPaused is turned off, the pending lead dispatches cleanly with the exact same history_id!
+ const r5=await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:publishedRows,
+  archiveAdapter,
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:false,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(tablePosts,1,'Pending lead must dispatch cleanly once tableEntryPaused=false');
+ assert.equal(postedTable[0].history_id,'20261129-001');
+ assert.equal(r5.stages.tableEntry.status,'accepted-unverified');
+
+ // 11g. Subsequent backup slot after Stage 1 enters accepted-unverified is also ZERO-write!
+ const writesAfterResume=store.writeCount;
+ await runDownstreamPipeline({
+  mode:'preview',
+  targetDay:day,
+  currentBeijingDay:day,
+  sourceReader:fixture.reader,
+  stateStore:store,
+  password:TEST_PASSWORD,
+  archiveMapRows:publishedRows,
+  archiveAdapter,
+  tableWebhookUrl:TEST_HISTORY_WEBHOOK,
+  tableEntryPaused:false,
+  ledgerRowsByKey:ledger,
+  allocateHistoryId:()=>'20261129-001',
+  botWebhookUrl:TEST_BOT_WEBHOOK,
+  fetcher:tableFetcher
+ });
+ assert.equal(tablePosts,1,'accepted-unverified must NOT duplicate-POST');
+ assert.equal(store.writeCount,writesAfterResume,'Unchanged accepted-unverified backup slot must produce ZERO data-cloud commits');
+});
+
 

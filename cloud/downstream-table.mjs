@@ -434,6 +434,12 @@ export async function runTableEntryStage({
   catch(err){webhookError=err.message;}
  }
 
+ const beforeSnapshot=JSON.stringify({
+  status:stage.status,
+  lastErrorCode:stage.lastErrorCode??null,
+  items:stage.items
+ });
+
  let liveWrites=0;
  let hasPendingNewCandidate=false;
  const itemReports=[];
@@ -653,15 +659,25 @@ export async function runTableEntryStage({
   if(item.status==='uncertain')break;
  }
 
- stage.status=summarizeTableStageStatus(stage.items,!validWebhook,hasPendingNewCandidate);
- stage.lastErrorCode=webhookError||(stage.status==='blocked-schema'?'missing-or-invalid-schema-fields':null);
- stage.updatedAt=ts();
- if(!dryRun)await persist(`downstream: table stage ${stage.status}`);
+ const nextStatus=summarizeTableStageStatus(stage.items,!validWebhook,hasPendingNewCandidate);
+ const nextErrorCode=webhookError||(nextStatus==='blocked-schema'?'missing-or-invalid-schema-fields':null);
+ const afterSnapshot=JSON.stringify({
+  status:nextStatus,
+  lastErrorCode:nextErrorCode,
+  items:stage.items
+ });
+ const stageChanged=liveWrites>0||beforeSnapshot!==afterSnapshot;
+ stage.status=nextStatus;
+ stage.lastErrorCode=nextErrorCode;
+ if(stageChanged){
+  stage.updatedAt=ts();
+  if(!dryRun)await persist(`downstream: table stage ${stage.status}`);
+ }
 
  return {
   stage:'tableEntry',
   status:stage.status,
-  skipped:false,
+  skipped:!stageChanged,
   liveWrites,
   readbackConfigured:Boolean(readbackAdapter?.configured),
   webhookConfigured:Boolean(validWebhook),

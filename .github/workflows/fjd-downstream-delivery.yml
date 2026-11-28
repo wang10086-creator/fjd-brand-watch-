@@ -1,9 +1,10 @@
 name: 丰疆下游交付（入表→归档→简报）
 on:
-  # 下游唯一交付日程（北京时间 10:00 = UTC 02:00）默认保持停用；
-  # 须待入表回读与云端归档入口真实验收通过后，经负责人明确批准再取消注释启用。
-  # schedule:
-  #   - cron: '0 2 * * *'
+  # 下游唯一交付日程（北京时间 10:00 = UTC 02:00，外加避峰补偿点 10:13/10:37/10:53）；
+  # 定时触发恒定仅执行 mode=preview（归档+生成预览，绝不自动发群），群简报须经人工核对后手动 confirm-send。
+  schedule:
+    - cron: '0 2 * * *'
+    - cron: '13,37,53 2 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -51,6 +52,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MONITOR_CLOUD_PASSWORD: ${{ secrets.MONITOR_CLOUD_PASSWORD }}
           FEISHU_HISTORY_WEBHOOK: ${{ secrets.FEISHU_HISTORY_WEBHOOK }}
+          # 飞书旧入表流程 wkfQwGPTGxlwgiUq 当前仍处于停用且存在已删字段/旧回调节点报错；
+          # 暂停 Stage 1 投递使新线索保持 pending（避免被停用网关误标 accepted-unverified），
+          # 待飞书端修复并启用后再改为 'false' 恢复自动入表。Stage 2 日报归档与 Stage 3 简报不受影响。
+          FJD_TABLE_ENTRY_PAUSED: 'true'
           FEISHU_ARCHIVE_WEBHOOK: ${{ secrets.FEISHU_ARCHIVE_WEBHOOK }}
           FEISHU_BOT_WEBHOOK: ${{ secrets.FEISHU_BOT_WEBHOOK }}
           FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
