@@ -49,6 +49,7 @@ export async function runDownstreamPipeline({
  archiveReceiptInput=null,
  tableWebhookUrl='',
  tableEntryPaused=false,
+ retryTableSourceId='',
  tableReadbackAdapter=createUnconfiguredTableReadbackAdapter(),
  existingTableRows=[],
  ledgerRowsByKey=new Map(),
@@ -164,6 +165,7 @@ export async function runDownstreamPipeline({
   state,
   versionState,
   webhookUrl:tableEntryPaused?'':tableWebhookUrl,
+  retrySourceId:effectiveDryRun?'':String(retryTableSourceId||'').trim(),
   readbackAdapter:tableReadbackAdapter,
   existingRows:existingTableRows,
   ledgerRowsByKey,
@@ -278,6 +280,7 @@ function parseCliArgs(argv){
   allowPendingArchive:false,
   dryRun:false,
   archiveReceiptJson:'',
+  retryTableSourceId:'',
   fixtureDir:'',
   printCardJson:false
  };
@@ -291,6 +294,7 @@ function parseCliArgs(argv){
   else if(a==='--allow-pending-archive')opts.allowPendingArchive=true;
   else if(a==='--dry-run')opts.dryRun=true;
   else if(a==='--archive-receipt-json')opts.archiveReceiptJson=argv[++i]||'';
+  else if(a==='--retry-table-source-id')opts.retryTableSourceId=argv[++i]||'';
   else if(a==='--fixture-dir')opts.fixtureDir=argv[++i]||'';
   else if(a==='--print-card-json')opts.printCardJson=true;
  }
@@ -343,6 +347,7 @@ async function main(){
  const dryRun=cli.dryRun||mode==='replay'||mode==='replay-preview';
  const rawReceipt=(process.env.FJD_ARCHIVE_RECEIPT||cli.archiveReceiptJson||'').trim();
  const archiveReceiptInput=rawReceipt?JSON.parse(rawReceipt):null;
+ const retryTableSourceId=(process.env.FJD_RETRY_TABLE_SOURCE_ID||cli.retryTableSourceId||'').trim();
 
  const store=token&&!dryRun?createGithubStore({repository,branch,token}):null;
  const sourceReader=cli.fixtureDir
@@ -369,6 +374,7 @@ async function main(){
   archiveReceiptInput,
   tableWebhookUrl:dryRun?'':(process.env.FEISHU_HISTORY_WEBHOOK||''),
   tableEntryPaused:process.env.FJD_TABLE_ENTRY_PAUSED==='true',
+  retryTableSourceId:dryRun?'':retryTableSourceId,
   botWebhookUrl:dryRun?'':(process.env.FEISHU_BOT_WEBHOOK||''),
   botSecret:dryRun?'':(process.env.FEISHU_BOT_SECRET||''),
   confirmSend,
